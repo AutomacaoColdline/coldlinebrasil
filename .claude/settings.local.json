@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:coldline.com.br)",
+      "WebFetch(domain:www.coldline.com.br)",
+      "WebSearch",
+      "WebFetch(domain:coldlinebrasil.com)",
+      "WebFetch(domain:www.orbia.ag)",
+      "Bash(grep -c \"brand-900\\\\|051e31\" dist/assets/index-*.css)",
+      "Bash(grep 051e31\\\\|brand-900:*)",
+      "Bash(grep -o \"bg-brand-900\\\\|#051e31\\\\|brand-900\" C:/Users/JP/Desktop/coldlinebrasil/dist/assets/index-*.css)",
+      "Bash(grep -o \"\\\\.bg-brand-900[^}]*}\" C:/Users/JP/Desktop/coldlinebrasil/dist/assets/index-*.css)"
+    ]
+  }
+}
