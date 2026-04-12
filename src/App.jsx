@@ -1,3 +1,4 @@
+import { AuthProvider } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import FloatingWhatsApp from './components/FloatingWhatsApp'
 import HeroSection from './sections/HeroSection'
@@ -12,20 +13,22 @@ import FooterSection from './sections/FooterSection'
 
 export default function App() {
   return (
-    <div className="overflow-x-hidden">
-      <Navbar />
-      <main>
-        <HeroSection />
-        <SobreSection />
-        <DiferenciaisSection />
-        <SolucoesSection />
-        <AmbientalSection />
-        <QualidadeSection />
-        <SobreDetalhadoSection />
-        <CTAFinalSection />
-      </main>
-      <FooterSection />
-      <FloatingWhatsApp />
-    </div>
+    <AuthProvider>
+      <div className="overflow-x-hidden">
+        <Navbar />
+        <main>
+          <HeroSection />
+          <SobreSection />
+          <DiferenciaisSection />
+          <SolucoesSection />
+          <AmbientalSection />
+          <QualidadeSection />
+          <SobreDetalhadoSection />
+          <CTAFinalSection />
+        </main>
+        <FooterSection />
+        <FloatingWhatsApp />
+      </div>
+    </AuthProvider>
   )
 }
