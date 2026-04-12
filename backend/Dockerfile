@@ -2,13 +2,17 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# Cache go mod download
+# Copy only required files first
 COPY go.mod go.sum ./
-RUN go mod download
 
+# Copy source code
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o bin/server ./cmd/server
 
+# Build with verbose output (helps debug if needed)
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -v -ldflags="-w -s" -o bin/server ./cmd/server
+
+# Final stage
 FROM alpine:3.19
 
 RUN apk --no-cache add ca-certificates tzdata
