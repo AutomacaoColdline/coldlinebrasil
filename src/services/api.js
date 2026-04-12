@@ -33,9 +33,18 @@ class APIClient {
     if (response.status === 401) {
       this.clearToken()
       window.location.href = '/login'
+      return
     }
 
-    const data = await response.json()
+    let data
+    try {
+      data = await response.json()
+    } catch {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      return {}
+    }
 
     if (!response.ok) {
       throw new Error(data.error || `HTTP ${response.status}`)
@@ -45,18 +54,16 @@ class APIClient {
   }
 
   // ============ AUTH ============
-  signup(name, email, password) {
-    return this.request('/api/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify({ name, email, password }),
-    })
-  }
-
   login(email, password) {
     return this.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
+  }
+
+  // ============ DASHBOARD ============
+  getDashboard() {
+    return this.request('/api/dashboard')
   }
 
   // ============ SERVICES ============
@@ -102,7 +109,7 @@ class APIClient {
 
   // ============ HEALTH ============
   health() {
-    return this.request('/health')
+    return this.request('/api/health')
   }
 }
 
