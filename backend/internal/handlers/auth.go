@@ -8,6 +8,7 @@ import (
 	"coldlinebrasil/internal/config"
 	"coldlinebrasil/internal/db"
 	"coldlinebrasil/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )

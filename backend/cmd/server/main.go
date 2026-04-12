@@ -8,6 +8,7 @@ import (
 	"coldlinebrasil/internal/config"
 	"coldlinebrasil/internal/db"
 	"coldlinebrasil/internal/handlers"
+
 	"github.com/gin-gonic/gin"
 )
 

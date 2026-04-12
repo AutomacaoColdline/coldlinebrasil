@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - coldlinebrasil-net
 
   server:
     build:
@@ -29,12 +31,19 @@ services:
       ENV: development
       JWT_SECRET: sua_chave_super_secreta_aqui_mude_em_producao
       JWT_EXPIRATION: 24h
-      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - coldlinebrasil-net
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+
+networks:
+  coldlinebrasil-net:
+    driver: bridge

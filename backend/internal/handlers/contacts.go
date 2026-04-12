@@ -6,6 +6,7 @@ import (
 
 	"coldlinebrasil/internal/db"
 	"coldlinebrasil/internal/models"
+
 	"github.com/gin-gonic/gin"
 )
 

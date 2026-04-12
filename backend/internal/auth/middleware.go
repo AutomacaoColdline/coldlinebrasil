@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"coldlinebrasil/internal/config"
+
 	"github.com/gin-gonic/gin"
 )
 
