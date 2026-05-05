@@ -11,7 +11,27 @@
       "Bash(grep -c \"brand-900\\\\|051e31\" dist/assets/index-*.css)",
       "Bash(grep 051e31\\\\|brand-900:*)",
       "Bash(grep -o \"bg-brand-900\\\\|#051e31\\\\|brand-900\" C:/Users/JP/Desktop/coldlinebrasil/dist/assets/index-*.css)",
-      "Bash(grep -o \"\\\\.bg-brand-900[^}]*}\" C:/Users/JP/Desktop/coldlinebrasil/dist/assets/index-*.css)"
+      "Bash(grep -o \"\\\\.bg-brand-900[^}]*}\" C:/Users/JP/Desktop/coldlinebrasil/dist/assets/index-*.css)",
+      "Bash(\"/c/Program Files/Go/bin/go\" build ./...)",
+      "Bash(\"/c/Program Files/Go/bin/go\" mod tidy)",
+      "Bash(\"/c/Program Files/Go/bin/go\" vet ./...)",
+      "Bash(curl -s -X POST http://localhost:4000/api/User/login -H \"Content-Type: application/json\" -d '{\"email\":\"automacao@coldline.com.br\",\"password\":\"coldline2024\"}')",
+      "Bash(curl -s -X POST http://localhost:4000/api/User/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@coldline.com.br\",\"password\":\"admin123\"}')",
+      "Bash(curl -s http://localhost:4000/api/debug/users)",
+      "Bash(curl -s \"http://localhost:4000/api/dashboard\" -H \"Authorization: Bearer invalid\")",
+      "Bash(grep -E \"\\\\.go$|\\\\.mod$|go\\\\.\")",
+      "Bash(npx tsc *)",
+      "Bash(curl -s -X POST http://localhost:4000/api/admin/repair)",
+      "Bash(curl -s http://localhost:8080/api/health)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(del \"c:\\\\Users\\\\joao.garbeline\\\\Desktop\\\\coldlinebrasil\\\\api\\\\internal\\\\models\\\\flextime.go\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/User/login -H \"Content-Type: application/json\" -d \"{}\")",
+      "Read(//c/Users/joao.garbeline/.claude/projects/c--Users-joao-garbeline-Desktop-coldlinebrasil/**)",
+      "Bash(curl -s -X POST http://localhost:4000/api/User/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@coldline.com.br\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s \"http://localhost:4000/api/dashboard\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiVEkiLCJleHAiOjE3Nzc0Mjc3NDEsIm5hbWUiOiJBZG1pbmlzdHJhZG9yIiwic3ViIjoiMjdmYTU3OTAtYzNjMC00NDNiLTgxM2YtZjcxNWMwMjliMWQzIiwidXNlclR5cGUiOiIxNmQ3ZjY2NS03MGE1LTRkNTctYjRlOS01NGViMDU4MjVkNzAifQ.CNC70OpVy4xecFGu36jWvb8vLbW47q97jqAkVbOgZpo\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/User/tv-login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@coldline.com.br\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(curl -s \"http://localhost:4000/api/User/tv-identification/0001\")"
     ]
   }
 }

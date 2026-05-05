@@ -1,0 +1,352 @@
+package handlers
+
+import (
+	"context"
+	"io"
+	"math"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"coldline-api/internal/middleware"
+	"coldline-api/internal/models"
+	"coldline-api/internal/repositories"
+
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+)
+
+type UserHandler struct {
+	repo      *repositories.Repository[models.User]
+	db        *gorm.DB
+	jwtSecret string
+}
+
+func NewUserHandler(db *gorm.DB, jwtSecret string) *UserHandler {
+	return &UserHandler{
+		repo:      repositories.New[models.User](db, "users"),
+		db:        db,
+		jwtSecret: jwtSecret,
+	}
+}
+
+func (h *UserHandler) GetAll(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	users, err := h.repo.FindAll(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	for i := range users {
+		users[i].Password = ""
+	}
+	c.JSON(http.StatusOK, users)
+}
+
+func (h *UserHandler) GetByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	user, err := h.repo.FindByID(ctx, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
+		return
+	}
+	user.Password = ""
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) GetByIdentification(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	user, err := h.repo.FindOne(ctx, "identification_number = ?", c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
+		return
+	}
+
+	token, err := middleware.GenerateToken(
+		user.ID,
+		user.Name,
+		safeRef(user.UserType),
+		safeDept(user.Department),
+		h.jwtSecret,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao gerar token"})
+		return
+	}
+
+	user.Password = ""
+	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
+}
+
+func (h *UserHandler) Login(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	user, err := h.repo.FindOne(ctx, "email = ?", strings.ToLower(req.Email))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Email ou senha inválidos"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Email ou senha inválidos"})
+		return
+	}
+
+	token, err := middleware.GenerateToken(
+		user.ID,
+		user.Name,
+		safeRef(user.UserType),
+		safeDept(user.Department),
+		h.jwtSecret,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao gerar token"})
+		return
+	}
+
+	user.Password = ""
+	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
+}
+
+func (h *UserHandler) TVLogin(c *gin.Context) {
+	id := c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	user, err := h.repo.FindOne(ctx, "identification_number = ?", id)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Identificação não encontrada"})
+		return
+	}
+
+	token, err := middleware.GenerateTVToken(
+		user.ID,
+		user.Name,
+		safeRef(user.UserType),
+		safeDept(user.Department),
+		h.jwtSecret,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao gerar token"})
+		return
+	}
+
+	user.Password = ""
+	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
+}
+
+func (h *UserHandler) Create(c *gin.Context) {
+	var user models.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	if user.Password != "" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao processar senha"})
+			return
+		}
+		user.Password = string(hashed)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.repo.Create(ctx, &user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	user.Password = ""
+	c.JSON(http.StatusCreated, user)
+}
+
+func (h *UserHandler) Update(c *gin.Context) {
+	var payload map[string]interface{}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	delete(payload, "id")
+
+	if pwd, ok := payload["password"].(string); ok && pwd != "" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao processar senha"})
+			return
+		}
+		payload["password"] = string(hashed)
+	} else {
+		delete(payload, "password")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.repo.MergeUpdate(ctx, c.Param("id"), payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Atualizado com sucesso"})
+}
+
+func (h *UserHandler) Delete(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := h.repo.Delete(ctx, c.Param("id")); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Deletado com sucesso"})
+}
+
+func (h *UserHandler) Search(c *gin.Context) {
+	q             := c.Query("q")
+	name          := c.Query("name")
+	identNum      := c.Query("identificationNumber")
+	departmentId  := c.Query("departmentId")
+	userTypeId    := c.Query("userTypeId")
+
+	page, _     := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if page < 1 { page = 1 }
+	if pageSize < 1 || pageSize > 100 { pageSize = 20 }
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	db := h.repo.Q(ctx)
+
+	if q != "" {
+		db = db.Where("name ILIKE ? OR email ILIKE ? OR identification_number ILIKE ?",
+			"%"+q+"%", "%"+q+"%", "%"+q+"%")
+	}
+	if name != "" {
+		db = db.Where("name ILIKE ?", "%"+name+"%")
+	}
+	if identNum != "" {
+		db = db.Where("identification_number ILIKE ?", "%"+identNum+"%")
+	}
+	if departmentId != "" {
+		db = db.Where("department->>'id' = ?", departmentId)
+	}
+	if userTypeId != "" {
+		db = db.Where("user_type->>'id' = ?", userTypeId)
+	}
+
+	var total int64
+	db.Count(&total)
+
+	var users []models.User
+	db.Offset((page-1)*pageSize).Limit(pageSize).Order("name ASC").Find(&users)
+
+	for i := range users {
+		users[i].Password = ""
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
+	if totalPages < 1 { totalPages = 1 }
+
+	c.JSON(http.StatusOK, gin.H{
+		"items": users, "page": page, "pageSize": pageSize,
+		"total": total, "totalPages": totalPages,
+	})
+}
+
+func (h *UserHandler) UploadImage(c *gin.Context) {
+	oldFileName := c.Query("oldFileName")
+	newFileName := c.Query("newFileName")
+	if newFileName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "newFileName obrigatório"})
+		return
+	}
+
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "arquivo não encontrado"})
+		return
+	}
+	defer file.Close()
+
+	dir := "./wwwroot/uploads"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao criar diretório"})
+		return
+	}
+
+	if oldFileName != "" && oldFileName != newFileName {
+		os.Remove(filepath.Join(dir, oldFileName))
+	}
+
+	dst, err := os.Create(filepath.Join(dir, newFileName))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao salvar arquivo"})
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao gravar arquivo"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"fileName": newFileName})
+}
+
+func (h *UserHandler) ListIdentifications(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	users, err := h.repo.FindAll(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	type mini struct {
+		Name string `json:"name"`
+		ID   string `json:"identificationNumber"`
+		Type string `json:"userType"`
+	}
+	result := make([]mini, 0, len(users))
+	for _, u := range users {
+		result = append(result, mini{
+			Name: u.Name,
+			ID:   u.IdentificationNumber,
+			Type: func() string {
+				if u.UserType != nil { return u.UserType.Name }
+				return ""
+			}(),
+		})
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func safeRef(r *models.ReferenceEntity) string {
+	if r == nil { return "" }
+	if r.ID != "" { return r.ID }
+	return r.Name
+}
+
+func safeDept(r *models.ReferenceEntity) string {
+	if r == nil { return "" }
+	return r.Name
+}

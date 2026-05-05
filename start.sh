@@ -1,43 +1,31 @@
 #!/bin/bash
 
-# Script para iniciar toda a aplicação (Backend + Frontend)
+echo "🚀 Coldline Brasil — Sistema de Gestão"
+echo "========================================"
 
-echo "🚀 ColdLine Brasil - App Initialization"
-echo "=========================================="
-
-# Verificar se Docker está instalado
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker não encontrado. Instale em: https://docker.com"
-    exit 1
+# Verificar Docker
+if command -v docker &> /dev/null; then
+    echo ""
+    echo "🐳 Docker encontrado. Para rodar com Docker:"
+    echo "   docker compose up --build"
+    echo ""
 fi
 
-# Iniciar Backend
-echo ""
-echo "🔧 Iniciando Backend em Go..."
-cd backend
-
-if [ ! -f ".env" ]; then
-    echo "   📝 Criando .env..."
-    cp .env.example .env
+# Iniciar API Go separadamente (sem Docker)
+if command -v go &> /dev/null; then
+    echo "🔧 Iniciando API Go em background..."
+    cd api
+    go mod tidy
+    go run ./cmd/server &
+    API_PID=$!
+    cd ..
+    echo "   ✅ API rodando em http://localhost:4000 (PID: $API_PID)"
+else
+    echo "⚠️  Go não encontrado. Instale de https://go.dev ou use Docker."
+    echo "   A API deve estar rodando em http://localhost:4000"
 fi
 
-echo "   🐳 Iniciando containers Docker..."
-docker-compose up -d
-
-# Aguardar backend
-echo "   ⏳ Aguardando backend ficar pronto..."
-for i in {1..30}; do
-    if curl -s http://localhost:8080/health > /dev/null; then
-        echo "   ✅ Backend pronto!"
-        break
-    fi
-    sleep 1
-done
-
-# Voltar para raiz
-cd ..
-
-# Iniciar Frontend
+# Frontend
 echo ""
 echo "🎨 Iniciando Frontend React..."
 
@@ -46,19 +34,13 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-if [ ! -f ".env" ]; then
-    echo "   📝 Criando .env..."
-    cp .env.example .env
-fi
+echo ""
+echo "========================================"
+echo "✅ Sistema pronto!"
+echo ""
+echo "📱 Frontend:  http://localhost:5173"
+echo "🔧 API:       http://localhost:4000"
+echo "🗄️  MongoDB:   Atlas (ColdlineDB)"
+echo ""
 
-echo ""
-echo "=========================================="
-echo "✅ Iniciação Completa!"
-echo "=========================================="
-echo ""
-echo "📱 Frontend:     http://localhost:5173"
-echo "🔧 Backend API:  http://localhost:8080"
-echo "🗄️  Database:     localhost:5432 (postgres/password)"
-echo ""
-echo "🚀 Para iniciar o frontend, execute: npm run dev"
-echo ""
+npm run dev

@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=coldline
+      - POSTGRES_PASSWORD=Coldline123
+      - POSTGRES_DB=coldlinedb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgres://coldline:Coldline123@postgres:5432/coldlinedb?sslmode=disable
+      - JWT_SECRET=0ae1c7c01a714cd9b45134ac180ead05b3036572b97a4878a6ea571006c2e929
+      - ENCRYPTION_KEY=A6sT9vX!zK@jLqP$1mYdN7#pWx*C2Q4b
+      - PORT=4000
+    volumes:
+      - uploads:/app/wwwroot/uploads
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_USER_TYPE_ADMIN: "67c70b87051a26b141f61ab7"
+        VITE_USER_TYPE_SETUP: "67c70b87051a26b141f61ab7"
+        VITE_USER_TYPE_INDUSTRIA: "67f41bf13a50bfa4e95bfe69"
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  pgdata:

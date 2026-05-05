@@ -1,4 +1,4 @@
-# 🎯 COMECE AQUI - Setup Rápido Windows
+ 🎯 COMECE AQUI - Setup Rápido Windows
 
 ## 1️⃣ Instale (uma vez só)
 

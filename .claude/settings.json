@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go version *)",
+      "Bash(powershell.exe -Command \"go version; docker version --format 'Docker: {{.Server.Version}}'\")",
+      "Bash(powershell.exe -Command \"docker version --format 'Docker OK: {{.Server.Version}}'\")",
+      "Bash(powershell.exe -Command \"where.exe docker\")",
+      "Bash(powershell.exe -Command \"where.exe docker; \\(Get-Command docker -ErrorAction SilentlyContinue\\).Source\")",
+      "Bash(powershell.exe -Command \"Get-Command node -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source; node --version\")",
+      "Bash(powershell.exe -Command \"docker compose up api --build 2>&1\")",
+      "Read(//c/Users/JOAO~1.GAR/AppData/Local/Temp/claude/c--Users-joao-garbeline-Desktop-coldlinebrasil/3d375233-fdfd-4e16-a7bb-76a1334e9131/tasks/**)",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri 'http://localhost:4000/api/health' -Method Get | ConvertTo-Json\")",
+      "Bash(powershell.exe -Command \"docker ps --filter 'name=coldline' --format 'table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}'\")",
+      "Bash(powershell.exe -Command \"docker logs coldlinebrasil-api-1 2>&1\")",
+      "Bash(powershell.exe -Command \"Invoke-RestMethod -Uri 'http://localhost:4000/api/health' | ConvertTo-Json\")",
+      "Bash(powershell.exe -Command ' *)",
+      "Bash(powershell.exe -Command \"docker compose up api --build -d 2>&1 | tail -5\")",
+      "Bash(powershell.exe -Command \"docker compose up api --build -d 2>&1 | tail -4\")",
+      "Bash(docker compose *)",
+      "Bash(curl -s http://localhost:4000/api/health)",
+      "Bash(curl -s \"http://localhost:4000/api/User/identification/1111\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"http://localhost:4000/api/debug/users\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiSW5kdXN0cmlhIiwiZXhwIjoxNzc2NzQ4Mzk1LCJuYW1lIjoidGVzdGUiLCJzdWIiOiI2ODk5ZjJmMGFjNTNmZmNhNjljNTk3NDUiLCJ1c2VyVHlwZSI6IkFkbWluIn0._CX2Ij9_QOfp5-NeRxdgEcCPW0lqn94LhtBdUfEwiXc' 'http://localhost:4000/api/Monitoring/search?pageSize=50')",
+      "Bash(mongosh \"mongodb+srv://automacao:Coldline123@coldline.xaddl.mongodb.net/ColdlineDB?retryWrites=true&w=majority&appName=Coldline\" --eval \"db.Monitorings.findOne\\({unidade: /KOTHE CHAPEC/i}\\)\" --quiet)",
+      "Bash(where mongosh *)",
+      "Bash(where mongo *)",
+      "Bash(docker run *)",
+      "Bash(go build *)",
+      "Bash(curl -s -H 'Authorization: Bearer __TRACKED_VAR__' 'http://localhost:4000/api/Monitoring/search?pageSize=3')",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiSW5kdXN0cmlhIiwiZXhwIjoxNzc2NzQ4Mzk1LCJuYW1lIjoidGVzdGUiLCJzdWIiOiI2ODk5ZjJmMGFjNTNmZmNhNjljNTk3NDUiLCJ1c2VyVHlwZSI6IkFkbWluIn0._CX2Ij9_QOfp5-NeRxdgEcCPW0lqn94LhtBdUfEwiXc' 'http://localhost:4000/api/Monitoring/search?q=KOTHE+CHAP&pageSize=3')",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiSW5kdXN0cmlhIiwiZXhwIjoxNzc2NzQ4Mzk1LCJuYW1lIjoidGVzdGUiLCJzdWIiOiI2ODk5ZjJmMGFjNTNmZmNhNjljNTk3NDUiLCJ1c2VyVHlwZSI6IkFkbWluIn0._CX2Ij9_QOfp5-NeRxdgEcCPW0lqn94LhtBdUfEwiXc' http://localhost:4000/api/dashboard)",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiSW5kdXN0cmlhIiwiZXhwIjoxNzc2NzQ4Mzk1LCJuYW1lIjoidGVzdGUiLCJzdWIiOiI2ODk5ZjJmMGFjNTNmZmNhNjljNTk3NDUiLCJ1c2VyVHlwZSI6IkFkbWluIn0._CX2Ij9_QOfp5-NeRxdgEcCPW0lqn94LhtBdUfEwiXc' http://localhost:4000/api/Machine/stats)",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiSW5kdXN0cmlhIiwiZXhwIjoxNzc2NzQ4Mzk1LCJuYW1lIjoidGVzdGUiLCJzdWIiOiI2ODk5ZjJmMGFjNTNmZmNhNjljNTk3NDUiLCJ1c2VyVHlwZSI6IkFkbWluIn0._CX2Ij9_QOfp5-NeRxdgEcCPW0lqn94LhtBdUfEwiXc' http://localhost:4000/api/Machine/dashboard)",
+      "Bash(npx vite *)",
+      "Bash(curl -s \"http://localhost:4000/api/User/identification/001\")",
+      "Bash(curl -s \"http://localhost:4000/api/health\")",
+      "Bash(curl -s http://localhost:4000/api/User/identification/192)",
+      "Bash(grep -o '\"items\":\\\\[.\\\\{0,500\\\\}')",
+      "Bash(grep -o '\"activeProcesses\":\\\\[.\\\\{0,2000\\\\}')",
+      "Bash(grep -o '.\\\\{0,600\\\\}')",
+      "Bash(node -e ' *)",
+      "Bash(xargs grep *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}
