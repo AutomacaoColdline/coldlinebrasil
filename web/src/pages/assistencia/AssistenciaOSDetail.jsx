@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { workOrderApi } from '../../services/assistenciaApi'
 import { api } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
 import {
   ArrowLeft, MapPin, User, Clock, CheckCircle, XCircle,
   RefreshCw, Upload, Trash2, AlertTriangle, Camera,
@@ -68,7 +69,7 @@ function useGPS() {
 
 // ── tabs ─────────────────────────────────────────────────────────────────────
 
-function InfoTab({ os, onRefresh }) {
+function InfoTab({ os, onRefresh, canManage }) {
   const [statusMenu, setStatusMenu] = useState(false)
   const [saving, setSaving]         = useState(false)
 
@@ -104,33 +105,35 @@ function InfoTab({ os, onRefresh }) {
         <h3 className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-3">Status</h3>
         <div className="flex items-center gap-3">
           <StatusBadge status={os.status} />
-          <div className="relative">
-            <button
-              onClick={() => setStatusMenu(!statusMenu)}
-              disabled={saving}
-              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-all disabled:opacity-40"
-            >
-              Alterar <ChevronDown size={12} />
-            </button>
-            {statusMenu && (
-              <div className="absolute top-full left-0 mt-1 bg-[#1e293b] border border-white/[0.1] rounded-xl shadow-2xl z-10 overflow-hidden min-w-[160px]">
-                {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                  <button
-                    key={k}
-                    onClick={() => changeStatus(k)}
-                    className="w-full text-left px-4 py-2.5 text-xs text-white/60 hover:text-white hover:bg-white/[0.06] transition-all"
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {canManage && (
+            <div className="relative">
+              <button
+                onClick={() => setStatusMenu(!statusMenu)}
+                disabled={saving}
+                className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-all disabled:opacity-40"
+              >
+                Alterar <ChevronDown size={12} />
+              </button>
+              {statusMenu && (
+                <div className="absolute top-full left-0 mt-1 bg-[#1e293b] border border-white/[0.1] rounded-xl shadow-2xl z-10 overflow-hidden min-w-[160px]">
+                  {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                    <button
+                      key={k}
+                      onClick={() => changeStatus(k)}
+                      className="w-full text-left px-4 py-2.5 text-xs text-white/60 hover:text-white hover:bg-white/[0.06] transition-all"
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Técnicos */}
-      <TechniciansSection os={os} onRefresh={onRefresh} />
+      {canManage && <TechniciansSection os={os} onRefresh={onRefresh} />}
 
       {/* Check-in / Check-out */}
       <CheckSection os={os} onRefresh={onRefresh} />
@@ -596,6 +599,7 @@ const TABS = [
 export default function AssistenciaOSDetail() {
   const { id }    = useParams()
   const navigate  = useNavigate()
+  const { user, isAdmin } = useAuth()
   const [os, setOs]         = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab]       = useState('info')
@@ -604,13 +608,21 @@ export default function AssistenciaOSDetail() {
     setLoading(true)
     try {
       const r = await workOrderApi.getById(id)
-      setOs(r.data)
+      const item = r.data
+      if (!isAdmin) {
+        const mine = (item?.technicians || []).some((t) => t?.technician?.id === user?.id)
+        if (!mine) {
+          navigate('/assistencia', { replace: true })
+          return
+        }
+      }
+      setOs(item)
     } catch {
       navigate('/assistencia')
     } finally {
       setLoading(false)
     }
-  }, [id, navigate])
+  }, [id, isAdmin, navigate, user?.id])
 
   useEffect(() => { load() }, [load])
 
@@ -663,7 +675,7 @@ export default function AssistenciaOSDetail() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {tab === 'info'      && <InfoTab     os={os} onRefresh={load} />}
+        {tab === 'info'      && <InfoTab     os={os} onRefresh={load} canManage={isAdmin} />}
         {tab === 'relatorio' && <ReportTab   os={os} onRefresh={load} />}
         {tab === 'timeline'  && <TimelineTab os={os} />}
       </div>

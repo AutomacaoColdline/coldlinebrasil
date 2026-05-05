@@ -23,7 +23,6 @@ import IndustriaProfilePage     from './pages/industria/IndustriaProfilePage'
 // Automação
 import AutomationLayout     from './pages/automation/AutomationLayout'
 import AutomationHome       from './pages/automation/AutomationHome'
-import AutomationUsers      from './pages/automation/AutomationUsers'
 import AutomationMonitoring from './pages/automation/AutomationMonitoring'
 import AutomationColdvisio  from './pages/automation/AutomationColdvisio'
 
@@ -33,7 +32,6 @@ import AssistenciaOSPage   from './pages/assistencia/AssistenciaOSPage'
 import AssistenciaOSDetail from './pages/assistencia/AssistenciaOSDetail'
 import AssistenciaClients  from './pages/assistencia/AssistenciaClients'
 import AssistenciaTecnicos from './pages/assistencia/AssistenciaTecnicosPage'
-import AssistenciaReportsHistoryPage from './pages/assistencia/AssistenciaReportsHistoryPage'
 
 function Spinner() {
   return (
@@ -114,8 +112,6 @@ export default function App() {
           <Route path="profile"    element={<IndustriaProfilePage />} />
           <Route path="monitoring" element={<AutomationMonitoring />} />
           <Route path="coldvisio"  element={<AutomationColdvisio />} />
-          {/* Restrito a admin */}
-          <Route path="users" element={<AdminOnly fallback="/automation"><AutomationUsers /></AdminOnly>} />
         </Route>
 
         {/* Assistência Técnica */}
@@ -126,7 +122,6 @@ export default function App() {
           <Route path="os/:id"  element={<AssistenciaOSDetail />} />
           <Route path="profile" element={<IndustriaProfilePage />} />
           <Route path="clients" element={<AssistenciaClients />} />
-          <Route path="reports" element={<AdminOnly fallback="/assistencia"><AssistenciaReportsHistoryPage /></AdminOnly>} />
           {/* Restrito a admin */}
           <Route path="tecnicos" element={<AdminOnly fallback="/assistencia"><AssistenciaTecnicos /></AdminOnly>} />
         </Route>

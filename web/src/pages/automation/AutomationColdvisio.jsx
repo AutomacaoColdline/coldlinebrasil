@@ -1,49 +1,85 @@
 import { useEffect, useState } from 'react'
-import { Eye, FileText, ChevronRight, ChevronLeft, Loader2, FolderOpen, ArrowLeft } from 'lucide-react'
+import { Eye, ChevronRight, ChevronLeft, FolderOpen, Plus, Trash2, Save } from 'lucide-react'
+const GUIDE_KEY = 'coldvisio_install_guide_v1'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+function normalizeUrl(url) {
+  if (!url) return '#'
+  if (/^https?:\/\//i.test(url)) return url
+  return `https://${url}`
+}
 
-async function apiFetch(path) {
-  const token = sessionStorage.getItem('automation_token')
-  const r = await fetch(`${BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+function renderTextWithLinks(text) {
+  if (!text) return null
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi
+  const parts = String(text).split(urlRegex)
+  const isUrl = (value) => /^(https?:\/\/[^\s]+|www\.[^\s]+)$/i.test(value)
+  return parts.map((part, i) => {
+    if (isUrl(part)) {
+      return (
+        <a
+          key={`link-${i}`}
+          href={normalizeUrl(part)}
+          target="_blank"
+          rel="noreferrer"
+          className="text-cyan-600 underline break-all"
+        >
+          {part}
+        </a>
+      )
+    }
+    return <span key={`txt-${i}`}>{part}</span>
   })
-  if (!r.ok) throw new Error(r.status)
-  return r.json()
 }
 
 export default function AutomationColdvisio() {
-  const [files, setFiles]       = useState([])
-  const [selected, setSelected] = useState(null)
-  const [steps, setSteps]       = useState([])
+  const [mode, setMode]         = useState('view') // view | manage
   const [stepIdx, setStepIdx]   = useState(0)
-  const [loading, setLoading]   = useState(true)
-  const [loadingFile, setLF]    = useState(false)
-  const [error, setError]       = useState('')
+  const [guide, setGuide]       = useState([])
+  const [savingGuide, setSavingGuide] = useState(false)
 
   useEffect(() => {
-    apiFetch('/api/Coldvisio/files')
-      .then(data => setFiles(Array.isArray(data) ? data : []))
-      .catch(() => setError('Não foi possível carregar os arquivos Coldvisio.'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const openFile = async (file) => {
-    setLF(true)
-    setError('')
     try {
-      const data = await apiFetch(`/api/Coldvisio/files/${encodeURIComponent(file.name || file)}`)
-      const list = Array.isArray(data) ? data : (data.steps || [])
-      setSteps(list)
-      setStepIdx(0)
-      setSelected(file.name || file)
+      const raw = localStorage.getItem(GUIDE_KEY)
+      const parsed = raw ? JSON.parse(raw) : []
+      setGuide(Array.isArray(parsed) ? parsed : [])
     } catch {
-      setError('Erro ao carregar arquivo.')
+      setGuide([])
     }
-    setLF(false)
+  }, [])
+  const guideStep = guide[stepIdx]
+
+  const emptyGuideStep = () => ({ title: '', description: '', imageData: '' })
+
+  const saveGuide = () => {
+    setSavingGuide(true)
+    try {
+      localStorage.setItem(GUIDE_KEY, JSON.stringify(guide))
+      setTimeout(() => setSavingGuide(false), 500)
+    } catch {
+      setSavingGuide(false)
+    }
   }
 
-  const step = steps[stepIdx]
+  const setGuideField = (idx, key, value) => {
+    setGuide(prev => prev.map((s, i) => (i === idx ? { ...s, [key]: value } : s)))
+  }
+
+  const addGuideStep = () => {
+    setGuide(prev => [...prev, emptyGuideStep()])
+    setStepIdx(guide.length)
+  }
+
+  const removeGuideStep = (idx) => {
+    setGuide(prev => prev.filter((_, i) => i !== idx))
+    setStepIdx(i => Math.max(0, Math.min(i, guide.length - 2)))
+  }
+
+  const onGuideImage = (idx, file) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setGuideField(idx, 'imageData', String(reader.result || ''))
+    reader.readAsDataURL(file)
+  }
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
@@ -51,112 +87,150 @@ export default function AutomationColdvisio() {
         <Eye size={20} className="text-slate-400" />
         <div>
           <h1 className="text-xl font-bold text-slate-900">Coldvisio</h1>
-          <p className="text-sm text-slate-400">Visualizador de etapas</p>
+          <p className="text-sm text-slate-400">Guia de instalação</p>
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>
-      )}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setMode('view')}
+          className={`px-4 py-2 rounded-lg text-sm border transition-all ${
+            mode === 'view'
+              ? 'bg-cyan-500 text-white border-cyan-500'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-cyan-300'
+          }`}
+        >
+          Visualização do Guia
+        </button>
+        <button
+          onClick={() => setMode('manage')}
+          className={`px-4 py-2 rounded-lg text-sm border transition-all ${
+            mode === 'manage'
+              ? 'bg-cyan-500 text-white border-cyan-500'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-cyan-300'
+          }`}
+        >
+          Gerenciar Guia
+        </button>
+      </div>
 
-      {!selected ? (
-        /* File list */
-        loading ? (
-          <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-slate-300" /></div>
-        ) : files.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 py-20 text-center">
-            <FolderOpen size={28} className="text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">Nenhum arquivo encontrado</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {files.map((f, i) => {
-              const name = f.name || f
-              return (
-                <button key={i} onClick={() => openFile(f)}
-                  className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-cyan-200 cursor-pointer transition-all p-5 text-left group">
-                  <div className="w-10 h-10 bg-cyan-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-cyan-100 transition-colors">
-                    <FileText size={18} className="text-cyan-500" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 truncate">{name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{f.size ? `${(f.size/1024).toFixed(1)} KB` : 'Coldvisio'}</p>
-                </button>
-              )
-            })}
-          </div>
-        )
-      ) : (
-        /* Step viewer */
-        <div>
-          <button onClick={() => { setSelected(null); setSteps([]) }}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4 transition-colors">
-            <ArrowLeft size={14} /> Voltar
-          </button>
-
-          {loadingFile ? (
-            <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-slate-300" /></div>
-          ) : steps.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-100 py-20 text-center">
-              <p className="text-sm text-slate-400">Nenhuma etapa encontrada</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">{selected}</p>
-                  <h2 className="font-semibold text-slate-800">
-                    {step?.title || step?.name || `Etapa ${stepIdx + 1}`}
-                  </h2>
-                </div>
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                  {stepIdx + 1} / {steps.length}
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="px-6 py-6 min-h-[300px]">
-                {step?.image && (
-                  <img src={`${BASE_URL}/coldvisio/${step.image}`} alt={step.title}
-                    className="w-full max-h-80 object-contain rounded-xl border border-slate-100 mb-4" />
-                )}
-                {step?.description && (
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{step.description}</p>
-                )}
-                {step?.content && (
-                  <div className="text-sm text-slate-700 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: step.content }} />
-                )}
-                {!step?.description && !step?.content && !step?.image && (
-                  <pre className="text-sm text-slate-600 bg-slate-50 rounded-xl p-4 overflow-x-auto">
-                    {JSON.stringify(step, null, 2)}
-                  </pre>
-                )}
-              </div>
-
-              {/* Nav */}
-              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-                <button onClick={() => setStepIdx(i => i - 1)} disabled={stepIdx === 0}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:border-cyan-400 disabled:opacity-30 transition-colors">
-                  <ChevronLeft size={15} /> Anterior
-                </button>
-
-                <div className="flex gap-1.5">
-                  {steps.map((_, i) => (
-                    <button key={i} onClick={() => setStepIdx(i)}
-                      className={`w-2 h-2 rounded-full transition-all ${i === stepIdx ? 'bg-cyan-500 w-4' : 'bg-slate-200 hover:bg-slate-300'}`} />
-                  ))}
-                </div>
-
-                <button onClick={() => setStepIdx(i => i + 1)} disabled={stepIdx === steps.length - 1}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:border-cyan-400 disabled:opacity-30 transition-colors">
-                  Próximo <ChevronRight size={15} />
-                </button>
-              </div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-800">Guia de Instalação</h2>
+          {mode === 'manage' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={addGuideStep}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-200 text-cyan-700 hover:bg-cyan-50 text-sm"
+              >
+                <Plus size={14} /> Novo passo
+              </button>
+              <button
+                onClick={saveGuide}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 text-sm"
+              >
+                <Save size={14} /> {savingGuide ? 'Salvo' : 'Salvar'}
+              </button>
             </div>
           )}
         </div>
-      )}
+
+        {guide.length === 0 ? (
+          <div className="py-16 text-center">
+            <FolderOpen size={26} className="text-slate-200 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">Guia ainda não preenchido</p>
+          </div>
+        ) : (
+          <div className="px-6 py-6 space-y-4">
+            {mode === 'manage' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Editando passo {stepIdx + 1} de {guide.length}
+                  </p>
+                  <button
+                    onClick={() => removeGuideStep(stepIdx)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs"
+                  >
+                    <Trash2 size={12} /> Excluir passo
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Título</label>
+                  <input
+                    value={guideStep?.title || ''}
+                    onChange={e => setGuideField(stepIdx, 'title', e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                    placeholder="Ex.: Instalação do Runtime"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Descrição</label>
+                  <textarea
+                    rows={7}
+                    value={guideStep?.description || ''}
+                    onChange={e => setGuideField(stepIdx, 'description', e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none"
+                    placeholder="Instruções do passo..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Imagem</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => onGuideImage(stepIdx, e.target.files?.[0])}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {guideStep?.imageData && (
+                  <img
+                    src={guideStep.imageData}
+                    alt={guideStep.title || `Passo ${stepIdx + 1}`}
+                    className="w-full max-h-72 object-contain rounded-xl border border-slate-100 bg-white"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/60">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Passo {stepIdx + 1} de {guide.length}</p>
+                <h3 className="text-base font-semibold text-slate-800 mb-2">{guideStep?.title || `Passo ${stepIdx + 1}`}</h3>
+                {guideStep?.imageData && (
+                  <img
+                    src={guideStep.imageData}
+                    alt={guideStep.title || `Passo ${stepIdx + 1}`}
+                    className="w-full max-h-72 object-contain rounded-xl border border-slate-100 mb-3 bg-white"
+                  />
+                )}
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {renderTextWithLinks(guideStep?.description || '')}
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setStepIdx(i => Math.max(0, i - 1))}
+                disabled={stepIdx === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:border-cyan-400 disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft size={15} /> Anterior
+              </button>
+              <button
+                onClick={() => setStepIdx(i => Math.min(guide.length - 1, i + 1))}
+                disabled={stepIdx === guide.length - 1}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:border-cyan-400 disabled:opacity-30 transition-colors"
+              >
+                Próximo <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

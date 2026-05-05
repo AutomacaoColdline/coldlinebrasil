@@ -38,6 +38,24 @@ func ctxUser(c *gin.Context) (id, name string) {
 	return fmt.Sprint(uid), fmt.Sprint(uname)
 }
 
+func isAdminCtx(c *gin.Context) bool {
+	ut, _ := c.Get("userType")
+	v := strings.ToLower(strings.TrimSpace(fmt.Sprint(ut)))
+	return v == "admin" || v == "setup" || v == "administrador"
+}
+
+func isTechAssigned(wo *models.WorkOrder, userID string) bool {
+	if wo == nil || userID == "" {
+		return false
+	}
+	for _, t := range wo.Technicians {
+		if t.Technician != nil && t.Technician.ID == userID {
+			return true
+		}
+	}
+	return false
+}
+
 func osTimeline(typ, userID, userName string, meta map[string]interface{}) models.TimelineEvent {
 	return models.TimelineEvent{
 		Type:      typ,
@@ -62,6 +80,10 @@ func (h *WorkOrderHandler) GetAll(c *gin.Context) {
 	}
 	if techID := c.Query("technicianId"); techID != "" {
 		db = db.Where("EXISTS (SELECT 1 FROM jsonb_array_elements(technicians) t WHERE t->'technician'->>'id' = ?)", techID)
+	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		db = db.Where("EXISTS (SELECT 1 FROM jsonb_array_elements(technicians) t WHERE t->'technician'->>'id' = ?)", uid)
 	}
 	var items []models.WorkOrder
 	if err := db.Order("created_at DESC").Find(&items).Error; err != nil {
@@ -94,6 +116,10 @@ func (h *WorkOrderHandler) Search(c *gin.Context) {
 	if v := c.Query("clientId"); v != "" {
 		db = db.Where("client_ref->>'id' = ?", v)
 	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		db = db.Where("EXISTS (SELECT 1 FROM jsonb_array_elements(technicians) t WHERE t->'technician'->>'id' = ?)", uid)
+	}
 
 	var total int64
 	db.Count(&total)
@@ -118,10 +144,21 @@ func (h *WorkOrderHandler) GetByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "OS não encontrada"})
 		return
 	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(item, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para visualizar esta OS"})
+			return
+		}
+	}
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *WorkOrderHandler) Create(c *gin.Context) {
+	if !isAdminCtx(c) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Somente admin pode criar OS"})
+		return
+	}
 	var req struct {
 		Description   string           `json:"description"`
 		ClientId      string           `json:"clientId"`
@@ -178,6 +215,10 @@ func (h *WorkOrderHandler) Create(c *gin.Context) {
 }
 
 func (h *WorkOrderHandler) Update(c *gin.Context) {
+	if !isAdminCtx(c) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Somente admin pode atualizar OS"})
+		return
+	}
 	var payload map[string]interface{}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -196,6 +237,10 @@ func (h *WorkOrderHandler) Update(c *gin.Context) {
 }
 
 func (h *WorkOrderHandler) Delete(c *gin.Context) {
+	if !isAdminCtx(c) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Somente admin pode deletar OS"})
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := h.repo.Delete(ctx, c.Param("id")); err != nil {
@@ -206,6 +251,10 @@ func (h *WorkOrderHandler) Delete(c *gin.Context) {
 }
 
 func (h *WorkOrderHandler) AssignTechnician(c *gin.Context) {
+	if !isAdminCtx(c) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Somente admin pode atribuir técnicos"})
+		return
+	}
 	var req struct {
 		TechnicianId   string `json:"technicianId"`
 		TechnicianName string `json:"technicianName"`
@@ -242,6 +291,10 @@ func (h *WorkOrderHandler) AssignTechnician(c *gin.Context) {
 }
 
 func (h *WorkOrderHandler) RemoveTechnician(c *gin.Context) {
+	if !isAdminCtx(c) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Somente admin pode remover técnicos"})
+		return
+	}
 	techID := c.Param("techId")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -270,6 +323,10 @@ func (h *WorkOrderHandler) RemoveTechnician(c *gin.Context) {
 }
 
 func (h *WorkOrderHandler) UpdateStatus(c *gin.Context) {
+	if !isAdminCtx(c) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Somente admin pode alterar status manualmente"})
+		return
+	}
 	var req struct{ Status string `json:"status"` }
 	if err := c.ShouldBindJSON(&req); err != nil || req.Status == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "status obrigatório"})
@@ -328,6 +385,13 @@ func (h *WorkOrderHandler) CheckIn(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"message": "Check-in já realizado"})
 		return
 	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(wo, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para check-in nesta OS"})
+			return
+		}
+	}
 
 	dist := 0.0
 	outsideRadius := false
@@ -384,6 +448,13 @@ func (h *WorkOrderHandler) CheckOut(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"message": "Check-out já realizado"})
 		return
 	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(wo, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para check-out nesta OS"})
+			return
+		}
+	}
 
 	dist := 0.0
 	if wo.Location != nil && len(wo.Location.Coordinates) == 2 {
@@ -426,6 +497,13 @@ func (h *WorkOrderHandler) UpdateReport(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "OS não encontrada"})
 		return
+	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(wo, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para editar relatório desta OS"})
+			return
+		}
 	}
 
 	userID, userName := ctxUser(c)
@@ -478,6 +556,13 @@ func (h *WorkOrderHandler) UploadImage(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "OS não encontrada"})
 		return
 	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(wo, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para enviar imagem nesta OS"})
+			return
+		}
+	}
 
 	now := time.Now().UTC()
 	img := models.OSImage{
@@ -508,6 +593,13 @@ func (h *WorkOrderHandler) DeleteImage(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "OS não encontrada"})
 		return
+	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(wo, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para remover imagem nesta OS"})
+			return
+		}
 	}
 
 	filtered := wo.Images[:0]
@@ -543,6 +635,13 @@ func (h *WorkOrderHandler) UpdateImageAnnotation(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "OS não encontrada"})
 		return
+	}
+	if !isAdminCtx(c) {
+		uid, _ := ctxUser(c)
+		if !isTechAssigned(wo, uid) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Sem permissão para editar anotação nesta OS"})
+			return
+		}
 	}
 
 	for i := range wo.Images {

@@ -11,6 +11,18 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+http.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('coldline_token')
+      localStorage.removeItem('coldline_user')
+      window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  },
+)
+
 export const automationApi = {
   // Notes
   getNotes:    (params) => http.get('/api/Note/search', { params }),

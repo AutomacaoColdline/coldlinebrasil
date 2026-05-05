@@ -2,13 +2,12 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
-  LayoutDashboard, Users, Monitor, Eye, LogOut, Snowflake,
+  LayoutDashboard, Monitor, Eye, LogOut, Snowflake,
   ChevronLeft, ChevronRight, ArrowLeft, Loader2, UserCircle
 } from 'lucide-react'
 
 const adminNavItems = [
   { to: '/automation',            icon: LayoutDashboard, label: 'Dashboard',     end: true },
-  { to: '/automation/users',      icon: Users,           label: 'Usuários'              },
   { to: '/automation/monitoring', icon: Monitor,         label: 'Monitoramento'         },
   { to: '/automation/coldvisio',  icon: Eye,             label: 'Coldvisio'             },
 ]

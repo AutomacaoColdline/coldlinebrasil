@@ -1,19 +1,17 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
-  ClipboardList, Users, LogOut, Snowflake, ChevronLeft, HardHat, UserCircle, FileText,
+  ClipboardList, Users, LogOut, Snowflake, ChevronLeft, HardHat, UserCircle,
 } from 'lucide-react'
 
 const adminNavItems = [
   { to: '/assistencia',           label: 'Ordens de Serviço', icon: ClipboardList, end: true },
-  { to: '/assistencia/reports',   label: 'Histórico Relatórios', icon: FileText },
   { to: '/assistencia/clients',   label: 'Clientes',          icon: Users },
   { to: '/assistencia/tecnicos',  label: 'Técnicos',          icon: HardHat },
 ]
 
 const restrictedNavItems = [
   { to: '/assistencia',           label: 'Ordens de Serviço', icon: ClipboardList, end: true },
-  { to: '/assistencia/clients',   label: 'Clientes',          icon: Users },
   { to: '/assistencia/profile',   label: 'Meu Perfil',        icon: UserCircle },
 ]
 

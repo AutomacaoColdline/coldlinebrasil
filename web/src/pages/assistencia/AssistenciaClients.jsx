@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { clientApi } from '../../services/assistenciaApi'
+import { clientApi, workOrderApi } from '../../services/assistenciaApi'
 import {
-  Plus, Search, RefreshCw, Users, Pencil, Trash2, X, MapPin, Phone, Mail, FileText,
+  Plus, Search, RefreshCw, Users, Pencil, Trash2, X, MapPin, Phone, Mail, FileText, ChevronDown, ChevronUp,
 } from 'lucide-react'
 
 const EMPTY = { name: '', document: '', address: '', phone: '', email: '' }
@@ -13,6 +13,25 @@ const formatCNPJ = (v) => {
     .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/\.(\d{3})(\d)/, '.$1/$2')
     .replace(/(\d{4})(\d)/, '$1-$2')
+}
+
+function hasMeaningfulReport(report) {
+  if (!report) return false
+  const vals = [
+    report.problemDescription,
+    report.diagnosis,
+    report.workPerformed,
+    report.partsUsed,
+    report.notes,
+  ]
+  return vals.some(v => String(v || '').trim() !== '')
+}
+
+function fmtDate(v) {
+  if (!v) return '—'
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pt-BR')
 }
 
 function ClientModal({ client, onClose, onSaved }) {
@@ -150,12 +169,38 @@ export default function AssistenciaClients() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [modal, setModal]   = useState(null) // null | 'new' | client object
+  const [reportsByClient, setReportsByClient] = useState({})
+  const [openReports, setOpenReports] = useState({})
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await clientApi.search({ q: search || undefined, pageSize: 50 })
-      setItems(r.data.items || [])
+      const [clientsRes, reportsRes] = await Promise.all([
+        clientApi.search({ q: search || undefined, pageSize: 50 }),
+        workOrderApi.search({ page: 1, pageSize: 5000 }),
+      ])
+      const clients = clientsRes.data.items || []
+      const allOrders = reportsRes.data?.items || []
+      const grouped = {}
+
+      for (const os of allOrders) {
+        if (!hasMeaningfulReport(os.report)) continue
+        const cid = os.client?.id
+        if (!cid) continue
+        if (!grouped[cid]) grouped[cid] = []
+        grouped[cid].push(os)
+      }
+
+      for (const cid of Object.keys(grouped)) {
+        grouped[cid].sort((a, b) => {
+          const da = new Date(a.report?.lastUpdatedAt || a.updatedAt || 0).getTime()
+          const db = new Date(b.report?.lastUpdatedAt || b.updatedAt || 0).getTime()
+          return db - da
+        })
+      }
+
+      setItems(clients)
+      setReportsByClient(grouped)
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }, [search])
@@ -175,6 +220,10 @@ export default function AssistenciaClients() {
   const handleSaved = () => {
     setModal(null)
     load()
+  }
+
+  const toggleClientReports = (clientId) => {
+    setOpenReports(prev => ({ ...prev, [clientId]: !prev[clientId] }))
   }
 
   return (
@@ -243,6 +292,40 @@ export default function AssistenciaClients() {
                   )}
                   {c.email && (
                     <span className="flex items-center gap-1"><Mail size={10} /> {c.email}</span>
+                  )}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                  <button
+                    onClick={() => toggleClientReports(c.id)}
+                    className="flex items-center gap-2 text-xs text-orange-300 hover:text-orange-200 transition-colors"
+                  >
+                    <FileText size={12} />
+                    Relatórios do cliente ({(reportsByClient[c.id] || []).length})
+                    {openReports[c.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+
+                  {openReports[c.id] && (
+                    <div className="mt-2 space-y-2">
+                      {(reportsByClient[c.id] || []).length === 0 ? (
+                        <p className="text-[11px] text-white/30">Nenhum relatório encontrado para este cliente.</p>
+                      ) : (
+                        (reportsByClient[c.id] || []).map(os => (
+                          <div
+                            key={os.id}
+                            className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs text-orange-300 font-mono">{os.osNumber}</p>
+                              <p className="text-[10px] text-white/35">
+                                Atualizado: {fmtDate(os.report?.lastUpdatedAt || os.updatedAt)}
+                              </p>
+                            </div>
+                            <p className="text-xs text-white/70 mt-1 line-clamp-2">{os.description || '—'}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

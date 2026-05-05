@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { workOrderApi, clientApi } from '../../services/assistenciaApi'
+import { useAuth } from '../../context/AuthContext'
 import {
   Plus, Search, ChevronLeft, ChevronRight, RefreshCw,
   ClipboardList, MapPin, User, Calendar, X,
@@ -139,6 +140,7 @@ function NewOSModal({ onClose, onCreated }) {
 }
 
 export default function AssistenciaOSPage() {
+  const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [data, setData] = useState({ items: [], total: 0, totalPages: 1 })
   const [page, setPage] = useState(1)
@@ -154,6 +156,7 @@ export default function AssistenciaOSPage() {
         page, pageSize: 15,
         q: search || undefined,
         status: statusFilter || undefined,
+        technicianId: !isAdmin ? user?.id : undefined,
       })
       setData({ ...r.data, items: r.data.items || [] })
     } catch {
@@ -161,7 +164,7 @@ export default function AssistenciaOSPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, statusFilter])
+  }, [isAdmin, page, search, statusFilter, user?.id])
 
   useEffect(() => { load() }, [load])
 
@@ -178,14 +181,18 @@ export default function AssistenciaOSPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white font-bold text-lg">Ordens de Serviço</h1>
-          <p className="text-white/40 text-xs mt-0.5">{data.total} OS cadastradas</p>
+          <p className="text-white/40 text-xs mt-0.5">
+            {isAdmin ? `${data.total} OS cadastradas` : `${data.total} OS vinculadas a você`}
+          </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all"
-        >
-          <Plus size={14} /> Nova OS
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all"
+          >
+            <Plus size={14} /> Nova OS
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -295,7 +302,7 @@ export default function AssistenciaOSPage() {
         </div>
       )}
 
-      {showNew && <NewOSModal onClose={() => setShowNew(false)} onCreated={handleCreated} />}
+      {isAdmin && showNew && <NewOSModal onClose={() => setShowNew(false)} onCreated={handleCreated} />}
     </div>
   )
 }
