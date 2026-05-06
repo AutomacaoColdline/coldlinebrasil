@@ -187,12 +187,12 @@ func autoResume(
 	now := time.Now().UTC()
 	for i := range occs {
 		o := &occs[i]
-		duration := now.Sub(o.StartDate)
+		workingSecs := utils.WorkingSeconds(o.StartDate, now)
 		// System occurrences are outside shift — working seconds = 0.
 		// We still finalize them cleanly.
 		o.Finished = true
 		o.EndDate = &now
-		o.ProcessTime = utils.FormatSeconds(int(duration.Seconds()))
+		o.ProcessTime = utils.FormatSeconds(workingSecs)
 		occRepo.Save(ctx, o)
 
 		if o.Process != nil && o.Process.ID != "" {

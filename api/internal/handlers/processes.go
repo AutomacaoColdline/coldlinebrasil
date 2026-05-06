@@ -638,7 +638,15 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 		OccurrenceTypeId string `json:"occurrenceTypeId"`
 		Description      string `json:"description"`
 	}
-	c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	req.OccurrenceTypeId = strings.TrimSpace(req.OccurrenceTypeId)
+	if req.OccurrenceTypeId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência é obrigatório"})
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -674,10 +682,13 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 			Department:     process.Department,
 			Machine:        process.Machine,
 		}
-		if req.OccurrenceTypeId != "" {
-			if ot, err := occTypeRepo.FindByID(ctx, req.OccurrenceTypeId); err == nil {
-				occ.OccurrenceType = &models.ReferenceEntity{ID: ot.ID, Name: ot.Name}
+		if ot, err := occTypeRepo.FindByID(ctx, req.OccurrenceTypeId); err == nil {
+			if strings.EqualFold(strings.TrimSpace(ot.Name), "Outro") && strings.TrimSpace(req.Description) == "" {
+				return fmt.Errorf(`bad_request: informe o motivo quando o tipo de ocorrência for "Outro"`)
 			}
+			occ.OccurrenceType = &models.ReferenceEntity{ID: ot.ID, Name: ot.Name}
+		} else {
+			return fmt.Errorf("bad_request: tipo de ocorrência inválido")
 		}
 		if err := occRepo.Create(ctx, occ); err != nil {
 			return err
@@ -707,6 +718,10 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 	}); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Processo não encontrado"})
+			return
+		}
+		if strings.HasPrefix(err.Error(), "bad_request:") {
+			c.JSON(http.StatusBadRequest, gin.H{"message": strings.TrimPrefix(err.Error(), "bad_request: ")})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})

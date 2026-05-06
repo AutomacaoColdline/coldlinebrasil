@@ -29,6 +29,12 @@ func main() {
 	}
 	cancelRepair()
 
+	ctxSanitize, cancelSanitize := context.WithTimeout(context.Background(), 60*time.Second)
+	if err := handlers.RepairHistoricalSystemOccurrenceTimes(ctxSanitize, db); err != nil {
+		log.Printf("[boot] repair histórico de ocorrências do sistema: %v", err)
+	}
+	cancelSanitize()
+
 	r := gin.Default()
 	r.Static("/uploads", "./wwwroot/uploads")
 

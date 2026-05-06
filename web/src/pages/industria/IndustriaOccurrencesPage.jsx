@@ -31,6 +31,8 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
   const [occTypes, setOccTypes] = useState([])
   const [saving,   setSaving]   = useState(false)
   const [error,    setError]    = useState('')
+  const selectedTypeName = String(form.occurrenceType?.name || '').trim().toLowerCase()
+  const isOutroType = selectedTypeName === 'outro'
 
   useEffect(() => {
     Promise.all([
@@ -72,6 +74,11 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
     e.preventDefault()
     setError('')
     if (!form.machine) { setError('Máquina é obrigatória'); return }
+    if (!form.occurrenceType?.id) { setError('Tipo de ocorrência é obrigatório'); return }
+    if (isOutroType && !String(form.description || '').trim()) {
+      setError('Informe o motivo quando o tipo for "Outro"')
+      return
+    }
     setSaving(true)
     try {
       if (editing) {
@@ -147,13 +154,14 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Tipo de ocorrência</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">Tipo de ocorrência *</label>
             <select
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
               value={form.occurrenceType?.id || ''}
               onChange={e => selectOccType(e.target.value)}
+              required
             >
-              <option value="">Sem tipo</option>
+              <option value="">Selecione o tipo...</option>
               {occTypes.map(t => (
                 <option key={t.id || t._id} value={t.id || t._id}>{t.name}</option>
               ))}
@@ -161,13 +169,16 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Descrição</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">
+              {isOutroType ? 'Motivo *' : 'Descrição'}
+            </label>
             <textarea
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 resize-none"
               rows={3}
-              placeholder="Descreva a ocorrência..."
+              placeholder={isOutroType ? 'Descreva o motivo para cadastrar esse novo tipo...' : 'Descreva a ocorrência...'}
               value={form.description}
               onChange={e => set('description', e.target.value)}
+              required={isOutroType}
             />
           </div>
 

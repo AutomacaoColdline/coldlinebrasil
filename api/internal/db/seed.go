@@ -27,7 +27,7 @@ func seed(db *gorm.DB) {
 		"Compressor", "Bomba", "Motor", "Gerador", "Painel Elétrico", "CLP", "IHM",
 	})
 	seedConfigTable(db, "monitoring_types", []string{
-		"Temperatura", "Pressão", "Vibração", "Corrente", "Tensão", "Velocidade",
+		"XWEB", "SITRAD", "COLDVISIO",
 	})
 
 	seedAdminUser(db)

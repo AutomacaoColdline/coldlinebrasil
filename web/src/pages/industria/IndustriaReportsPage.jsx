@@ -59,10 +59,20 @@ function rangeStart(period) {
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 }
 
+function isSystemOutOfShiftOccurrence(occ) {
+  const typeName = (occ?.occurrenceType?.name || '').toLowerCase()
+  const description = (occ?.description || '').toLowerCase()
+  return (
+    typeName.includes('sistema - fora do expediente') ||
+    description.includes('pausa automática fora do horário de expediente')
+  )
+}
+
 export default function IndustriaReportsPage() {
   const [loading, setLoading] = useState(true)
   const [processes, setProcesses] = useState([])
   const [occurrences, setOccurrences] = useState([])
+  const [occurrenceTypes, setOccurrenceTypes] = useState([])
   const [machines, setMachines] = useState([])
   const [users, setUsers] = useState([])
 
@@ -72,17 +82,19 @@ export default function IndustriaReportsPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const [pr, or, mr, ur] = await Promise.all([
+      const [pr, or, mr, ur, otr] = await Promise.all([
         api.searchProcesses({ page: 1, pageSize: 5000 }),
         api.searchOccurrences({ page: 1, pageSize: 5000 }),
         api.getMachines(),
         api.searchUsersPaginated({ page: 1, pageSize: 1000 }),
+        api.getOccurrenceTypes(),
       ])
       const allUsers = ur.data?.items || ur.data || []
       const operatorIds = new Set(allUsers.filter(isIndustriaOperatorUser).map(x => x.id))
       const onlyOperatorById = (item) => !item.user || (item.user?.id && operatorIds.has(item.user.id))
       setProcesses((pr.data?.items || []).filter(onlyOperatorById))
       setOccurrences((or.data?.items || []).filter(onlyOperatorById))
+      setOccurrenceTypes(otr.data || [])
       setMachines(mr.data || [])
       setUsers(allUsers.filter(isIndustriaOperatorUser))
     } finally {
@@ -98,8 +110,25 @@ export default function IndustriaReportsPage() {
     const inRange = (iso) => validDate(iso) && new Date(iso) >= start
     const byUser = (entity) => !userId || entity.user?.id === userId
 
+    const validOccurrenceTypes = occurrenceTypes.filter(
+      (t) => !String(t?.name || '').toLowerCase().includes('sistema - fora do expediente'),
+    )
+    const validOccurrenceTypeIds = new Set(validOccurrenceTypes.map((t) => t?.id).filter(Boolean))
+    const occurrenceTypeNameById = new Map(
+      validOccurrenceTypes
+        .filter((t) => t?.id && String(t?.name || '').trim() !== '')
+        .map((t) => [t.id, t.name]),
+    )
+
     const scopedProcesses = processes.filter(p => byUser(p) && (inRange(p.startDate) || inRange(p.endDate)))
-    const scopedOccurrences = occurrences.filter(o => byUser(o) && (inRange(o.startDate) || inRange(o.endDate)))
+    const scopedOccurrences = occurrences.filter(
+      (o) =>
+        byUser(o) &&
+        (inRange(o.startDate) || inRange(o.endDate)) &&
+        validOccurrenceTypeIds.has(o?.occurrenceType?.id) &&
+        occurrenceTypeNameById.has(o?.occurrenceType?.id) &&
+        !isSystemOutOfShiftOccurrence(o),
+    )
 
     const totalProcessSeconds = scopedProcesses.reduce((sum, p) => sum + timeToSeconds(p.processTime), 0)
     const idleSeconds = scopedOccurrences.reduce((sum, o) => sum + timeToSeconds(o.processTime), 0)
@@ -118,7 +147,10 @@ export default function IndustriaReportsPage() {
       const loss = occHours * hourCost
       totalLoss += loss
 
-      const type = occ.occurrenceType?.name || 'Sem tipo'
+      const type = occurrenceTypeNameById.get(occ?.occurrenceType?.id)
+      if (!type) {
+        continue
+      }
       if (!lossByOccurrenceTypeMap[type]) {
         lossByOccurrenceTypeMap[type] = { type, count: 0, idleSeconds: 0, loss: 0 }
       }
@@ -145,25 +177,38 @@ export default function IndustriaReportsPage() {
 
     const processCountByBucket = {}
     const occurrenceCountByBucket = {}
-    const bucketLabel = (iso) => {
+    const bucketLabelByKey = {}
+    const pad2 = (n) => String(n).padStart(2, '0')
+    const bucketData = (iso) => {
       const d = new Date(iso)
-      if (period === 'day') return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      if (period === 'week') return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
-      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      if (period === 'day') {
+        const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+        const label = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        return { key, label }
+      }
+      const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+      const label = period === 'week'
+        ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
+        : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      return { key, label }
     }
     for (const p of scopedProcesses) {
-      const key = bucketLabel(p.startDate || p.endDate)
+      const { key, label } = bucketData(p.startDate || p.endDate)
+      bucketLabelByKey[key] = label
       processCountByBucket[key] = (processCountByBucket[key] || 0) + 1
     }
     for (const o of scopedOccurrences) {
-      const key = bucketLabel(o.startDate || o.endDate)
+      const { key, label } = bucketData(o.startDate || o.endDate)
+      bucketLabelByKey[key] = label
       occurrenceCountByBucket[key] = (occurrenceCountByBucket[key] || 0) + 1
     }
-    const timeline = Object.keys({ ...processCountByBucket, ...occurrenceCountByBucket }).map(label => ({
-      label,
-      processos: processCountByBucket[label] || 0,
-      ocorrencias: occurrenceCountByBucket[label] || 0,
-    }))
+    const timeline = Object.keys({ ...processCountByBucket, ...occurrenceCountByBucket })
+      .sort((a, b) => a.localeCompare(b))
+      .map(key => ({
+        label: bucketLabelByKey[key] || key,
+        processos: processCountByBucket[key] || 0,
+        ocorrencias: occurrenceCountByBucket[key] || 0,
+      }))
 
     const machineStatusCounts = Object.entries(MACHINE_STATUS).map(([status, name]) => ({
       name,
@@ -207,7 +252,7 @@ export default function IndustriaReportsPage() {
       perUser: Object.values(lossByUserMap).sort((a, b) => b.loss - a.loss),
       machineReasons: Object.values(machineReasonsMap).sort((a, b) => b.total - a.total),
     }
-  }, [period, userId, users, processes, occurrences, machines])
+  }, [period, userId, users, processes, occurrences, occurrenceTypes, machines])
 
   if (loading) {
     return (

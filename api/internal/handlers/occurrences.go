@@ -19,21 +19,27 @@ import (
 )
 
 type OccurrenceHandler struct {
-	db          *gorm.DB
-	repo        *repositories.Repository[models.Occurrence]
-	processRepo *repositories.Repository[models.Process]
-	machineRepo *repositories.Repository[models.Machine]
-	userRepo    *repositories.Repository[models.User]
+	db                *gorm.DB
+	repo              *repositories.Repository[models.Occurrence]
+	processRepo       *repositories.Repository[models.Process]
+	machineRepo       *repositories.Repository[models.Machine]
+	userRepo          *repositories.Repository[models.User]
+	occurrenceTypeRepo *repositories.Repository[models.BaseEntity]
 }
 
 func NewOccurrenceHandler(db *gorm.DB) *OccurrenceHandler {
 	return &OccurrenceHandler{
-		db:          db,
-		repo:        repositories.New[models.Occurrence](db, "occurrences"),
-		processRepo: repositories.New[models.Process](db, "processes"),
-		machineRepo: repositories.New[models.Machine](db, "machines"),
-		userRepo:    repositories.New[models.User](db, "users"),
+		db:                 db,
+		repo:               repositories.New[models.Occurrence](db, "occurrences"),
+		processRepo:        repositories.New[models.Process](db, "processes"),
+		machineRepo:        repositories.New[models.Machine](db, "machines"),
+		userRepo:           repositories.New[models.User](db, "users"),
+		occurrenceTypeRepo: repositories.New[models.BaseEntity](db, "occurrence_types"),
 	}
+}
+
+func isOutroOccurrenceTypeName(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), "Outro")
 }
 
 func (h *OccurrenceHandler) GetByID(c *gin.Context) {
@@ -116,9 +122,23 @@ func (h *OccurrenceHandler) Create(c *gin.Context) {
 	occ.CodeOccurrence = fmt.Sprintf("OC%06d", time.Now().UnixMilli()%1000000)
 	occ.StartDate = time.Now().UTC()
 	occ.Finished = false
+	if occ.OccurrenceType == nil || strings.TrimSpace(occ.OccurrenceType.ID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência é obrigatório"})
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if ot, err := h.occurrenceTypeRepo.FindByID(ctx, occ.OccurrenceType.ID); err != nil || ot == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência inválido"})
+		return
+	} else {
+		if isOutroOccurrenceTypeName(ot.Name) && strings.TrimSpace(occ.Description) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": `Informe o motivo quando o tipo de ocorrência for "Outro"`})
+			return
+		}
+		occ.OccurrenceType = &models.ReferenceEntity{ID: ot.ID, Name: ot.Name}
+	}
 
 	if occ.Machine != nil {
 		if machine, ok := h.resolveMachine(ctx, occ.Machine.ID, occ.Machine.Name); ok {
@@ -177,6 +197,11 @@ func (h *OccurrenceHandler) Update(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	current, err := h.repo.FindByID(ctx, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Ocorrência não encontrada"})
+		return
+	}
 
 	if rawMachine, ok := payload["machine"]; ok {
 		if machineMap, ok := rawMachine.(map[string]interface{}); ok {
@@ -186,6 +211,50 @@ func (h *OccurrenceHandler) Update(c *gin.Context) {
 				ref := machineRefFromMachine(machine)
 				payload["machine"] = map[string]interface{}{"id": ref.ID, "name": ref.Name}
 			}
+		}
+	}
+	if rawType, ok := payload["occurrenceType"]; ok {
+		typeMap, ok := rawType.(map[string]interface{})
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência inválido"})
+			return
+		}
+		typeID, _ := typeMap["id"].(string)
+		typeID = strings.TrimSpace(typeID)
+		if typeID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência é obrigatório"})
+			return
+		}
+		if ot, err := h.occurrenceTypeRepo.FindByID(ctx, typeID); err != nil || ot == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência inválido"})
+			return
+		} else {
+			finalDescription := strings.TrimSpace(current.Description)
+			if rawDescription, ok := payload["description"]; ok {
+				finalDescription = strings.TrimSpace(fmt.Sprint(rawDescription))
+			}
+			if isOutroOccurrenceTypeName(ot.Name) && finalDescription == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"message": `Informe o motivo quando o tipo de ocorrência for "Outro"`})
+				return
+			}
+			payload["occurrenceType"] = map[string]interface{}{"id": ot.ID, "name": ot.Name}
+		}
+	}
+	if rawDescription, ok := payload["description"]; ok {
+		finalTypeName := ""
+		if current.OccurrenceType != nil {
+			finalTypeName = strings.TrimSpace(current.OccurrenceType.Name)
+		}
+		if rawType, okType := payload["occurrenceType"]; okType {
+			if typeMap, okCast := rawType.(map[string]interface{}); okCast {
+				if name, okName := typeMap["name"].(string); okName && strings.TrimSpace(name) != "" {
+					finalTypeName = strings.TrimSpace(name)
+				}
+			}
+		}
+		if isOutroOccurrenceTypeName(finalTypeName) && strings.TrimSpace(fmt.Sprint(rawDescription)) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": `Informe o motivo quando o tipo de ocorrência for "Outro"`})
+			return
 		}
 	}
 

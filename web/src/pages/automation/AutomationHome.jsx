@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { automationApi } from '../../services/automationApi'
+import { copyTextToClipboard } from '../../utils/clipboard'
 import { StickyNote, Plus, Trash2, Copy, Check, X, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const NOTE_TYPES = {
@@ -16,7 +17,8 @@ function Chip({ text }) {
   const [copied, setCopied] = useState(false)
   const copy = (e) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(text).then(() => {
+    copyTextToClipboard(text).then((copied) => {
+      if (!copied) return
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     })
@@ -200,7 +202,7 @@ export default function AutomationHome() {
                   <p className="text-sm font-semibold text-slate-800 mb-2 truncate">{note.name}</p>
                   <div className="flex flex-wrap gap-1.5 max-h-16 overflow-hidden">
                     {(note.element || []).slice(0, 4).map((el, i) => (
-                      <span key={i} onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(el) }}
+                      <span key={i} onClick={e => { e.stopPropagation(); copyTextToClipboard(el) }}
                         className="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100 rounded-full px-2 py-0.5 text-xs text-slate-600 cursor-pointer transition-colors">
                         <Copy size={9} />
                         <span className="truncate max-w-[120px]">{el}</span>

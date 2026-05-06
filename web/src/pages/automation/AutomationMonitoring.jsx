@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { automationApi } from '../../services/automationApi'
+import { copyTextToClipboard } from '../../utils/clipboard'
 import {
   Monitor, Plus, Trash2, Copy, Check, X, Search,
   Loader2, ChevronLeft, ChevronRight, Pencil, MapPin,
@@ -12,7 +13,11 @@ function CopyBtn({ text, className = '' }) {
   if (!text) return null
   const copy = (e) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(text).then(() => { setOk(true); setTimeout(() => setOk(false), 1500) })
+    copyTextToClipboard(text).then((copied) => {
+      if (!copied) return
+      setOk(true)
+      setTimeout(() => setOk(false), 1500)
+    })
   }
   return (
     <button onClick={copy}
@@ -81,7 +86,14 @@ function MonitoringModal({ item, onClose, onSaved, types }) {
       slate:  'bg-slate-50 border-slate-200 text-slate-700',
     }
     return (
-      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(value).then(() => { setOk(true); setTimeout(() => setOk(false), 1500) }) }}
+      <button onClick={(e) => {
+        e.stopPropagation()
+        copyTextToClipboard(value).then((copied) => {
+          if (!copied) return
+          setOk(true)
+          setTimeout(() => setOk(false), 1500)
+        })
+      }}
         className={`flex items-center gap-2 border rounded-xl px-3 py-2 text-left w-full hover:opacity-80 transition-all ${colors[accent]}`}>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-0.5">{label}</p>

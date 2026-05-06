@@ -73,7 +73,7 @@ function CreateModal({ onClose, onCreated }) {
 
   const [form, setForm] = useState({
     userId: '', machineId: '', processTypeId: '',
-    startDate: toLocalInput(),
+    startDate: toSpInput(),
     preIndustrialization: false, reWork: false, prototype: false,
   })
   const [saving, setSaving] = useState(false)
@@ -404,6 +404,8 @@ function PauseModal({ proc, onClose, onPaused }) {
   const [form, setForm] = useState({ occurrenceTypeId: '', description: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const selectedType = occurrenceTypes.find((t) => t.id === form.occurrenceTypeId)
+  const isOutroType = String(selectedType?.name || '').trim().toLowerCase() === 'outro'
 
   useEffect(() => {
     api.getOccurrenceTypes().then(r => setOccurrenceTypes(r.data || [])).catch(() => {})
@@ -413,6 +415,14 @@ function PauseModal({ proc, onClose, onPaused }) {
 
   const confirm = async () => {
     setError('')
+    if (!form.occurrenceTypeId) {
+      setError('Tipo de ocorrência é obrigatório')
+      return
+    }
+    if (isOutroType && !String(form.description || '').trim()) {
+      setError('Informe o motivo quando o tipo for "Outro"')
+      return
+    }
     setSaving(true)
     try {
       await api.pauseProcess(proc.id, form)
@@ -443,11 +453,12 @@ function PauseModal({ proc, onClose, onPaused }) {
 
         <div className="space-y-3 mb-5">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Motivo da ocorrência</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Motivo da ocorrência *</label>
             <select
               value={form.occurrenceTypeId}
               onChange={e => set('occurrenceTypeId', e.target.value)}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
+              required
             >
               <option value="">Selecione o motivo...</option>
               {occurrenceTypes.map(t => (
@@ -456,13 +467,16 @@ function PauseModal({ proc, onClose, onPaused }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Descrição (opcional)</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              {isOutroType ? 'Motivo *' : 'Descrição (opcional)'}
+            </label>
             <textarea
               value={form.description}
               onChange={e => set('description', e.target.value)}
               rows={2}
-              placeholder="Descreva brevemente a ocorrência..."
+              placeholder={isOutroType ? 'Descreva o motivo para cadastro futuro desse tipo...' : 'Descreva brevemente a ocorrência...'}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 resize-none"
+              required={isOutroType}
             />
           </div>
         </div>

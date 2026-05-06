@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"coldline-api/internal/models"
@@ -45,10 +46,10 @@ func RepairStuckProcessOccurrenceState(ctx context.Context, db *gorm.DB) error {
 			}
 			for i := range stuck {
 				o := &stuck[i]
-				duration := now.Sub(o.StartDate)
+				workingSecs := utils.WorkingSeconds(o.StartDate, now)
 				o.Finished = true
 				o.EndDate = &now
-				o.ProcessTime = utils.FormatSeconds(int(duration.Seconds()))
+				o.ProcessTime = utils.FormatSeconds(workingSecs)
 				if err := occRepo.Save(ctx, o); err != nil {
 					return err
 				}
@@ -108,6 +109,45 @@ func RepairStuckProcessOccurrenceState(ctx context.Context, db *gorm.DB) error {
 					_ = userRepo.Save(ctx, u)
 				}
 			}
+		}
+		return nil
+	})
+}
+
+// RepairHistoricalSystemOccurrenceTimes corrige tempos históricos de ocorrências
+// automáticas do sistema para considerar apenas tempo útil de trabalho.
+func RepairHistoricalSystemOccurrenceTimes(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		occRepo := repositories.New[models.Occurrence](tx, "occurrences")
+		var rows []models.Occurrence
+		if err := occRepo.Q(ctx).
+			Where("finished = ? AND end_date IS NOT NULL AND (description = ? OR description ILIKE ? OR occurrence_type->>'name' = ? OR occurrence_type->>'name' ILIKE ?)",
+				true,
+				models.SystemAutoPauseDescription,
+				"%pausa automática fora do horário de expediente%",
+				models.SystemOccurrenceTypeName,
+				"Sistema - Fora do Expediente%",
+			).
+			Find(&rows).Error; err != nil {
+			return err
+		}
+
+		fixed := 0
+		for i := range rows {
+			o := &rows[i]
+			// Ocorrência automática fora do expediente nunca deve gerar ociosidade/perda.
+			pt := "00:00:00"
+			if o.ProcessTime == pt {
+				continue
+			}
+			o.ProcessTime = pt
+			if err := occRepo.Save(ctx, o); err != nil {
+				return err
+			}
+			fixed++
+		}
+		if fixed > 0 {
+			log.Printf("[boot] ocorrências de sistema corrigidas: %d", fixed)
 		}
 		return nil
 	})

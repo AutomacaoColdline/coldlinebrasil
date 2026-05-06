@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"coldline-api/internal/models"
@@ -142,10 +143,32 @@ func (h *MonitoringHandler) Delete(c *gin.Context) {
 func (h *MonitoringHandler) GetTypes(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	types, err := h.typeRepo.FindAll(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
+	allowed := []string{"XWEB", "SITRAD", "COLDVISIO"}
+	result := make([]models.BaseEntity, 0, len(allowed))
+	for _, name := range allowed {
+		var item models.BaseEntity
+		err := h.typeRepo.Q(ctx).Where("LOWER(name) = ?", strings.ToLower(name)).First(&item).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				newItem := models.BaseEntity{Name: name}
+				if createErr := h.typeRepo.Create(ctx, &newItem); createErr != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"message": createErr.Error()})
+					return
+				}
+				item = newItem
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+				return
+			}
+		}
+		if item.Name != name {
+			item.Name = name
+			if saveErr := h.typeRepo.Save(ctx, &item); saveErr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": saveErr.Error()})
+				return
+			}
+		}
+		result = append(result, item)
 	}
-	c.JSON(http.StatusOK, types)
+	c.JSON(http.StatusOK, result)
 }

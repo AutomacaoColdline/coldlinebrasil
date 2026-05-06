@@ -13,15 +13,17 @@ async function apiFetch(path, opts = {}) {
   return r.json()
 }
 
-function TypeList({ title, items, onAdd, onEdit, onDelete, loading }) {
+function TypeList({ title, items, onAdd, onEdit, onDelete, loading, canManage = true }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
-        <button onClick={onAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-white text-xs rounded-lg hover:bg-cyan-400">
-          <Plus size={12} /> Novo
-        </button>
+        {canManage && (
+          <button onClick={onAdd}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-white text-xs rounded-lg hover:bg-cyan-400">
+            <Plus size={12} /> Novo
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-slate-300" /></div>
@@ -35,10 +37,12 @@ function TypeList({ title, items, onAdd, onEdit, onDelete, loading }) {
                 <p className="text-sm font-medium text-slate-800">{item.name}</p>
                 {item.description && <p className="text-xs text-slate-400 mt-0.5">{item.description}</p>}
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-cyan-500"><Pencil size={13} /></button>
-                <button onClick={() => onDelete(item)} className="text-slate-400 hover:text-red-400"><Trash2 size={13} /></button>
-              </div>
+              {canManage && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-cyan-500"><Pencil size={13} /></button>
+                  <button onClick={() => onDelete(item)} className="text-slate-400 hover:text-red-400"><Trash2 size={13} /></button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -174,7 +178,8 @@ export default function AutomationConfiguration() {
         <TypeList title="Tipos de Monitoramento" items={monitoringTypes} loading={loading}
           onAdd={() => setModal({ item: null, entity: 'MonitoringType' })}
           onEdit={i => setModal({ item: i, entity: 'MonitoringType' })}
-          onDelete={i => setDelModal({ item: i, entity: 'MonitoringType' })} />
+          onDelete={i => setDelModal({ item: i, entity: 'MonitoringType' })}
+          canManage={false} />
       </div>
 
       {modal && (
