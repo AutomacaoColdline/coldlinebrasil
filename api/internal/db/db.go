@@ -40,6 +40,7 @@ func migrate(db *gorm.DB) error {
 		&models.Monitoring{},
 		&models.WorkOrder{},
 		&models.Client{},
+		&models.ColdvisioGuideStep{},
 	)
 	if err != nil {
 		return err

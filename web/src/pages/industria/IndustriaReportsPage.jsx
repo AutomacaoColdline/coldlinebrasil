@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../services/api'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { formatShortDateTimePtBrSP } from '../../utils/industriaWorkTime'
+import { formatShortDateTimePtBrSP, workingSeconds, parseProcessDate } from '../../utils/industriaWorkTime'
 import { isIndustriaOperatorUser } from '../../utils/industriaUsers'
 
 const PERIODS = {
@@ -75,6 +75,7 @@ export default function IndustriaReportsPage() {
   const [occurrenceTypes, setOccurrenceTypes] = useState([])
   const [machines, setMachines] = useState([])
   const [users, setUsers] = useState([])
+  const [nowMs, setNowMs] = useState(Date.now())
 
   const [period, setPeriod] = useState('month')
   const [userId, setUserId] = useState('')
@@ -103,9 +104,14 @@ export default function IndustriaReportsPage() {
   }
 
   useEffect(() => { load() }, [])
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   const report = useMemo(() => {
     const start = rangeStart(period)
+    const now = nowMs
 
     const inRange = (iso) => validDate(iso) && new Date(iso) >= start
     const byUser = (entity) => !userId || entity.user?.id === userId
@@ -130,8 +136,23 @@ export default function IndustriaReportsPage() {
         !isSystemOutOfShiftOccurrence(o),
     )
 
-    const totalProcessSeconds = scopedProcesses.reduce((sum, p) => sum + timeToSeconds(p.processTime), 0)
-    const idleSeconds = scopedOccurrences.reduce((sum, o) => sum + timeToSeconds(o.processTime), 0)
+    const processSeconds = (p) => {
+      if (p.finished) return timeToSeconds(p.processTime)
+      const startDate = parseProcessDate(p.startDate)
+      if (!startDate || Number.isNaN(startDate.getTime())) return 0
+      const occStart = parseProcessDate(p.occurrenceStartDate)
+      const pausedAt = p.inOccurrence && occStart && !Number.isNaN(occStart.getTime()) ? occStart.getTime() : now
+      return Math.max(0, workingSeconds(startDate.getTime(), pausedAt) - (p.totalOccurrenceSeconds || 0))
+    }
+    const occurrenceSeconds = (o) => {
+      if (o.finished) return timeToSeconds(o.processTime)
+      const startDate = parseProcessDate(o.startDate)
+      if (!startDate || Number.isNaN(startDate.getTime())) return 0
+      return workingSeconds(startDate.getTime(), now)
+    }
+
+    const totalProcessSeconds = scopedProcesses.reduce((sum, p) => sum + processSeconds(p), 0)
+    const idleSeconds = scopedOccurrences.reduce((sum, o) => sum + occurrenceSeconds(o), 0)
 
     const lossByOccurrenceTypeMap = {}
     const lossByUserMap = {}
@@ -139,7 +160,7 @@ export default function IndustriaReportsPage() {
     let occurrencesWithoutHourCost = 0
 
     for (const occ of scopedOccurrences) {
-      const occSecs = timeToSeconds(occ.processTime)
+      const occSecs = occurrenceSeconds(occ)
       const occHours = occSecs / 3600
       const u = users.find(x => x.id === occ.user?.id)
       const hourCost = parseHourCost(u?.workHourCost)
@@ -252,7 +273,7 @@ export default function IndustriaReportsPage() {
       perUser: Object.values(lossByUserMap).sort((a, b) => b.loss - a.loss),
       machineReasons: Object.values(machineReasonsMap).sort((a, b) => b.total - a.total),
     }
-  }, [period, userId, users, processes, occurrences, occurrenceTypes, machines])
+  }, [period, userId, users, processes, occurrences, occurrenceTypes, machines, nowMs])
 
   if (loading) {
     return (

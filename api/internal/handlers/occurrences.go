@@ -145,6 +145,23 @@ func (h *OccurrenceHandler) Create(c *gin.Context) {
 			occ.Machine = machineRefFromMachine(machine)
 		}
 	}
+	// Se a ocorrência foi aberta sem processo explícito (ex.: tela de Ocorrências),
+	// tenta vincular automaticamente ao processo ativo da máquina para pausar/retomar
+	// corretamente o tempo produtivo vs. ocioso.
+	if (occ.Process == nil || strings.TrimSpace(occ.Process.ID) == "") && occ.Machine != nil && strings.TrimSpace(occ.Machine.ID) != "" {
+		if proc, err := h.processRepo.FindOne(ctx,
+			"finished = ? AND in_occurrence = ? AND machine_ref->>'id' = ?",
+			false, false, occ.Machine.ID,
+		); err == nil && proc != nil {
+			occ.Process = &models.ReferenceEntity{ID: proc.ID, Name: proc.IdentificationNumber}
+			if occ.User == nil && proc.User != nil {
+				occ.User = proc.User
+			}
+			if occ.Department == nil && proc.Department != nil {
+				occ.Department = proc.Department
+			}
+		}
+	}
 
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		repo := repositories.New[models.Occurrence](tx, "occurrences")

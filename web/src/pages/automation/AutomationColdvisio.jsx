@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Eye, ChevronRight, ChevronLeft, FolderOpen, Plus, Trash2, Save } from 'lucide-react'
-const GUIDE_KEY = 'coldvisio_install_guide_v1'
+import { automationApi } from '../../services/automationApi'
 
 function normalizeUrl(url) {
   if (!url) return '#'
@@ -32,30 +32,37 @@ function renderTextWithLinks(text) {
 }
 
 export default function AutomationColdvisio() {
-  const [mode, setMode]         = useState('view') // view | manage
-  const [stepIdx, setStepIdx]   = useState(0)
-  const [guide, setGuide]       = useState([])
+  const [mode, setMode]               = useState('view') // view | manage
+  const [stepIdx, setStepIdx]         = useState(0)
+  const [guide, setGuide]             = useState([])
   const [savingGuide, setSavingGuide] = useState(false)
+  const [loading, setLoading]         = useState(true)
+  const [saveError, setSaveError]     = useState(null)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(GUIDE_KEY)
-      const parsed = raw ? JSON.parse(raw) : []
-      setGuide(Array.isArray(parsed) ? parsed : [])
-    } catch {
-      setGuide([])
-    }
+    setLoading(true)
+    automationApi.getColdvisioGuide()
+      .then(res => {
+        const data = Array.isArray(res.data) ? res.data : []
+        setGuide(data)
+      })
+      .catch(() => setGuide([]))
+      .finally(() => setLoading(false))
   }, [])
+
   const guideStep = guide[stepIdx]
+
 
   const emptyGuideStep = () => ({ title: '', description: '', imageData: '' })
 
-  const saveGuide = () => {
+  const saveGuide = async () => {
     setSavingGuide(true)
+    setSaveError(null)
     try {
-      localStorage.setItem(GUIDE_KEY, JSON.stringify(guide))
+      await automationApi.saveColdvisioGuide(guide)
       setTimeout(() => setSavingGuide(false), 500)
-    } catch {
+    } catch (e) {
+      setSaveError('Erro ao salvar. Tente novamente.')
       setSavingGuide(false)
     }
   }
@@ -127,15 +134,25 @@ export default function AutomationColdvisio() {
               </button>
               <button
                 onClick={saveGuide}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 text-sm"
+                disabled={savingGuide}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 text-sm disabled:opacity-60"
               >
-                <Save size={14} /> {savingGuide ? 'Salvo' : 'Salvar'}
+                <Save size={14} /> {savingGuide ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           )}
         </div>
 
-        {guide.length === 0 ? (
+        {saveError && (
+          <p className="px-6 py-2 text-xs text-red-500">{saveError}</p>
+        )}
+
+        {loading ? (
+          <div className="py-16 text-center">
+            <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-sm text-slate-400">Carregando guia...</p>
+          </div>
+        ) : guide.length === 0 ? (
           <div className="py-16 text-center">
             <FolderOpen size={26} className="text-slate-200 mx-auto mb-2" />
             <p className="text-sm text-slate-400">Guia ainda não preenchido</p>

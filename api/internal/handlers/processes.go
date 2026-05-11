@@ -222,6 +222,10 @@ func (h *ProcessHandler) EndProcess(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Processo não encontrado"})
 		return
 	}
+	if process.InOccurrence {
+		c.JSON(http.StatusConflict, gin.H{"message": "Processo em ocorrência. Retome/finalize a ocorrência antes de encerrar o processo."})
+		return
+	}
 
 	now := time.Now().UTC()
 	workSecs := utils.WorkingSeconds(process.StartDate, now) - process.TotalOccurrenceSeconds

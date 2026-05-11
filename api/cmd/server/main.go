@@ -74,9 +74,10 @@ func main() {
 	occurrenceHandler := handlers.NewOccurrenceHandler(db)
 	dashboardHandler  := handlers.NewDashboardHandler(db)
 	noteHandler       := handlers.NewNoteHandler(db)
-	monitoringHandler := handlers.NewMonitoringHandler(db)
-	workOrderHandler  := handlers.NewWorkOrderHandler(db)
-	clientHandler     := handlers.NewClientHandler(db)
+	monitoringHandler    := handlers.NewMonitoringHandler(db)
+	workOrderHandler     := handlers.NewWorkOrderHandler(db)
+	clientHandler        := handlers.NewClientHandler(db)
+	coldvisioGuideHandler := handlers.NewColdvisioGuideHandler(db)
 
 	userTypeHandler       := handlers.NewCRUDHandler(db, "user_types")
 	departmentHandler     := handlers.NewCRUDHandler(db, "departments")
@@ -200,6 +201,10 @@ func main() {
 		registerCRUD(api, "/OccurrenceType", occurrenceTypeHandler, auth)
 		registerCRUD(api, "/MachineType", machineTypeHandler, auth)
 		registerCRUD(api, "/MonitoringType", monitoringTypeHandler, auth)
+
+		cvGuide := api.Group("/ColdvisioGuide", auth)
+		cvGuide.GET("", coldvisioGuideHandler.GetAll)
+		cvGuide.PUT("", coldvisioGuideHandler.Save)
 	}
 
 	scheduler.Start(db)

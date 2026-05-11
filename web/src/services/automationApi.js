@@ -30,6 +30,10 @@ export const automationApi = {
   updateNote:  (id, d)  => http.put(`/api/Note/${id}`, d),
   deleteNote:  (id)     => http.delete(`/api/Note/${id}`),
 
+  // Coldvisio Guide
+  getColdvisioGuide:  ()      => http.get('/api/ColdvisioGuide'),
+  saveColdvisioGuide: (steps) => http.put('/api/ColdvisioGuide', steps),
+
   // Users
   getUsers:     (params) => http.get('/api/User/search', { params }),
   getAllUsers:   ()       => http.get('/api/User'),
