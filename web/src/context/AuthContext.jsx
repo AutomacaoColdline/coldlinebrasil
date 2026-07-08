@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { api } from '../services/api'
+import { clearStoredAuth, persistAuth, readStoredAuth } from '../utils/authStorage'
 
 const AuthContext = createContext(null)
 
@@ -43,37 +44,35 @@ function resolveModule(user) {
 }
 
 function readStoredUser() {
-  const stored = localStorage.getItem('coldline_user')
-  const token  = localStorage.getItem('coldline_token')
-  if (stored && token) {
-    try { return JSON.parse(stored) } catch { /* invalid */ }
-  }
-  return null
+  return readStoredAuth()?.user || null
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser)
   const [loading]       = useState(false)
 
+  useEffect(() => {
+    const syncAuthState = () => setUser(readStoredUser())
+    window.addEventListener('storage', syncAuthState)
+    return () => window.removeEventListener('storage', syncAuthState)
+  }, [])
+
   const loginByIdentification = useCallback(async (identificationNumber) => {
     const { data } = await api.loginByIdentification(identificationNumber)
-    localStorage.setItem('coldline_token', data.token)
-    localStorage.setItem('coldline_user', JSON.stringify(data.user))
+    persistAuth(data.token, data.user)
     setUser(data.user)
     return data.user
   }, [])
 
   const login = useCallback(async (email, password) => {
     const { data } = await api.login(email, password)
-    localStorage.setItem('coldline_token', data.token)
-    localStorage.setItem('coldline_user', JSON.stringify(data.user))
+    persistAuth(data.token, data.user)
     setUser(data.user)
     return data.user
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('coldline_token')
-    localStorage.removeItem('coldline_user')
+    clearStoredAuth()
     setUser(null)
   }, [])
 

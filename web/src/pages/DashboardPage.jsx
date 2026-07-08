@@ -32,6 +32,7 @@ const modules = [
     gradient: 'from-orange-400 to-orange-600',
     shadow: 'shadow-orange-200',
     status: 'soon',
+    visible: false,
   },
 ]
 
@@ -87,7 +88,7 @@ export default function DashboardPage() {
         {/* Module cards */}
         <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Módulos</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {modules.map(({ title, description, icon: Icon, to, gradient, shadow, status }) => (
+          {modules.filter(({ visible = true }) => visible).map(({ title, description, icon: Icon, to, gradient, shadow, status }) => (
             <Link
               key={title}
               to={to}

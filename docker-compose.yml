@@ -10,9 +10,7 @@ services:
     restart: unless-stopped
 
   api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
+    image: coldlinebrasil-api:local
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -30,13 +28,7 @@ services:
     restart: unless-stopped
 
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-      args:
-        VITE_USER_TYPE_ADMIN: "67c70b87051a26b141f61ab7"
-        VITE_USER_TYPE_SETUP: "67c70b87051a26b141f61ab7"
-        VITE_USER_TYPE_INDUSTRIA: "67f41bf13a50bfa4e95bfe69"
+    image: coldlinebrasil-web:local
     ports:
       - "80:80"
     depends_on:

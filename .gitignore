@@ -7,10 +7,30 @@ yarn.lock
 .env
 .env.local
 .env.*.local
+web/.env.production
 
 # Build outputs
 dist/
 build/
+deploy/
+deploy-pkg/
+deploy.zip
+deploy-new.zip
+*.exe
+api/server
+
+# DB backups
+*.dump
+
+# Scratch / test artifacts
+get-token.bat
+dy
+test-concurrent.js
+test-concurrent.ps1
+test-p1.json
+test-p1-final.json
+test1.pdf
+test2.pdf
 
 # IDE
 .vscode/

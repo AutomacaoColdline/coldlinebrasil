@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearStoredAuth, getStoredToken, redirectToLogin } from '../utils/authStorage'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
@@ -6,7 +7,7 @@ const http = axios.create({ baseURL: BASE_URL })
 
 // Usa o mesmo token principal — sem segundo login
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('coldline_token')
+  const token = getStoredToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -15,9 +16,8 @@ http.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('coldline_token')
-      localStorage.removeItem('coldline_user')
-      window.location.href = '/login'
+      clearStoredAuth()
+      redirectToLogin()
     }
     return Promise.reject(err)
   },
@@ -31,8 +31,17 @@ export const automationApi = {
   deleteNote:  (id)     => http.delete(`/api/Note/${id}`),
 
   // Coldvisio Guide
-  getColdvisioGuide:  ()      => http.get('/api/ColdvisioGuide'),
-  saveColdvisioGuide: (steps) => http.put('/api/ColdvisioGuide', steps),
+  getColdvisioGuide:  (product = 'coldvisio') => http.get('/api/ColdvisioGuide', { params: { product } }),
+  saveColdvisioGuide: (steps, product = 'coldvisio') => http.put('/api/ColdvisioGuide', steps, { params: { product } }),
+  getColdvisioUpdates: () => http.get('/api/ColdvisioGuide/updates'),
+  createColdvisioUpdate: (formData) =>
+    http.post('/api/ColdvisioGuide/updates', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  downloadColdvisioUpdate: (id) => http.get(`/api/ColdvisioGuide/updates/${id}/download`, { responseType: 'blob' }),
+  downloadColdvisioUpdateFile: (entryId, fileId) =>
+    http.get(`/api/ColdvisioGuide/updates/${entryId}/files/${fileId}/download`, { responseType: 'blob' }),
+  deleteColdvisioUpdate: (id) => http.delete(`/api/ColdvisioGuide/updates/${id}`),
 
   // Users
   getUsers:     (params) => http.get('/api/User/search', { params }),
@@ -49,6 +58,7 @@ export const automationApi = {
 
   // Monitoring
   getMonitorings:    (params) => http.get('/api/Monitoring/search', { params }),
+  getAllMonitorings: () => http.get('/api/Monitoring'),
   createMonitoring:  (data)   => http.post('/api/Monitoring', data),
   updateMonitoring:  (id, d)  => http.put(`/api/Monitoring/${id}`, d),
   deleteMonitoring:  (id)     => http.delete(`/api/Monitoring/${id}`),

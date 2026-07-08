@@ -19,11 +19,11 @@ import (
 )
 
 type OccurrenceHandler struct {
-	db                *gorm.DB
-	repo              *repositories.Repository[models.Occurrence]
-	processRepo       *repositories.Repository[models.Process]
-	machineRepo       *repositories.Repository[models.Machine]
-	userRepo          *repositories.Repository[models.User]
+	db                 *gorm.DB
+	repo               *repositories.Repository[models.Occurrence]
+	processRepo        *repositories.Repository[models.Process]
+	machineRepo        *repositories.Repository[models.Machine]
+	userRepo           *repositories.Repository[models.User]
 	occurrenceTypeRepo *repositories.Repository[models.BaseEntity]
 }
 
@@ -54,10 +54,25 @@ func (h *OccurrenceHandler) GetByID(c *gin.Context) {
 }
 
 func (h *OccurrenceHandler) Search(c *gin.Context) {
-	page, _     := strconv.Atoi(c.DefaultQuery("page", "1"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	if page < 1 { page = 1 }
-	if pageSize < 1 || pageSize > 500 { pageSize = 10 }
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 500 {
+		pageSize = 10
+	}
+
+	rangeStart, err := parseQueryTime(c.Query("rangeStart"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "rangeStart invÃ¡lido. Use RFC3339."})
+		return
+	}
+	rangeEnd, err := parseQueryTime(c.Query("rangeEnd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "rangeEnd invÃ¡lido. Use RFC3339."})
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -73,7 +88,7 @@ func (h *OccurrenceHandler) Search(c *gin.Context) {
 		db = db.Where("occurrence_type->>'id' = ?", v)
 	}
 	if v := c.Query("machineId"); v != "" {
-		db = db.Where("machine_ref->>'id' = ? OR machine_ref->>'name' = ?", v, v)
+		db = applyMachineReferenceFilter(db, resolveMachineReferenceCandidates(ctx, h.machineRepo, v))
 	}
 	if v := c.Query("machineName"); v != "" {
 		db = db.Where("machine_ref->>'name' ILIKE ?", "%"+v+"%")
@@ -81,15 +96,22 @@ func (h *OccurrenceHandler) Search(c *gin.Context) {
 	if v := c.Query("finished"); v != "" {
 		db = db.Where("finished = ?", v == "true")
 	}
+	if c.Query("excludeSystemAutoPause") == "true" {
+		db = excludeSystemAutoPauseOccurrences(db)
+	}
+
+	db = applyRangeOverlapFilter(db, "start_date", "end_date", rangeStart, rangeEnd)
 
 	var total int64
 	db.Count(&total)
 
 	var occs []models.Occurrence
-	db.Offset((page-1)*pageSize).Limit(pageSize).Order("start_date DESC").Find(&occs)
+	db.Offset((page - 1) * pageSize).Limit(pageSize).Order("start_date DESC").Find(&occs)
 
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	if totalPages < 1 { totalPages = 1 }
+	if totalPages < 1 {
+		totalPages = 1
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"items": occs, "page": page, "pageSize": pageSize,

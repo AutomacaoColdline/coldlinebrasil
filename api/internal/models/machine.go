@@ -17,6 +17,7 @@ type Machine struct {
 	ID                   string            `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
 	CustomerName         string            `json:"customerName"`
 	IdentificationNumber string            `json:"identificationNumber"`
+	SerialNumber         string            `gorm:"column:serial_number" json:"serialNumber"`
 	Phase                string            `json:"phase"`
 	Voltage              string            `json:"voltage"`
 	Process              *ReferenceEntity  `gorm:"type:jsonb;serializer:json;column:process_ref" json:"process"`

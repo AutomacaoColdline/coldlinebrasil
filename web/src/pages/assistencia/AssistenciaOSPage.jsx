@@ -64,8 +64,8 @@ function NewOSModal({ onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1e293b] rounded-2xl w-full max-w-lg border border-white/[0.08] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center md:p-4 bg-slate-900/70 md:bg-black/60">
+      <div className="bg-[#1e293b] rounded-none md:rounded-2xl w-full max-w-lg border border-white/[0.08] shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
           <h2 className="text-white font-semibold text-sm">Nova Ordem de Serviço</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">

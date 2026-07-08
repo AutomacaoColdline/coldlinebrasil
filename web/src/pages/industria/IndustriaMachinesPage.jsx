@@ -19,6 +19,7 @@ const STATUS = {
 
 const EMPTY_FORM = {
   identificationNumber: '',
+  serialNumber:         '',
   customerName:         '',
   phase:                '',
   voltage:              '',
@@ -32,6 +33,7 @@ function MachineModal({ machine, onClose, onSaved }) {
   const editing = !!machine
   const [form, setForm] = useState(editing ? {
     identificationNumber: machine.identificationNumber || '',
+    serialNumber:         machine.serialNumber         || '',
     customerName:         machine.customerName         || '',
     phase:                machine.phase                || '',
     voltage:              machine.voltage              || '',
@@ -85,7 +87,7 @@ function MachineModal({ machine, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-slate-800 font-semibold">
             {editing ? 'Editar máquina' : 'Nova máquina'}
@@ -125,6 +127,18 @@ function MachineModal({ machine, onClose, onSaved }) {
                 placeholder="Nome do cliente ou OS de referência"
                 value={form.customerName}
                 onChange={e => set('customerName', e.target.value)}
+              />
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
+                Número de série
+              </label>
+              <input
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                placeholder="Ex: SN-12345-ABC"
+                value={form.serialNumber}
+                onChange={e => set('serialNumber', e.target.value)}
               />
             </div>
 
@@ -364,6 +378,13 @@ export default function IndustriaMachinesPage() {
                     {s.label}
                   </span>
                 </div>
+
+                {/* Serial number */}
+                {m.serialNumber && (
+                  <p className="text-xs text-slate-500 mb-1 truncate font-mono">
+                    SN: {m.serialNumber}
+                  </p>
+                )}
 
                 {/* Secondary info */}
                 {m.customerName && (

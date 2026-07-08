@@ -93,9 +93,9 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-slate-50">
         <div className="w-full max-w-sm">
-          <div className="flex lg:hidden items-center gap-2 mb-10 justify-center">
+          <div className="flex lg:hidden items-center gap-2 mb-8 sm:mb-10 justify-center">
             <div className="w-9 h-9 bg-brand-mid rounded-xl flex items-center justify-center">
               <Snowflake size={18} className="text-white" />
             </div>
@@ -103,7 +103,7 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900 mb-1">Bem-vindo</h2>
-          <p className="text-slate-500 text-sm mb-8">Entre com seu número de identificação</p>
+          <p className="text-slate-500 text-sm mb-6 sm:mb-8">Entre com seu número de identificação</p>
 
           {error && (
             <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-100 rounded-xl mb-6">

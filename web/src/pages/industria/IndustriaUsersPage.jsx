@@ -243,7 +243,7 @@ export default function IndustriaUsersPage() {
 
       {deleting && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-80 shadow-xl">
+          <div className="bg-white rounded-none md:rounded-2xl p-4 md:p-6 w-full md:w-80 shadow-xl">
             <p className="text-sm font-medium text-slate-800 mb-1">Excluir usuário?</p>
             <p className="text-xs text-slate-500 mb-4">{deleting.name}</p>
             {delErr && <p className="text-xs text-red-600 mb-3 bg-red-50 px-2 py-1.5 rounded-lg">{delErr}</p>}

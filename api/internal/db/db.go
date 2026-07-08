@@ -40,7 +40,20 @@ func migrate(db *gorm.DB) error {
 		&models.Monitoring{},
 		&models.WorkOrder{},
 		&models.Client{},
+		&models.InformationDemand{},
+		&models.InformationApproval{},
+		&models.InformationTraining{},
+		&models.InformationProcess{},
+		&models.InformationDailyRoutine{},
+		&models.InformationMeeting{},
+		&models.InformationDepartmentSupport{},
+		&models.InformationChecklistTemplate{},
+		&models.InformationDailyChecklist{},
 		&models.ColdvisioGuideStep{},
+		&models.ColdvisioUpdateEntry{},
+		&models.ColdvisioUpdateFile{},
+		&models.Atendimento{},
+		&models.AtendimentoChecklistTemplate{},
 	)
 	if err != nil {
 		return err
@@ -67,6 +80,22 @@ func ensureIndexes(db *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_occurrences_process_ref_id ON occurrences ((process_ref->>'id'))`,
 		`CREATE INDEX IF NOT EXISTS idx_occurrences_start_date ON occurrences (start_date)`,
 		`CREATE INDEX IF NOT EXISTS idx_occurrences_end_date ON occurrences (end_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_demands_created_date ON information_demands (created_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_demands_status ON information_demands (status)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_approvals_date ON information_approvals (date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_trainings_date ON information_trainings (date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_processes_date ON information_processes (date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_daily_routines_date ON information_daily_routines (date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_meetings_date ON information_meetings (date)`,
+		`CREATE INDEX IF NOT EXISTS idx_information_support_date ON information_department_support (date)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_information_checklist_week_item ON information_daily_checklist (template_id, week_start)`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_open_date ON atendimentos (open_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_close_date ON atendimentos (close_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_status ON atendimentos (status)`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_priority ON atendimentos (priority)`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_client_ref_id ON atendimentos ((client_ref->>'id'))`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_technician_ref_id ON atendimentos ((technician_ref->>'id'))`,
+		`CREATE INDEX IF NOT EXISTS idx_atendimentos_number ON atendimentos (number)`,
 	}
 	for _, stmt := range stmts {
 		if err := db.Exec(stmt).Error; err != nil {

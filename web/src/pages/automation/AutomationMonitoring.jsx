@@ -449,7 +449,7 @@ export default function AutomationMonitoring() {
 
       {deleting && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-80 shadow-xl">
+          <div className="bg-white rounded-none md:rounded-2xl p-4 md:p-6 w-full md:w-80 shadow-xl">
             <p className="text-sm font-semibold text-slate-800 mb-0.5">{deleting.unidade}</p>
             <p className="text-xs text-slate-500 mb-4">{deleting.identificador}</p>
             <p className="text-sm text-slate-600 mb-5">Deseja excluir este equipamento?</p>

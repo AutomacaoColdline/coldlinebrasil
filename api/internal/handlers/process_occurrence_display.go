@@ -25,6 +25,23 @@ func isSystemAutoPauseOccurrence(o *models.Occurrence) bool {
 	return false
 }
 
+func excludeSystemAutoPauseOccurrences(db *gorm.DB) *gorm.DB {
+	return db.Where(
+		`NOT (
+			description = ?
+			OR description ILIKE ?
+			OR description ILIKE ?
+			OR occurrence_type->>'name' = ?
+			OR occurrence_type->>'name' ILIKE ?
+		)`,
+		models.SystemAutoPauseDescription,
+		"%pausa automática fora do horário de expediente%",
+		"%pausa automatica fora do horario de expediente%",
+		models.SystemOccurrenceTypeName,
+		"Sistema - Fora do Expediente%",
+	)
+}
+
 // RepairStuckProcessOccurrenceState corrige inconsistências comuns:
 // (1) expediente já voltou mas ocorrências "sistema" seguem abertas;
 // (2) processo marcado in_occurrence sem ocorrência aberta vinculada.

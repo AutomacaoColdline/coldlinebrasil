@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"strings"
 
 	"coldline-api/internal/models"
 	"coldline-api/internal/repositories"
@@ -21,15 +20,8 @@ func SyncMachineStatusForMachine(
 		return
 	}
 	id := machine.ID
-	idNum := strings.TrimSpace(machine.IdentificationNumber)
 	var n int64
-	q := processRepo.Q(ctx).Where("finished = ?", false)
-	if idNum != "" {
-		q = q.Where("machine_ref->>'id' = ? OR machine_ref->>'id' = ? OR machine_ref->>'name' = ?",
-			id, idNum, idNum)
-	} else {
-		q = q.Where("machine_ref->>'id' = ?", id)
-	}
+	q := applyMachineReferenceFilter(processRepo.Q(ctx).Where("finished = ?", false), machineReferenceCandidates(machine, id))
 	q.Count(&n)
 
 	m, err := machineRepo.FindByID(ctx, id)

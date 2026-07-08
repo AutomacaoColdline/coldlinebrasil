@@ -20,12 +20,12 @@ import (
 )
 
 type ProcessHandler struct {
-	db                *gorm.DB
-	repo              *repositories.Repository[models.Process]
-	userRepo          *repositories.Repository[models.User]
-	machineRepo       *repositories.Repository[models.Machine]
-	ptypeRepo         *repositories.Repository[models.BaseEntity]
-	occurrenceRepo    *repositories.Repository[models.Occurrence]
+	db                 *gorm.DB
+	repo               *repositories.Repository[models.Process]
+	userRepo           *repositories.Repository[models.User]
+	machineRepo        *repositories.Repository[models.Machine]
+	ptypeRepo          *repositories.Repository[models.BaseEntity]
+	occurrenceRepo     *repositories.Repository[models.Occurrence]
 	occurrenceTypeRepo *repositories.Repository[models.BaseEntity]
 }
 
@@ -85,15 +85,31 @@ func (h *ProcessHandler) Create(c *gin.Context) {
 	if process.Occurrences == nil {
 		process.Occurrences = []models.ReferenceEntity{}
 	}
+	if process.Collaborators == nil {
+		process.Collaborators = []models.ReferenceEntity{}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Verifica conflito do criador
 	if process.User != nil && process.User.ID != "" {
-		var activeCount int64
-		h.repo.Q(ctx).Where("user_ref->>'id' = ? AND finished = ? AND in_occurrence = ?", process.User.ID, false, false).Count(&activeCount)
-		if activeCount > 0 {
+		if h.userHasActiveProcess(ctx, process.User.ID, "") {
 			c.JSON(http.StatusConflict, gin.H{"message": "Usuário já possui um processo em andamento. Pause-o antes de iniciar outro."})
+			return
+		}
+	}
+	// Verifica conflito de cada colaborador
+	for _, col := range process.Collaborators {
+		if col.ID == "" {
+			continue
+		}
+		// Não duplicar com o próprio criador
+		if process.User != nil && process.User.ID == col.ID {
+			continue
+		}
+		if h.userHasActiveProcess(ctx, col.ID, "") {
+			c.JSON(http.StatusConflict, gin.H{"message": "Colaborador " + col.Name + " já possui um processo em andamento. Remova-o da lista ou aguarde o encerramento."})
 			return
 		}
 	}
@@ -109,6 +125,19 @@ func (h *ProcessHandler) Create(c *gin.Context) {
 			h.userRepo.Save(ctx, u)
 		}
 	}
+	// Marca processo atual em cada colaborador
+	for _, col := range process.Collaborators {
+		if col.ID == "" {
+			continue
+		}
+		if process.User != nil && process.User.ID == col.ID {
+			continue
+		}
+		if u, err := h.userRepo.FindByID(ctx, col.ID); err == nil {
+			u.CurrentProcess = &models.ReferenceEntity{ID: process.ID, Name: process.IdentificationNumber}
+			h.userRepo.Save(ctx, u)
+		}
+	}
 	if process.Machine != nil && process.Machine.ID != "" {
 		if m, err := h.machineRepo.FindByID(ctx, process.Machine.ID); err == nil {
 			SyncMachineStatusForMachine(ctx, h.repo, h.machineRepo, m)
@@ -116,6 +145,118 @@ func (h *ProcessHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, process)
+}
+
+// userHasActiveProcess verifica se o user já tem processo ativo (como criador OU colaborador).
+// excludeProcessId permite excluir um processo específico da checagem (usado em Update).
+func (h *ProcessHandler) userHasActiveProcess(ctx context.Context, userID, excludeProcessID string) bool {
+	if userID == "" {
+		return false
+	}
+	q := h.repo.Q(ctx).Where("finished = ? AND in_occurrence = ?", false, false)
+	if excludeProcessID != "" {
+		q = q.Where("id <> ?", excludeProcessID)
+	}
+	var n int64
+	q.Where("(user_ref->>'id' = ? OR EXISTS (SELECT 1 FROM jsonb_array_elements(collaborators) c WHERE c->>'id' = ?))",
+		userID, userID).Count(&n)
+	return n > 0
+}
+
+// AddCollaborator adiciona um colaborador a um processo em andamento.
+func (h *ProcessHandler) AddCollaborator(c *gin.Context) {
+	var req struct {
+		UserID   string `json:"userId"`
+		UserName string `json:"userName"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.UserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "userId obrigatório"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	proc, err := h.repo.FindByID(ctx, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Processo não encontrado"})
+		return
+	}
+	if proc.Finished {
+		c.JSON(http.StatusConflict, gin.H{"message": "Processo já finalizado"})
+		return
+	}
+	if proc.User != nil && proc.User.ID == req.UserID {
+		c.JSON(http.StatusConflict, gin.H{"message": "Usuário já é o criador do processo"})
+		return
+	}
+	for _, col := range proc.Collaborators {
+		if col.ID == req.UserID {
+			c.JSON(http.StatusConflict, gin.H{"message": "Usuário já é colaborador deste processo"})
+			return
+		}
+	}
+	if h.userHasActiveProcess(ctx, req.UserID, proc.ID) {
+		c.JSON(http.StatusConflict, gin.H{"message": "Usuário já possui outro processo em andamento"})
+		return
+	}
+
+	proc.Collaborators = append(proc.Collaborators, models.ReferenceEntity{ID: req.UserID, Name: req.UserName})
+	if err := h.repo.Save(ctx, proc); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	// Marca processo atual no user adicionado
+	if u, err := h.userRepo.FindByID(ctx, req.UserID); err == nil {
+		u.CurrentProcess = &models.ReferenceEntity{ID: proc.ID, Name: proc.IdentificationNumber}
+		h.userRepo.Save(ctx, u)
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Colaborador adicionado", "collaborators": proc.Collaborators})
+}
+
+// RemoveCollaborator remove um colaborador de um processo em andamento.
+func (h *ProcessHandler) RemoveCollaborator(c *gin.Context) {
+	userID := c.Param("userId")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "userId obrigatório"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	proc, err := h.repo.FindByID(ctx, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Processo não encontrado"})
+		return
+	}
+
+	filtered := proc.Collaborators[:0]
+	removed := false
+	for _, col := range proc.Collaborators {
+		if col.ID == userID {
+			removed = true
+			continue
+		}
+		filtered = append(filtered, col)
+	}
+	if !removed {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Colaborador não encontrado neste processo"})
+		return
+	}
+	proc.Collaborators = filtered
+	if err := h.repo.Save(ctx, proc); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	// Limpa processo atual no user removido (só se for este mesmo processo)
+	if u, err := h.userRepo.FindByID(ctx, userID); err == nil {
+		if u.CurrentProcess != nil && u.CurrentProcess.ID == proc.ID {
+			u.CurrentProcess = nil
+			h.userRepo.Save(ctx, u)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Colaborador removido", "collaborators": proc.Collaborators})
 }
 
 func (h *ProcessHandler) Update(c *gin.Context) {
@@ -192,7 +333,9 @@ func (h *ProcessHandler) StartProcess(c *gin.Context) {
 	if req.MachineId != "" {
 		if machine, err := h.machineRepo.FindByID(ctx, req.MachineId); err == nil && machine != nil {
 			machName := machine.IdentificationNumber
-			if machName == "" { machName = machine.CustomerName }
+			if machName == "" {
+				machName = machine.CustomerName
+			}
 			process.Machine = &models.ReferenceEntity{ID: machine.ID, Name: machName}
 		}
 	}
@@ -516,11 +659,16 @@ func (h *ProcessHandler) GetProcessTypeStats(c *gin.Context) {
 	}
 
 	var sum float64
-	for _, t := range times { sum += t }
+	for _, t := range times {
+		sum += t
+	}
 	mean := sum / float64(len(times))
 
 	var variance float64
-	for _, t := range times { d := t - mean; variance += d * d }
+	for _, t := range times {
+		d := t - mean
+		variance += d * d
+	}
 	variance /= float64(len(times))
 	stdDev := math.Sqrt(variance)
 	upperLimit := mean + 3*stdDev
@@ -536,10 +684,25 @@ func (h *ProcessHandler) GetProcessTypeStats(c *gin.Context) {
 }
 
 func (h *ProcessHandler) Search(c *gin.Context) {
-	page, _     := strconv.Atoi(c.DefaultQuery("page", "1"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	if page < 1 { page = 1 }
-	if pageSize < 1 || pageSize > 500 { pageSize = 10 }
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 500 {
+		pageSize = 10
+	}
+
+	rangeStart, err := parseQueryTime(c.Query("rangeStart"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "rangeStart invÃ¡lido. Use RFC3339."})
+		return
+	}
+	rangeEnd, err := parseQueryTime(c.Query("rangeEnd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "rangeEnd invÃ¡lido. Use RFC3339."})
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -558,21 +721,25 @@ func (h *ProcessHandler) Search(c *gin.Context) {
 		db = db.Where("process_type->>'id' = ?", v)
 	}
 	if v := c.Query("machineId"); v != "" {
-		db = db.Where("machine_ref->>'id' = ?", v)
+		db = applyMachineReferenceFilter(db, resolveMachineReferenceCandidates(ctx, h.machineRepo, v))
 	}
 	if v := c.Query("finished"); v != "" {
 		db = db.Where("finished = ?", v == "true")
 	}
 
+	db = applyRangeOverlapFilter(db, "start_date", "end_date", rangeStart, rangeEnd)
+
 	var total int64
 	db.Count(&total)
 
 	var processes []models.Process
-	db.Offset((page-1)*pageSize).Limit(pageSize).Order("start_date DESC").Find(&processes)
+	db.Offset((page - 1) * pageSize).Limit(pageSize).Order("start_date DESC").Find(&processes)
 	EnrichProcessesOperatorOccurrence(ctx, h.db, processes)
 
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	if totalPages < 1 { totalPages = 1 }
+	if totalPages < 1 {
+		totalPages = 1
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"items": processes, "page": page, "pageSize": pageSize,
@@ -599,7 +766,9 @@ func (h *ProcessHandler) GetUserStats(c *gin.Context) {
 		return
 	}
 	var sum float64
-	for _, t := range times { sum += t }
+	for _, t := range times {
+		sum += t
+	}
 	mean := sum / float64(len(times))
 	c.JSON(http.StatusOK, gin.H{
 		"count": len(times), "averageSeconds": int(mean),
@@ -609,7 +778,7 @@ func (h *ProcessHandler) GetUserStats(c *gin.Context) {
 
 func (h *ProcessHandler) MonthlySummary(c *gin.Context) {
 	userId := c.Param("userId")
-	year, _  := strconv.Atoi(c.Param("year"))
+	year, _ := strconv.Atoi(c.Param("year"))
 	month, _ := strconv.Atoi(c.Param("month"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -626,10 +795,14 @@ func (h *ProcessHandler) MonthlySummary(c *gin.Context) {
 	}
 
 	var totalSecs float64
-	for _, p := range monthly { totalSecs += parseTimeToSeconds(p.ProcessTime) }
+	for _, p := range monthly {
+		totalSecs += parseTimeToSeconds(p.ProcessTime)
+	}
 	count := len(monthly)
 	avgSecs := 0.0
-	if count > 0 { avgSecs = totalSecs / float64(count) }
+	if count > 0 {
+		avgSecs = totalSecs / float64(count)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"count": count, "totalSeconds": int(totalSecs),
@@ -959,7 +1132,9 @@ func formatDuration(d time.Duration) string {
 
 func parseTimeToSeconds(t string) float64 {
 	parts := strings.Split(t, ":")
-	if len(parts) != 3 { return 0 }
+	if len(parts) != 3 {
+		return 0
+	}
 	h, _ := strconv.Atoi(parts[0])
 	m, _ := strconv.Atoi(parts[1])
 	s, _ := strconv.Atoi(parts[2])

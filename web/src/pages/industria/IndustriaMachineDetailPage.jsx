@@ -6,6 +6,21 @@ import {
   CheckCircle, Clock, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { formatDateTimePtBrSP } from '../../utils/industriaWorkTime'
+import { isSystemOutOfShiftOccurrence } from '../../utils/industriaOccurrences'
+
+async function loadAllPages(fetcher, params = {}, pageSize = 200) {
+  const first = await fetcher({ ...params, page: 1, pageSize })
+  const items = first.data?.items || []
+  const totalPages = first.data?.totalPages || 1
+
+  if (totalPages <= 1) return items
+
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) => fetcher({ ...params, page: index + 2, pageSize })),
+  )
+
+  return items.concat(rest.flatMap((response) => response.data?.items || []))
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -237,8 +252,28 @@ export default function IndustriaMachineDetailPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await api.getMachineDetail(id)
-      setDetail(r.data)
+      const [machineRes, processItems, occurrenceItems] = await Promise.all([
+        api.getMachineById(id),
+        loadAllPages(api.searchProcesses, { machineId: id }),
+        loadAllPages(api.searchOccurrences, { machineId: id, excludeSystemAutoPause: true }),
+      ])
+
+      const sortedProcesses = [...processItems].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0))
+      const sortedOccurrences = occurrenceItems
+        .filter((item) => !isSystemOutOfShiftOccurrence(item))
+        .sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0))
+
+      setDetail({
+        machine: machineRes.data,
+        stats: {
+          totalProcesses: sortedProcesses.length,
+          activeProcesses: sortedProcesses.filter(p => !p.finished).length,
+          totalOccurrences: sortedOccurrences.length,
+          activeOccurrences: sortedOccurrences.filter(o => !o.finished).length,
+        },
+        recentProcesses: sortedProcesses,
+        recentOccurrences: sortedOccurrences,
+      })
     } catch {
       navigate('/industria/machines')
     } finally {

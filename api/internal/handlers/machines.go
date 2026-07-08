@@ -48,19 +48,24 @@ func (h *MachineHandler) GetAll(c *gin.Context) {
 }
 
 func (h *MachineHandler) Search(c *gin.Context) {
-	q        := c.Query("q")
+	q := c.Query("q")
 	statusStr := c.Query("status")
-	page, _     := strconv.Atoi(c.DefaultQuery("page", "1"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "12"))
-	if page < 1 { page = 1 }
-	if pageSize < 1 || pageSize > 100 { pageSize = 12 }
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 12
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	db := h.repo.Q(ctx)
 	if q != "" {
-		db = db.Where("identification_number ILIKE ? OR customer_name ILIKE ?", "%"+q+"%", "%"+q+"%")
+		db = db.Where("identification_number ILIKE ? OR customer_name ILIKE ? OR serial_number ILIKE ?",
+			"%"+q+"%", "%"+q+"%", "%"+q+"%")
 	}
 	if statusStr != "" {
 		if v, err := strconv.Atoi(statusStr); err == nil {
@@ -72,10 +77,12 @@ func (h *MachineHandler) Search(c *gin.Context) {
 	db.Count(&total)
 
 	var machines []models.Machine
-	db.Offset((page-1)*pageSize).Limit(pageSize).Order("created_at DESC").Find(&machines)
+	db.Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&machines)
 
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	if totalPages < 1 { totalPages = 1 }
+	if totalPages < 1 {
+		totalPages = 1
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"items": machines, "page": page, "pageSize": pageSize,
@@ -105,20 +112,9 @@ func (h *MachineHandler) GetDetail(c *gin.Context) {
 		return
 	}
 
-	// Match by machine UUID stored in JSONB machine_ref field, or by identificationNumber
-	machName := machine.IdentificationNumber
-	if machName == "" { machName = machine.CustomerName }
-
-	procQ := h.processRepo.Q(ctx)
-	occQ  := h.occRepo.Q(ctx)
-
-	if machName != "" {
-		procQ = procQ.Where("machine_ref->>'id' = ? OR machine_ref->>'id' = ? OR machine_ref->>'name' = ?", id, machName, machName)
-		occQ  = occQ.Where("machine_ref->>'id' = ? OR machine_ref->>'id' = ? OR machine_ref->>'name' = ?", id, machName, machName)
-	} else {
-		procQ = procQ.Where("machine_ref->>'id' = ?", id)
-		occQ  = occQ.Where("machine_ref->>'id' = ?", id)
-	}
+	candidates := machineReferenceCandidates(machine)
+	procQ := applyMachineReferenceFilter(h.processRepo.Q(ctx), candidates)
+	occQ := excludeSystemAutoPauseOccurrences(applyMachineReferenceFilter(h.occRepo.Q(ctx), candidates))
 
 	var totalProc, activeProc, totalOcc, activeOcc int64
 	procQ.Count(&totalProc)
@@ -127,12 +123,16 @@ func (h *MachineHandler) GetDetail(c *gin.Context) {
 	occQ.Where("finished = ?", false).Count(&activeOcc)
 
 	var recentProc []models.Process
-	var recentOcc  []models.Occurrence
+	var recentOcc []models.Occurrence
 	procQ.Order("start_date DESC").Limit(15).Find(&recentProc)
 	occQ.Order("start_date DESC").Limit(15).Find(&recentOcc)
 
-	if recentProc == nil { recentProc = []models.Process{} }
-	if recentOcc == nil  { recentOcc = []models.Occurrence{} }
+	if recentProc == nil {
+		recentProc = []models.Process{}
+	}
+	if recentOcc == nil {
+		recentOcc = []models.Occurrence{}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"machine": machine,
@@ -158,8 +158,12 @@ func (h *MachineHandler) Create(c *gin.Context) {
 		return
 	}
 	machine.CreatedAt = time.Now().UTC()
-	if machine.Status == 0 { machine.Status = models.WaitingProduction }
-	if machine.Users == nil { machine.Users = []models.ReferenceEntity{} }
+	if machine.Status == 0 {
+		machine.Status = models.WaitingProduction
+	}
+	if machine.Users == nil {
+		machine.Users = []models.ReferenceEntity{}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -203,17 +207,16 @@ func (h *MachineHandler) Delete(c *gin.Context) {
 
 	machine, _ := h.repo.FindByID(ctx, id)
 	idNum := ""
-	if machine != nil { idNum = machine.IdentificationNumber }
-
-	procQ := h.processRepo.Q(ctx).Where("finished = ?", false)
-	occQ  := h.occRepo.Q(ctx).Where("finished = ?", false)
-	if idNum != "" {
-		procQ = procQ.Where("machine_ref->>'id' = ? OR machine_ref->>'id' = ? OR machine_ref->>'name' = ?", id, idNum, idNum)
-		occQ  = occQ.Where("machine_ref->>'id' = ? OR machine_ref->>'id' = ? OR machine_ref->>'name' = ?", id, idNum, idNum)
-	} else {
-		procQ = procQ.Where("machine_ref->>'id' = ?", id)
-		occQ  = occQ.Where("machine_ref->>'id' = ?", id)
+	if machine != nil {
+		idNum = machine.IdentificationNumber
 	}
+
+	candidates := uniqueMachineCandidates(id, idNum)
+	if machine != nil {
+		candidates = machineReferenceCandidates(machine, id, idNum)
+	}
+	procQ := applyMachineReferenceFilter(h.processRepo.Q(ctx).Where("finished = ?", false), candidates)
+	occQ := applyMachineReferenceFilter(h.occRepo.Q(ctx).Where("finished = ?", false), candidates)
 
 	var activeProc, activeOcc int64
 	procQ.Count(&activeProc)
@@ -265,12 +268,18 @@ func (h *MachineHandler) Dashboard(c *gin.Context) {
 	}
 	for _, m := range machines {
 		switch m.Status {
-		case models.WaitingProduction: stats["waitingProduction"]++
-		case models.InProgress:        stats["inProgress"]++
-		case models.InOccurrence:      stats["inOccurrence"]++
-		case models.InRework:          stats["inRework"]++
-		case models.Finished:          stats["finished"]++
-		case models.Stop:              stats["stop"]++
+		case models.WaitingProduction:
+			stats["waitingProduction"]++
+		case models.InProgress:
+			stats["inProgress"]++
+		case models.InOccurrence:
+			stats["inOccurrence"]++
+		case models.InRework:
+			stats["inRework"]++
+		case models.Finished:
+			stats["finished"]++
+		case models.Stop:
+			stats["stop"]++
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"machines": machines, "stats": stats})

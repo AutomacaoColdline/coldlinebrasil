@@ -98,8 +98,8 @@ function Modal({ tecnico, onClose, onSaved }) {
   ]
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1e293b] rounded-2xl w-full max-w-md border border-white/[0.08] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center md:p-4 bg-slate-900/70 md:bg-black/60">
+      <div className="bg-[#1e293b] rounded-none md:rounded-2xl w-full max-w-md border border-white/[0.08] shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
           <h2 className="text-white font-semibold text-sm">
             {editing ? 'Editar técnico' : 'Novo técnico'}
@@ -288,8 +288,8 @@ export default function AssistenciaTecnicosPage() {
       )}
 
       {deleting && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1e293b] rounded-2xl p-6 w-80 border border-white/[0.08] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center md:p-4 bg-slate-900/70 md:bg-black/60">
+          <div className="bg-[#1e293b] rounded-none md:rounded-2xl p-4 md:p-6 w-full md:w-80 border border-white/[0.08] shadow-2xl">
             <p className="text-white text-sm mb-1 font-semibold">Excluir técnico?</p>
             <p className="text-white/40 text-xs mb-5">Esta ação não pode ser desfeita.</p>
             <div className="flex gap-3">

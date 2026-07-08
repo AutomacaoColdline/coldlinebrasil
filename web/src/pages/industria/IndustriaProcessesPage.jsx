@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../../services/api'
 import {
   Plus, RefreshCw, Search, ChevronLeft, ChevronRight,
@@ -15,6 +16,7 @@ import {
   spLocalToUtc,
 } from '../../utils/industriaWorkTime'
 import { isIndustriaOperatorUser } from '../../utils/industriaUsers'
+import MachinePicker from '../../components/MachinePicker'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -136,7 +138,7 @@ function CreateModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-slate-800 font-semibold">Novo Processo</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
@@ -178,20 +180,13 @@ function CreateModal({ onClose, onCreated }) {
             {/* Máquina */}
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1.5">Máquina</label>
-              <select
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+              <MachinePicker
+                machines={machines}
                 value={form.machineId}
-                onChange={e => set('machineId', e.target.value)}
-              >
-                <option value="">Sem máquina</option>
-                {machines.map(m => {
-                  const label = m.identificationNumber || m.customerName || m.id?.slice(-6)
-                  const sub   = m.identificationNumber && m.customerName ? ` — ${m.customerName}` : ''
-                  return (
-                    <option key={m.id} value={m.id}>{label}{sub}</option>
-                  )
-                })}
-              </select>
+                onChange={(id, machine) => {
+                  set('machineId', id)
+                }}
+              />
             </div>
 
             {/* Tipo */}
@@ -277,7 +272,7 @@ function EndModal({ proc, onClose, onEnded }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl border border-slate-100 p-6">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-sm shadow-2xl border border-slate-100 p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
             <StopCircle size={20} className="text-red-500" />
@@ -353,7 +348,7 @@ function EditHistoryTimeModal({ proc, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 p-6">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="font-semibold text-slate-800 text-sm">Editar histórico</p>
@@ -436,7 +431,7 @@ function PauseModal({ proc, onClose, onPaused }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl border border-slate-100 p-6">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-sm shadow-2xl border border-slate-100 p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
             <PauseCircle size={20} className="text-orange-500" />
@@ -610,6 +605,8 @@ function ActiveCard({ proc, now, onEnd, onPause, onResume }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function IndustriaProcessesPage() {
+  const [searchParams] = useSearchParams()
+
   // ── active state
   const [active,        setActive]        = useState([])
   const [loadingActive, setLoadingActive] = useState(true)
@@ -620,6 +617,7 @@ export default function IndustriaProcessesPage() {
   const [page,           setPage]           = useState(1)
   const [q,              setQ]              = useState('')
   const [filterFinished, setFilterFinished] = useState('true')
+  const machineId = searchParams.get('machineId') || ''
 
   // ── modals
   const [showCreate,  setShowCreate]  = useState(false)
@@ -634,19 +632,25 @@ export default function IndustriaProcessesPage() {
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    setPage(1)
+  }, [machineId])
+
   // ── load active processes
   const loadActive = useCallback(async () => {
     setLoadingActive(true)
     try {
+      const processParams = { finished: false, page: 1, pageSize: 500 }
+      if (machineId) processParams.machineId = machineId
       const [r, u] = await Promise.all([
-        api.getProcesses({ finished: false }),
+        api.searchProcesses(processParams),
         api.searchUsersPaginated({ page: 1, pageSize: 2000 }),
       ])
       const operatorIds = new Set((u.data?.items || u.data || []).filter(isIndustriaOperatorUser).map(x => x.id))
-      setActive((r.data || []).filter(p => p.user?.id && operatorIds.has(p.user.id)))
+      setActive((r.data?.items || []).filter(p => p.user?.id && operatorIds.has(p.user.id)))
     } catch { setActive([]) }
     finally { setLoadingActive(false) }
-  }, [])
+  }, [machineId])
 
   // ── load history (completed, paginated)
   const loadHistory = useCallback(async () => {
@@ -655,6 +659,7 @@ export default function IndustriaProcessesPage() {
       const params = { page, pageSize: 15 }
       if (filterFinished !== '') params.finished = filterFinished
       if (q.trim())               params.identificationNumber = q.trim()
+      if (machineId)              params.machineId = machineId
       const [r, u] = await Promise.all([
         api.searchProcesses(params),
         api.searchUsersPaginated({ page: 1, pageSize: 2000 }),
@@ -664,7 +669,7 @@ export default function IndustriaProcessesPage() {
       setHistory({ ...r.data, items: (r.data.items || []).filter(ok) })
     } catch { setHistory({ items: [], total: 0, totalPages: 1 }) }
     finally { setLoadingHistory(false) }
-  }, [page, q, filterFinished])
+  }, [page, q, filterFinished, machineId])
 
   useEffect(() => { loadActive() }, [loadActive])
   useEffect(() => { loadHistory() }, [loadHistory])
@@ -689,21 +694,21 @@ export default function IndustriaProcessesPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Processos</h1>
-          <p className="text-sm text-slate-400">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg md:text-xl font-bold text-slate-900">Processos</h1>
+          <p className="text-xs md:text-sm text-slate-400">
             {active.length} em andamento · {history.total} finalizados
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
         >
-          <Plus size={14} /> Novo processo
+          <Plus size={14} /> <span className="hidden sm:inline">Novo processo</span>
         </button>
       </div>
 
@@ -789,65 +794,67 @@ export default function IndustriaProcessesPage() {
               <p className="text-sm text-slate-400">Nenhum processo encontrado</p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  {['OS#', 'Operador', 'Máquina', 'Tipo', 'Tempo', 'Ocioso', 'Início', 'Status'].map(h => (
-                    <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(history.items || []).map(p => {
-                  const kind = processKind(p)
-                  const opRow = operatorOccurrenceFromProc(p)
-                  const pausedRow = !p.finished && !!p.inOccurrence
-                  const statusLabel = p.finished
-                    ? 'Finalizado'
-                    : opRow
-                      ? 'Ocorrência'
-                      : pausedRow
-                        ? 'Pausa automática'
-                        : 'Em andamento'
-                  const statusCls = p.finished
-                    ? 'bg-green-100 text-green-700'
-                    : opRow
-                      ? 'bg-orange-100 text-orange-700'
-                      : pausedRow
-                        ? 'bg-slate-100 text-slate-600'
-                        : 'bg-blue-100 text-blue-700'
-                  return (
-                    <tr key={p.id} className={`border-b border-slate-50 hover:bg-slate-50/50 ${opRow ? 'bg-orange-50/30' : ''}`}>
-                      <td className="py-3 px-4 text-xs font-mono text-slate-500">#{p.identificationNumber}</td>
-                      <td className="py-3 px-4 text-sm text-slate-800">{p.user?.name || '—'}</td>
-                      <td className="py-3 px-4 text-sm text-slate-600">{p.machine?.name || '—'}</td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${kind.cls}`}>
-                          {kind.label}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs font-mono text-slate-600">{p.processTime || '—'}</td>
-                      <td className="py-3 px-4 text-xs font-mono text-slate-500">{fmtSecs(p.totalOccurrenceSeconds || 0)}</td>
-                      <td className="py-3 px-4 text-xs text-slate-500">{fmtDateTime(p.startDate)}</td>
-                      <td className="py-3 px-4">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusCls}`}>
-                          {statusLabel}
-                        </span>
-                        {p.finished && (
-                          <button
-                            onClick={() => setEditTarget(p)}
-                            title="Editar início/fim"
-                            className="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-                          >
-                            <Pencil size={11} /> Ajustar
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px]">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    {['OS#', 'Operador', 'Máquina', 'Tipo', 'Tempo', 'Ocioso', 'Início', 'Status'].map(h => (
+                      <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(history.items || []).map(p => {
+                    const kind = processKind(p)
+                    const opRow = operatorOccurrenceFromProc(p)
+                    const pausedRow = !p.finished && !!p.inOccurrence
+                    const statusLabel = p.finished
+                      ? 'Finalizado'
+                      : opRow
+                        ? 'Ocorrência'
+                        : pausedRow
+                          ? 'Pausa automática'
+                          : 'Em andamento'
+                    const statusCls = p.finished
+                      ? 'bg-green-100 text-green-700'
+                      : opRow
+                        ? 'bg-orange-100 text-orange-700'
+                        : pausedRow
+                          ? 'bg-slate-100 text-slate-600'
+                          : 'bg-blue-100 text-blue-700'
+                    return (
+                      <tr key={p.id} className={`border-b border-slate-50 hover:bg-slate-50/50 ${opRow ? 'bg-orange-50/30' : ''}`}>
+                        <td className="py-3 px-4 text-xs font-mono text-slate-500 whitespace-nowrap">#{p.identificationNumber}</td>
+                        <td className="py-3 px-4 text-sm text-slate-800 whitespace-nowrap">{p.user?.name || '—'}</td>
+                        <td className="py-3 px-4 text-sm text-slate-600 whitespace-nowrap">{p.machine?.name || '—'}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${kind.cls}`}>
+                            {kind.label}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-xs font-mono text-slate-600 whitespace-nowrap">{p.processTime || '—'}</td>
+                        <td className="py-3 px-4 text-xs font-mono text-slate-500 whitespace-nowrap">{fmtSecs(p.totalOccurrenceSeconds || 0)}</td>
+                        <td className="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">{fmtDateTime(p.startDate)}</td>
+                        <td className="py-3 px-4">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusCls}`}>
+                            {statusLabel}
+                          </span>
+                          {p.finished && (
+                            <button
+                              onClick={() => setEditTarget(p)}
+                              title="Editar início/fim"
+                              className="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                            >
+                              <Pencil size={11} /> Ajustar
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

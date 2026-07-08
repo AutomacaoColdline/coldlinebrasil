@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight } from 'lucide-react'
+import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight, Database } from 'lucide-react'
 
 export default function HomePage() {
   const { user, logout } = useAuth()
@@ -13,53 +13,63 @@ export default function HomePage() {
 
   const modules = [
     {
-      key:     'industria',
-      label:   'Indústria',
-      desc:    'Máquinas, processos, ocorrências e operadores em tempo real.',
-      icon:    Building2,
-      color:   'bg-blue-600',
-      hover:   'hover:border-blue-400 hover:shadow-blue-100',
-      badge:   'bg-blue-50 text-blue-700 border-blue-200',
-      path:    '/industria',
+      key: 'industria',
+      label: 'Industria',
+      desc: 'Maquinas, processos, ocorrencias e operadores em tempo real.',
+      icon: Building2,
+      color: 'bg-blue-600',
+      hover: 'hover:border-blue-400 hover:shadow-blue-100',
+      badge: 'bg-blue-50 text-blue-700 border-blue-200',
+      path: '/industria',
       enabled: true,
     },
     {
-      key:     'automation',
-      label:   'Automação',
-      desc:    'Monitoramento remoto, notas técnicas e gestão de equipamentos.',
-      icon:    Zap,
-      color:   'bg-cyan-500',
-      hover:   'hover:border-cyan-400 hover:shadow-cyan-100',
-      badge:   'bg-cyan-50 text-cyan-700 border-cyan-200',
-      path:    '/automation',
+      key: 'automation',
+      label: 'Automacao',
+      desc: 'Monitoramento remoto, atendimentos tecnicos, notas e gestao de equipamentos.',
+      icon: Zap,
+      color: 'bg-cyan-500',
+      hover: 'hover:border-cyan-400 hover:shadow-cyan-100',
+      badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+      path: '/automation',
       enabled: true,
     },
     {
-      key:     'assistencia',
-      label:   'Assistência Técnica',
-      desc:    'Gestão de chamados, clientes e ordens de serviço.',
-      icon:    Wrench,
-      color:   'bg-orange-500',
-      hover:   'hover:border-orange-300 hover:shadow-orange-100',
-      badge:   'bg-orange-50 text-orange-700 border-orange-200',
-      path:    '/assistencia',
+      key: 'information',
+      label: 'Departamento de Informacao',
+      desc: 'Demandas, aprovacoes, treinamentos, rotinas e apoio aos departamentos.',
+      icon: Database,
+      color: 'bg-emerald-500',
+      hover: 'hover:border-emerald-400 hover:shadow-emerald-100',
+      badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      path: '/departamento-informacao',
       enabled: true,
+    },
+    {
+      key: 'assistencia',
+      label: 'Assistencia Tecnica',
+      desc: 'Gestao de chamados, clientes e ordens de servico.',
+      icon: Wrench,
+      color: 'bg-orange-500',
+      hover: 'hover:border-orange-300 hover:shadow-orange-100',
+      badge: 'bg-orange-50 text-orange-700 border-orange-200',
+      path: '/assistencia',
+      enabled: true,
+      visible: false,
     },
   ]
 
   return (
     <div className="min-h-screen bg-[#0f172a] flex flex-col">
-
-      {/* top bar */}
-      <header className="flex items-center justify-between px-8 py-5 border-b border-white/[0.06]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-brand-mid rounded-lg flex items-center justify-center">
+      <header className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-white/[0.06] gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 bg-brand-mid rounded-lg flex items-center justify-center shrink-0">
             <Snowflake size={15} className="text-white" />
           </div>
-          <span className="font-bold text-white text-sm">Coldline Brasil</span>
+          <span className="font-bold text-white text-sm truncate">Coldline Brasil</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {user && (
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold text-white leading-tight">{user.name}</p>
@@ -76,35 +86,35 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        <div className="mb-12 text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Olá{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-12">
+        <div className="mb-6 sm:mb-12 text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+            Ola{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
           </h1>
-          <p className="text-white/40 text-sm">Selecione o módulo que deseja acessar</p>
+          <p className="text-white/40 text-sm">Selecione o modulo que deseja acessar</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-3xl">
-          {modules.map(({ key, label, desc, icon: Icon, color, hover, badge, path, enabled }) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 w-full max-w-5xl">
+          {modules.filter(({ visible = true }) => visible).map(({ key, label, desc, icon: Icon, color, hover, badge, path, enabled }) => (
             <button
               key={key}
               onClick={() => enabled && path && navigate(path)}
               disabled={!enabled}
-              className={`relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-left transition-all duration-200 group
-                ${enabled ? `cursor-pointer ${hover} hover:bg-white/[0.06] hover:shadow-lg` : 'cursor-not-allowed opacity-40'}`}
+              className={`relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 sm:p-6 text-left transition-all duration-200 group ${
+                enabled ? `cursor-pointer ${hover} hover:bg-white/[0.06] hover:shadow-lg` : 'cursor-not-allowed opacity-40'
+              }`}
             >
-              <div className={`w-11 h-11 rounded-xl ${color} flex items-center justify-center mb-4 shadow-lg`}>
+              <div className={`w-10 sm:w-11 h-10 sm:h-11 rounded-xl ${color} flex items-center justify-center mb-3 sm:mb-4 shadow-lg`}>
                 <Icon size={20} className="text-white" />
               </div>
 
               <p className="font-semibold text-white mb-1.5 text-base">{label}</p>
               <p className="text-white/40 text-xs leading-relaxed">{desc}</p>
 
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-3 sm:mt-4 flex items-center justify-between">
                 {enabled ? (
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge}`}>
-                    Disponível
+                    Disponivel
                   </span>
                 ) : (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-white/10 text-white/30">
@@ -121,7 +131,7 @@ export default function HomePage() {
       </div>
 
       <footer className="text-center py-5 text-[11px] text-white/20">
-        © {new Date().getFullYear()} Coldline Brasil · Campo Grande, MS
+        &copy; {new Date().getFullYear()} Coldline Brasil · Campo Grande, MS
       </footer>
     </div>
   )

@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../../services/api'
 import {
   Loader2, RefreshCw, Plus, ChevronLeft, ChevronRight,
   Pencil, Trash2, CheckCircle2, X, AlertTriangle,
 } from 'lucide-react'
 import { formatDateTimePtBrSP } from '../../utils/industriaWorkTime'
+import { isSystemOutOfShiftOccurrence } from '../../utils/industriaOccurrences'
 import { isIndustriaOperatorUser } from '../../utils/industriaUsers'
 
 const EMPTY_FORM = {
@@ -101,7 +103,7 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100">
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -207,30 +209,39 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function IndustriaOccurrencesPage() {
+  const [searchParams] = useSearchParams()
   const [data,    setData]    = useState({ items: [], totalPages: 1, total: 0 })
   const [page,    setPage]    = useState(1)
   const [filter,  setFilter]  = useState('')
   const [loading, setLoading] = useState(true)
   const [modal,   setModal]   = useState(null)
+  const machineId = searchParams.get('machineId') || ''
+
+  useEffect(() => {
+    setPage(1)
+  }, [machineId])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const params = { page, pageSize: 15 }
+      const params = { page, pageSize: 15, excludeSystemAutoPause: true }
       if (filter !== '') params.finished = filter
+      if (machineId) params.machineId = machineId
       const [r, u] = await Promise.all([
         api.searchOccurrences(params),
         api.searchUsersPaginated({ page: 1, pageSize: 2000 }),
       ])
       const operatorIds = new Set((u.data?.items || u.data || []).filter(isIndustriaOperatorUser).map(x => x.id))
-      const items = (r.data?.items || []).filter(o => !o.user || (o.user?.id && operatorIds.has(o.user.id)))
-      setData({ ...(r.data || {}), items, total: items.length })
+      const items = (r.data?.items || []).filter(
+        o => (!o.user || (o.user?.id && operatorIds.has(o.user.id))) && !isSystemOutOfShiftOccurrence(o),
+      )
+      setData({ ...(r.data || {}), items })
     } catch {
       setData({ items: [], totalPages: 1, total: 0 })
     } finally {
       setLoading(false)
     }
-  }, [page, filter])
+  }, [page, filter, machineId])
 
   useEffect(() => { load() }, [load])
 

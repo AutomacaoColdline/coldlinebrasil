@@ -13,6 +13,7 @@ type Process struct {
 	ProcessType            *ReferenceEntity  `gorm:"type:jsonb;serializer:json" json:"processType"`
 	Occurrences            []ReferenceEntity `gorm:"type:jsonb;serializer:json" json:"occurrences"`
 	Machine                *ReferenceEntity  `gorm:"type:jsonb;serializer:json;column:machine_ref" json:"machine"`
+	Collaborators          []ReferenceEntity `gorm:"type:jsonb;serializer:json;column:collaborators" json:"collaborators"`
 	InOccurrence           bool              `json:"inOccurrence"`
 	InOperatorOccurrence   bool              `json:"inOperatorOccurrence" gorm:"-"` // pausa por ocorrência do operador (não pausa automática do sistema)
 	OccurrenceStartDate    *time.Time        `json:"occurrenceStartDate"`
