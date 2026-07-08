@@ -1,7 +1,15 @@
-FROM postgres:16-alpine
+FROM golang:1.22-alpine AS build
+WORKDIR /src
+RUN apk add --no-cache git
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+
+FROM alpine:3.20
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata
-COPY server .
+COPY --from=build /out/server .
 RUN mkdir -p wwwroot/uploads
 EXPOSE 4000
 CMD ["./server"]

@@ -1,5 +1,10 @@
 # Coldline Brasil — Guia de Deploy
 
+> ⚠️ **OBSOLETO** — este documento descreve o fluxo antigo (build no Windows
+> + transferência manual de `.tar` para o servidor `10.0.0.44` atrás do
+> `nginx-proxy-manager`). O deploy atual é via Easypanel, veja
+> [`EASYPANEL.md`](./EASYPANEL.md). Mantido só como referência histórica.
+
 > Documentação do processo de build e deploy do sistema Coldline Brasil
 > (API Go + Frontend React + PostgreSQL, tudo via Docker).
 

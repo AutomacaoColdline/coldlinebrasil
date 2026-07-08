@@ -1,5 +1,9 @@
 # Runbook de Deploy — Coldline Brasil
 
+> ⚠️ **OBSOLETO** — o deploy atual é via Easypanel (build direto do Git, sem
+> `.tar`/FileZilla). Veja [`EASYPANEL.md`](./EASYPANEL.md). Mantido só como
+> referência histórica.
+
 > Instruções para a IA gerar o pacote de deploy (`deploy.zip`) e para o usuário
 > instalar no servidor. O servidor **não tem acesso ao Docker Hub**, então as
 > imagens são buildadas aqui no Windows e enviadas como `.tar` dentro do zip.

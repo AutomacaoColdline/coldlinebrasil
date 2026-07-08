@@ -23,7 +23,7 @@ func Load() *Config {
 			"http://www.coldnex.com",
 			"http://coldnex.com:80",
 			"https://coldnex.com:443",
-			"http://10.0.0.44",
+			"http://10.0.0.73",
 			"http://localhost",
 			"http://localhost:80",
 			"http://localhost:5173",

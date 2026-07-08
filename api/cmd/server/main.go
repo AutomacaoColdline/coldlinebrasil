@@ -48,7 +48,7 @@ func main() {
 			if strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "https://127.0.0.1") {
 				return true
 			}
-			if strings.HasPrefix(origin, "http://10.0.0.44") || strings.HasPrefix(origin, "https://10.0.0.44") {
+			if strings.HasPrefix(origin, "http://10.0.0.73") || strings.HasPrefix(origin, "https://10.0.0.73") {
 				return true
 			}
 			// Permite domínio principal e subdomínios do coldnex em http/https.
