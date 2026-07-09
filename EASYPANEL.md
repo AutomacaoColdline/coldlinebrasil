@@ -1,10 +1,9 @@
-# Coldline Brasil — Deploy via Easypanel (intranet)
+# Coldline Brasil — Deploy via Easypanel
 
-> Sistema interno do projeto **Coldline** no Easypanel. Diferente dos outros
-> apps (que usam domínio público real), este roda em `coldnex.com`, um
-> domínio que **não existe no DNS público** — ele só funciona porque cada
-> máquina da rede tem uma entrada manual no arquivo `hosts` apontando para o
-> servidor. Ninguém fora da rede interna consegue acessar.
+> Sistema do projeto **Coldline** no Easypanel, publicado em
+> `portal.coldline.com.br` (domínio público real, com DNS apontando para o
+> servidor Easypanel). Acessível de qualquer rede, com HTTPS via Let's
+> Encrypt.
 
 ---
 
@@ -15,15 +14,15 @@ Easypanel (servidor 10.0.0.73)
  └─ Projeto "coldline" → App "coldlinebrasil" (Compose)
      ├─ postgres   (sem domínio, sem porta pública)
      ├─ api        (sem domínio, sem porta pública — só rede interna do compose)
-     └─ web        (nginx + React) ← domínio coldnex.com, porta 80, HTTP apenas
+     └─ web        (nginx + React) ← domínio portal.coldline.com.br, porta 80, HTTPS (Let's Encrypt)
 ```
 
 O `docker-compose.yml` da raiz **não expõe nenhuma porta de host** (`ports:`).
 Isso evita o conflito "ports is used in api/web" que aparecia no Easypanel
 quando duas apps tentavam reservar a mesma porta do servidor. O roteamento
 até o container `web` é feito pelo proxy do próprio Easypanel (Traefik), que
-decide para onde mandar a requisição olhando o **Host** (`coldnex.com`) —
-não a porta.
+decide para onde mandar a requisição olhando o **Host**
+(`portal.coldline.com.br`) — não a porta.
 
 O `web` (nginx) já faz proxy interno de `/api/` e `/uploads/` para o
 container `api` pela rede Docker do compose (`web/nginx.conf`), então o
@@ -79,48 +78,41 @@ a partir dessas variáveis — não precisa declarar. Se as variáveis não fore
 setadas, o compose cai nos valores padrão de desenvolvimento (não usar em
 produção).
 
-### 3.3 Domínio (coldnex.com)
+### 3.3 Domínio (portal.coldline.com.br)
 
 Na aba **Domains** do app:
 
-- Domínio: `coldnex.com`
+- Domínio: `portal.coldline.com.br`
 - Serviço: `web`
 - Porta: `80` (a interna do `Dockerfile.web`/nginx)
-- **HTTPS/Let's Encrypt: desabilitado.** Como o domínio não existe no DNS
-  público, a emissão de certificado vai falhar — deixar só HTTP.
+- **HTTPS/Let's Encrypt: habilitado.** Domínio público real com DNS válido,
+  então o Easypanel emite o certificado normalmente.
 
 Não exponha `postgres` nem `api` com domínio.
 
-### 3.4 Entrada no `hosts` de cada máquina da rede
+### 3.4 DNS
 
-Para `http://coldnex.com` resolver para o servidor Easypanel (`10.0.0.73`),
-cada máquina da rede interna precisa de uma linha no arquivo de hosts:
+Cadastre no provedor de DNS de `coldline.com.br` um registro apontando
+`portal` para o servidor Easypanel:
 
 ```
-10.0.0.73    coldnex.com
+portal.coldline.com.br   A   10.0.0.73
 ```
 
-- **Windows:** editar `C:\Windows\System32\drivers\etc\hosts` como
-  Administrador.
-- **Linux/Mac:** editar `/etc/hosts` com `sudo`.
-
-Se a rede tiver um servidor DNS interno (ex: um AD/Windows Server ou
-Pi-hole), é preferível cadastrar `coldnex.com → 10.0.0.73` lá em vez de
-editar máquina por máquina — mas por enquanto o combinado é hosts manual.
+(ou `CNAME` para o hostname que o Easypanel indicar, se o provedor
+preferir). Não é necessário editar `hosts` em cada máquina — é DNS público.
 
 ---
 
-## 4. Migração do servidor antigo (10.0.0.44 → 10.0.0.73)
+## 4. Migração de domínio (coldnex.com → portal.coldline.com.br)
 
-O Docker antigo (`nginx-proxy-manager` + containers manuais) rodava em
-`10.0.0.44`. O CORS do backend (`api/internal/config/config.go` e
-`api/cmd/server/main.go`) já foi atualizado para liberar `10.0.0.73` no
-lugar de `10.0.0.44`. Se `10.0.0.44` ainda estiver em uso durante a
-transição, adicione a origem de volta temporariamente nesses dois arquivos.
-
-Depois que o Easypanel em `10.0.0.73` estiver validado, desligar os
-containers antigos em `10.0.0.44` (`docker compose down` — não usar `-v`
-antes de confirmar que o banco novo já tem os dados migrados).
+Esse app rodava antes em `coldnex.com`, um domínio interno sem DNS público
+(acessível só via entrada manual no `hosts` de cada máquina). O CORS do
+backend (`api/internal/config/config.go` e `api/cmd/server/main.go`) foi
+atualizado para liberar `portal.coldline.com.br` no lugar de `coldnex.com`.
+Se `coldnex.com` ainda precisar funcionar durante a transição, adicione a
+origem de volta temporariamente nesses dois arquivos e mantenha o domínio
+cadastrado no Easypanel em paralelo.
 
 ---
 

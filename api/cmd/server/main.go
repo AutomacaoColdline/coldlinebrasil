@@ -48,17 +48,11 @@ func main() {
 			if strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "https://127.0.0.1") {
 				return true
 			}
-			if strings.HasPrefix(origin, "http://10.0.0.73") || strings.HasPrefix(origin, "https://10.0.0.73") {
+			// Permite domínio principal e subdomínios do portal.coldline.com.br em http/https.
+			if strings.HasPrefix(origin, "https://portal.coldline.com.br") || strings.HasPrefix(origin, "http://portal.coldline.com.br") {
 				return true
 			}
-			// Permite domínio principal e subdomínios do coldnex em http/https.
-			if strings.HasPrefix(origin, "https://coldnex.com") || strings.HasPrefix(origin, "http://coldnex.com") {
-				return true
-			}
-			if strings.HasPrefix(origin, "https://www.coldnex.com") || strings.HasPrefix(origin, "http://www.coldnex.com") {
-				return true
-			}
-			if strings.HasPrefix(origin, "https://api.coldnex.com") || strings.HasPrefix(origin, "http://api.coldnex.com") {
+			if strings.HasPrefix(origin, "https://www.portal.coldline.com.br") || strings.HasPrefix(origin, "http://www.portal.coldline.com.br") {
 				return true
 			}
 			return false
