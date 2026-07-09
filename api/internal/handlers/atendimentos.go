@@ -1081,16 +1081,16 @@ func (h *AtendimentoHandler) Dashboard(c *gin.Context) {
 	_ = ctx
 
 	type statusCount struct {
-		Status string
-		Count  int
+		Status string `json:"status"`
+		Count  int    `json:"count"`
 	}
 	var byStatus []statusCount
 	h.db.Table("atendimentos").Select("status, COUNT(*) as count").Group("status").Scan(&byStatus)
 
 	type techCount struct {
-		ID    string
-		Name  string
-		Count int
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Count int    `json:"count"`
 	}
 	var byTech []techCount
 	h.db.Table("atendimentos").
@@ -1102,9 +1102,9 @@ func (h *AtendimentoHandler) Dashboard(c *gin.Context) {
 		Scan(&byTech)
 
 	type clientCount struct {
-		ID    string
-		Name  string
-		Count int
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Count int    `json:"count"`
 	}
 	var byClient []clientCount
 	h.db.Table("atendimentos").
@@ -1116,8 +1116,8 @@ func (h *AtendimentoHandler) Dashboard(c *gin.Context) {
 		Scan(&byClient)
 
 	type monthCount struct {
-		Month string
-		Count int
+		Month string `json:"month"`
+		Count int    `json:"count"`
 	}
 	var byMonth []monthCount
 	h.db.Table("atendimentos").
@@ -1128,8 +1128,8 @@ func (h *AtendimentoHandler) Dashboard(c *gin.Context) {
 		Scan(&byMonth)
 
 	type causeCount struct {
-		Cause string
-		Count int
+		Cause string `json:"cause"`
+		Count int    `json:"count"`
 	}
 	var byCause []causeCount
 	h.db.Table("atendimentos").
@@ -1141,8 +1141,8 @@ func (h *AtendimentoHandler) Dashboard(c *gin.Context) {
 		Scan(&byCause)
 
 	type equipCount struct {
-		Equipment string
-		Count     int
+		Equipment string `json:"equipment"`
+		Count     int    `json:"count"`
 	}
 	var byEquip []equipCount
 	h.db.Table("atendimentos").
