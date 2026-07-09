@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight, Database } from 'lucide-react'
+import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight, Database, Search } from 'lucide-react'
 
 export default function HomePage() {
   const { user, logout } = useAuth()
@@ -57,6 +57,18 @@ export default function HomePage() {
       enabled: true,
       visible: false,
     },
+    {
+      key: 'pesquisa',
+      label: 'Pesquisa',
+      desc: 'Sistema de pesquisas Coldline.',
+      icon: Search,
+      color: 'bg-purple-500',
+      hover: 'hover:border-purple-400 hover:shadow-purple-100',
+      badge: 'bg-purple-50 text-purple-700 border-purple-200',
+      path: 'https://pesquisa.coldline.com.br',
+      external: true,
+      enabled: true,
+    },
   ]
 
   return (
@@ -95,10 +107,14 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 w-full max-w-5xl">
-          {modules.filter(({ visible = true }) => visible).map(({ key, label, desc, icon: Icon, color, hover, badge, path, enabled }) => (
+          {modules.filter(({ visible = true }) => visible).map(({ key, label, desc, icon: Icon, color, hover, badge, path, enabled, external }) => (
             <button
               key={key}
-              onClick={() => enabled && path && navigate(path)}
+              onClick={() => {
+                if (!enabled || !path) return
+                if (external) window.open(path, '_blank', 'noopener,noreferrer')
+                else navigate(path)
+              }}
               disabled={!enabled}
               className={`relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 sm:p-6 text-left transition-all duration-200 group ${
                 enabled ? `cursor-pointer ${hover} hover:bg-white/[0.06] hover:shadow-lg` : 'cursor-not-allowed opacity-40'
