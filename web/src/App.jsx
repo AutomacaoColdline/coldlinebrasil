@@ -30,6 +30,8 @@ import AutomationAtendimentoReports from './pages/automation/AutomationAtendimen
 import InformationLayout from './pages/information/InformationLayout'
 import InformationPage from './pages/information/InformationPage'
 
+import AccessControlPage from './pages/admin/AccessControlPage'
+
 import AssistenciaLayout from './pages/assistencia/AssistenciaLayout'
 import AssistenciaOSPage from './pages/assistencia/AssistenciaOSPage'
 import AssistenciaOSDetail from './pages/assistencia/AssistenciaOSDetail'
@@ -52,15 +54,21 @@ function Auth({ children }) {
 }
 
 function ModuleGuard({ module, children }) {
-  const { isAdmin, userModule, modulePath, loading } = useAuth()
+  const { isAdmin, hasServiceAccess, modulePath, loading } = useAuth()
   if (loading) return <Spinner />
-  if (!isAdmin && userModule !== module) return <Navigate to={modulePath} replace />
+  if (!isAdmin && !hasServiceAccess(module)) return <Navigate to={modulePath} replace />
   return children
 }
 
 function AdminOnly({ fallback, children }) {
   const { isAdmin, modulePath } = useAuth()
   if (!isAdmin) return <Navigate to={fallback || modulePath} replace />
+  return children
+}
+
+function SuperAdminOnly({ children }) {
+  const { isSuperAdmin, modulePath } = useAuth()
+  if (!isSuperAdmin) return <Navigate to={modulePath} replace />
   return children
 }
 
@@ -113,10 +121,14 @@ export default function App() {
         </Route>
 
         <Route path="/departamento-informacao" element={
-          <Auth><AdminOnly><InformationLayout /></AdminOnly></Auth>
+          <Auth><ModuleGuard module="departamento"><InformationLayout /></ModuleGuard></Auth>
         }>
           <Route index element={<InformationPage />} />
         </Route>
+
+        <Route path="/admin/acessos" element={
+          <Auth><SuperAdminOnly><AccessControlPage /></SuperAdminOnly></Auth>
+        } />
 
         <Route path="/assistencia" element={
           <Auth><ModuleGuard module="assistencia"><AssistenciaLayout /></ModuleGuard></Auth>

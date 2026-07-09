@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"coldline-api/internal/authz"
 	"coldline-api/internal/config"
 	dbpkg "coldline-api/internal/db"
 	"coldline-api/internal/handlers"
@@ -83,6 +84,10 @@ func main() {
 	monitoringTypeHandler := handlers.NewCRUDHandler(db, "monitoring_types")
 
 	auth := middleware.JWTMiddleware(cfg.JWTSecret)
+	industriaAccess := middleware.RequireService(db, authz.ServiceIndustria)
+	automationAccess := middleware.RequireService(db, authz.ServiceAutomation)
+	departamentoAccess := middleware.RequireService(db, authz.ServiceDepartamento)
+	superAdminOnly := middleware.RequireSuperAdmin(db)
 
 	api := r.Group("/api")
 	{
@@ -106,8 +111,9 @@ func main() {
 		usersAuth.POST("", userHandler.Create)
 		usersAuth.PUT("/:id", userHandler.Update)
 		usersAuth.DELETE("/:id", userHandler.Delete)
+		usersAuth.PUT("/:id/services", superAdminOnly, userHandler.UpdateServices)
 
-		proc := api.Group("/Process", auth)
+		proc := api.Group("/Process", auth, industriaAccess)
 		proc.GET("", processHandler.GetAll)
 		proc.GET("/stats", processHandler.GetStats)
 		proc.GET("/search", processHandler.Search)
@@ -127,7 +133,7 @@ func main() {
 		proc.GET("/reports/machines/total-hours", processHandler.MachineTotalHoursReport)
 		proc.GET("/reports/machines/period", processHandler.MachinePeriodReport)
 
-		mach := api.Group("/Machine", auth)
+		mach := api.Group("/Machine", auth, industriaAccess)
 		mach.GET("", machineHandler.GetAll)
 		mach.GET("/stats", machineHandler.GetStats)
 		mach.GET("/dashboard", machineHandler.Dashboard)
@@ -138,7 +144,7 @@ func main() {
 		mach.PUT("/:id", machineHandler.Update)
 		mach.DELETE("/:id", machineHandler.Delete)
 
-		occ := api.Group("/Occurrence", auth)
+		occ := api.Group("/Occurrence", auth, industriaAccess)
 		occ.GET("", occurrenceHandler.GetAll)
 		occ.GET("/stats", occurrenceHandler.GetStats)
 		occ.GET("/search", occurrenceHandler.Search)
@@ -156,7 +162,7 @@ func main() {
 		notes.PUT("/:id", noteHandler.Update)
 		notes.DELETE("/:id", noteHandler.Delete)
 
-		mon := api.Group("/Monitoring", auth)
+		mon := api.Group("/Monitoring", auth, automationAccess)
 		mon.GET("", monitoringHandler.GetAll)
 		mon.GET("/search", monitoringHandler.Search)
 		mon.GET("/types", monitoringHandler.GetTypes)
@@ -193,12 +199,12 @@ func main() {
 
 		registerCRUD(api, "/UserType", userTypeHandler, auth)
 		registerCRUD(api, "/Department", departmentHandler, auth)
-		registerCRUD(api, "/ProcessType", processTypeHandler, auth)
-		registerCRUD(api, "/OccurrenceType", occurrenceTypeHandler, auth)
-		registerCRUD(api, "/MachineType", machineTypeHandler, auth)
-		registerCRUD(api, "/MonitoringType", monitoringTypeHandler, auth)
+		registerCRUD(api, "/ProcessType", processTypeHandler, auth, industriaAccess)
+		registerCRUD(api, "/OccurrenceType", occurrenceTypeHandler, auth, industriaAccess)
+		registerCRUD(api, "/MachineType", machineTypeHandler, auth, industriaAccess)
+		registerCRUD(api, "/MonitoringType", monitoringTypeHandler, auth, automationAccess)
 
-		cvGuide := api.Group("/ColdvisioGuide", auth)
+		cvGuide := api.Group("/ColdvisioGuide", auth, automationAccess)
 		cvGuide.GET("", coldvisioGuideHandler.GetAll)
 		cvGuide.PUT("", coldvisioGuideHandler.Save)
 		cvGuide.GET("/updates", coldvisioGuideHandler.ListUpdates)
@@ -207,7 +213,7 @@ func main() {
 		cvGuide.GET("/updates/:id/files/:fileId/download", coldvisioGuideHandler.DownloadUpdateFile)
 		cvGuide.DELETE("/updates/:id", coldvisioGuideHandler.DeleteUpdate)
 
-		info := api.Group("/departamento-informacao", auth)
+		info := api.Group("/departamento-informacao", auth, departamentoAccess)
 		info.GET("/dashboard", informationHandler.GetDashboard)
 		info.GET("/demands", informationHandler.GetDemands)
 		info.GET("/demands/:id", informationHandler.GetDemandByID)
@@ -251,7 +257,7 @@ func main() {
 		info.DELETE("/checklist/items/:id", informationHandler.DeleteChecklistTemplate)
 		info.PUT("/checklist/entries/:id", informationHandler.UpdateChecklistEntry)
 
-		atd := api.Group("/Atendimento", auth)
+		atd := api.Group("/Atendimento", auth, automationAccess)
 		atd.GET("", atendimentoHandler.GetAll)
 		atd.GET("/search", atendimentoHandler.Search)
 		atd.GET("/dashboard", atendimentoHandler.Dashboard)
@@ -291,8 +297,8 @@ func main() {
 	r.Run(":" + cfg.Port)
 }
 
-func registerCRUD(group *gin.RouterGroup, path string, h *handlers.CRUDHandler, auth gin.HandlerFunc) {
-	g := group.Group(path, auth)
+func registerCRUD(group *gin.RouterGroup, path string, h *handlers.CRUDHandler, middlewares ...gin.HandlerFunc) {
+	g := group.Group(path, middlewares...)
 	g.GET("", h.GetAll)
 	g.GET("/:id", h.GetByID)
 	g.POST("", h.Create)

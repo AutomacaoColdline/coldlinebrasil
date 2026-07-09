@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight, Database, Search } from 'lucide-react'
+import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight, Database, Search, ShieldCheck } from 'lucide-react'
 
 export default function HomePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -68,6 +68,18 @@ export default function HomePage() {
       path: 'https://pesquisa.coldline.com.br',
       external: true,
       enabled: true,
+    },
+    {
+      key: 'acessos',
+      label: 'Controle de Acessos',
+      desc: 'Libere ou revogue o acesso de cada usuário às abas do sistema.',
+      icon: ShieldCheck,
+      color: 'bg-slate-600',
+      hover: 'hover:border-slate-400 hover:shadow-slate-200',
+      badge: 'bg-slate-50 text-slate-700 border-slate-200',
+      path: '/admin/acessos',
+      enabled: true,
+      visible: isSuperAdmin,
     },
   ]
 

@@ -40,6 +40,7 @@ export const api = {
   createUser: (data) => http.post('/api/User', data),
   updateUser: (id, data) => http.put(`/api/User/${id}`, data),
   deleteUser: (id) => http.delete(`/api/User/${id}`),
+  updateUserServices: (id, services) => http.put(`/api/User/${id}/services`, { services }),
 
   // Processes
   getProcesses: (params) => http.get('/api/Process', { params }),

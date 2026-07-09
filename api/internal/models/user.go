@@ -12,6 +12,7 @@ type User struct {
 	IdentificationNumber string           `json:"identificationNumber"`
 	UrlPhoto             string           `json:"urlPhoto"`
 	WorkHourCost         string           `gorm:"column:work_hour_cost" json:"workHourCost"`
+	AllowedServices      []string         `gorm:"type:jsonb;serializer:json;column:allowed_services" json:"allowedServices"`
 }
 
 func (User) TableName() string { return "users" }

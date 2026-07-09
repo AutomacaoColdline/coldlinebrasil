@@ -9,9 +9,15 @@ export const MODULE_PATHS = {
   industria:  '/industria',
   assistencia: '/assistencia',
   automation: '/automation',
+  departamento: '/departamento-informacao',
 }
 
-function resolveModule(user) {
+// Serviços com controle granular de acesso, gerenciado pelo admin automação
+// (usuário 0001) na tela /admin/acessos. "assistencia" fica de fora - segue
+// o bucket único de sempre.
+export const GRANULAR_SERVICES = ['industria', 'automation', 'departamento']
+
+export function resolveModule(user) {
   if (!user) return null
 
   const typeId   = user?.userType?.id   || ''
@@ -41,6 +47,36 @@ function resolveModule(user) {
     return 'assistencia'
 
   return 'automation'
+}
+
+// Espelha api/internal/authz.HasServiceAccess: admin sempre tem acesso;
+// grants explícitos (user.allowedServices) mandam; sem grants, cai no
+// módulo único de sempre (industria/automation) - "departamento" nunca é
+// concedido por padrão, só quando o admin 0001 libera explicitamente.
+export function hasServiceAccess(user, service) {
+  if (!user) return false
+  if (resolveModule(user) === 'admin') return true
+
+  // Assistência não faz parte do controle granular (allowedServices cobre só
+  // industria/automation/departamento) - continua no bucket único de sempre.
+  if (!GRANULAR_SERVICES.includes(service)) return resolveModule(user) === service
+
+  const allowed = Array.isArray(user.allowedServices) ? user.allowedServices : null
+  if (allowed && allowed.length > 0) return allowed.includes(service)
+
+  return resolveModule(user) === service
+}
+
+export function resolveLandingPath(user) {
+  if (!user) return '/login'
+  const module = resolveModule(user)
+  if (module === 'admin') return MODULE_PATHS.admin
+  if (module === 'assistencia') return MODULE_PATHS.assistencia
+
+  for (const service of GRANULAR_SERVICES) {
+    if (hasServiceAccess(user, service)) return MODULE_PATHS[service]
+  }
+  return MODULE_PATHS[module] || '/login'
 }
 
 function readStoredUser() {
@@ -80,13 +116,15 @@ export function AuthProvider({ children }) {
   const isAdmin      = userModule === 'admin'
   const isIndustria  = userModule === 'industria'
   const isRestricted = !!user && !isAdmin
-  const modulePath   = MODULE_PATHS[userModule] || '/login'
+  const isSuperAdmin = user?.identificationNumber === '0001'
+  const modulePath   = resolveLandingPath(user)
 
   return (
     <AuthContext.Provider value={{
       user, loading, loginByIdentification, login, logout,
-      isAdmin, isIndustria, isRestricted,
+      isAdmin, isIndustria, isRestricted, isSuperAdmin,
       userModule, modulePath,
+      hasServiceAccess: (service) => hasServiceAccess(user, service),
       isAuthenticated: !!user,
     }}>
       {children}

@@ -211,6 +211,27 @@ func (h *UserHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Atualizado com sucesso"})
 }
 
+func (h *UserHandler) UpdateServices(c *gin.Context) {
+	var req struct {
+		Services []string `json:"services"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.repo.MergeUpdate(ctx, c.Param("id"), map[string]interface{}{
+		"allowedServices": req.Services,
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Acessos atualizados com sucesso"})
+}
+
 func (h *UserHandler) Delete(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

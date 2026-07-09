@@ -1,37 +1,7 @@
 import { useState } from 'react'
-import { useAuth, MODULE_PATHS } from '../context/AuthContext'
+import { useAuth, resolveLandingPath } from '../context/AuthContext'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { Snowflake, Hash, AlertCircle, Loader2 } from 'lucide-react'
-
-function getRedirectPath(user) {
-  const typeId   = user?.userType?.id   || ''
-  const typeName = (user?.userType?.name || '').toLowerCase()
-  const deptName = (user?.department?.name || '').toLowerCase()
-
-  const adminIds = [
-    import.meta.env.VITE_USER_TYPE_ADMIN,
-    import.meta.env.VITE_USER_TYPE_SETUP,
-  ].filter(Boolean)
-
-  if (adminIds.includes(typeId) ||
-      typeName === 'admin' || typeName === 'setup' || typeName === 'administrador')
-    return MODULE_PATHS.admin
-
-  const industriaId = import.meta.env.VITE_USER_TYPE_INDUSTRIA
-  if (typeId === industriaId ||
-      typeName.includes('industria') || typeName.includes('indústria') ||
-      typeName === 'operador' ||
-      deptName.includes('industria') || deptName.includes('indústria') ||
-      deptName === 'operação')
-    return MODULE_PATHS.industria
-
-  if (typeName.includes('tecnico') || typeName.includes('técnico') ||
-      deptName.includes('assistencia') || deptName.includes('assistência') ||
-      deptName === 'manutenção')
-    return MODULE_PATHS.assistencia
-
-  return MODULE_PATHS.automation
-}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -52,7 +22,7 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       const user = await loginByIdentification(identificationNumber.trim())
-      navigate(getRedirectPath(user), { replace: true })
+      navigate(resolveLandingPath(user), { replace: true })
     } catch {
       setError('Identificação não encontrada. Verifique o número e tente novamente.')
     } finally {
