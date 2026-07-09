@@ -16,8 +16,9 @@ const (
 )
 
 // SuperAdminIdentification is the badge number of the single user allowed to
-// manage per-user service access (the "admin automação" account).
-const SuperAdminIdentification = "0001"
+// manage per-user service access (the "admin automação" account). 0001 is
+// now a plain industria-only user; 7777 is the admin master.
+const SuperAdminIdentification = "7777"
 
 func normalize(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))

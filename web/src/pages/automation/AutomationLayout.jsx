@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard, Monitor, Eye, LogOut, Snowflake,
   ChevronLeft, ChevronRight, ArrowLeft, Loader2, UserCircle, Globe2, RadioTower,
-  Headphones, BarChart3, FileText, Menu, X,
+  Headphones, BarChart3, FileText, Menu, X, ShieldCheck,
 } from 'lucide-react'
 
 const adminNavItems = [
@@ -31,12 +31,15 @@ const restrictedNavItems = [
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
 export default function AutomationLayout() {
-  const { user, logout, loading, isAdmin } = useAuth()
+  const { user, logout, loading, isAdmin, isSuperAdmin } = useAuth()
   const navigate                  = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const navItems = isAdmin ? adminNavItems : restrictedNavItems
+  const baseNavItems = isAdmin ? adminNavItems : restrictedNavItems
+  const navItems = isSuperAdmin
+    ? [...baseNavItems, { to: '/automation/acessos', icon: ShieldCheck, label: 'Controle de Acessos' }]
+    : baseNavItems
 
   const handleLogout = () => {
     logout()

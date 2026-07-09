@@ -116,7 +116,7 @@ export function AuthProvider({ children }) {
   const isAdmin      = userModule === 'admin'
   const isIndustria  = userModule === 'industria'
   const isRestricted = !!user && !isAdmin
-  const isSuperAdmin = user?.identificationNumber === '0001'
+  const isSuperAdmin = user?.identificationNumber === '7777'
   const modulePath   = resolveLandingPath(user)
 
   return (

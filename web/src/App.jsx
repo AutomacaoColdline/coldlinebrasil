@@ -118,6 +118,7 @@ export default function App() {
           <Route path="coldvisio" element={<AutomationColdvisio />} />
           <Route path="xweb" element={<AutomationColdvisio productKey="xweb" />} />
           <Route path="sitrad" element={<AutomationColdvisio productKey="sitrad" />} />
+          <Route path="acessos" element={<SuperAdminOnly><AccessControlPage /></SuperAdminOnly>} />
         </Route>
 
         <Route path="/departamento-informacao" element={
@@ -125,10 +126,6 @@ export default function App() {
         }>
           <Route index element={<InformationPage />} />
         </Route>
-
-        <Route path="/admin/acessos" element={
-          <Auth><SuperAdminOnly><AccessControlPage /></SuperAdminOnly></Auth>
-        } />
 
         <Route path="/assistencia" element={
           <Auth><ModuleGuard module="assistencia"><AssistenciaLayout /></ModuleGuard></Auth>
