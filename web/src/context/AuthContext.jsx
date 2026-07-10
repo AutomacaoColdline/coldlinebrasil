@@ -114,6 +114,10 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const refreshUser = useCallback(() => {
+    setUser(readStoredUser())
+  }, [])
+
   const userModule   = resolveModule(user)
   const isAdmin      = userModule === 'admin'
   const isIndustria  = userModule === 'industria'
@@ -123,7 +127,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, logout,
+      user, loading, login, logout, refreshUser,
       isAdmin, isIndustria, isRestricted, isSuperAdmin,
       userModule, modulePath,
       hasServiceAccess: (service) => hasServiceAccess(user, service),

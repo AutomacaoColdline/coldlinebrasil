@@ -7,7 +7,7 @@ import { persistAuth, readStoredAuth } from '../utils/authStorage'
 
 export default function ChangePasswordPage() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -39,6 +39,7 @@ export default function ChangePasswordPage() {
       if (stored?.user) {
         persistAuth(stored.token, { ...stored.user, mustChangePassword: false })
       }
+      refreshUser()
       navigate(resolveLandingPath({ ...user, mustChangePassword: false }), { replace: true })
     } catch (err) {
       const msg = err?.response?.data?.message || 'Erro ao alterar senha'
