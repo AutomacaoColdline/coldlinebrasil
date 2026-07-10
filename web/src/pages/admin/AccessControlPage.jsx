@@ -216,9 +216,9 @@ function ResetPasswordModal({ user, onClose, onSaved }) {
 
 /* ────────────── Create User Modal ────────────── */
 
-function CreateUserModal({ departments, userTypes, onClose, onCreated }) {
+function CreateUserModal({ departments, onClose, onCreated }) {
   const [form, setForm] = useState({
-    name: '', email: '', identificationNumber: '', departmentId: '', userTypeId: '',
+    name: '', email: '', departmentId: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -228,17 +228,13 @@ function CreateUserModal({ departments, userTypes, onClose, onCreated }) {
   const handleSave = async () => {
     setError('')
     if (!form.name.trim()) { setError('Nome é obrigatório'); return }
-    if (!form.identificationNumber.trim()) { setError('Identificação é obrigatória'); return }
     setSaving(true)
     try {
       const dept = departments.find((d) => d.id === form.departmentId)
-      const type = userTypes.find((t) => t.id === form.userTypeId)
       await api.createUser({
         name: form.name,
         email: form.email,
-        identificationNumber: form.identificationNumber,
         ...(dept ? { department: { id: dept.id, name: dept.name } } : {}),
-        ...(type ? { userType: { id: type.id, name: type.name } } : {}),
       })
       onCreated()
     } catch (err) {
@@ -263,7 +259,6 @@ function CreateUserModal({ departments, userTypes, onClose, onCreated }) {
           {[
             { label: 'Nome *', key: 'name' },
             { label: 'Email', key: 'email', type: 'email' },
-            { label: 'Identificação *', key: 'identificationNumber' },
           ].map(({ label, key, type }) => (
             <div key={key}>
               <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
@@ -282,15 +277,6 @@ function CreateUserModal({ departments, userTypes, onClose, onCreated }) {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400">
               <option value="">Selecione...</option>
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Tipo de Usuário</label>
-            <select value={form.userTypeId || ''} onChange={(e) => set('userTypeId', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400">
-              <option value="">Selecione...</option>
-              {userTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
 
@@ -746,7 +732,6 @@ export default function AccessControlPage() {
       {showCreate && (
         <CreateUserModal
           departments={departments}
-          userTypes={userTypes}
           onClose={() => setShowCreate(false)}
           onCreated={() => { setShowCreate(false); loadUsers() }}
         />
