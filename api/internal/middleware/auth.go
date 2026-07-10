@@ -34,7 +34,7 @@ func JWTMiddleware(secret string) gin.HandlerFunc {
 }
 
 func GenerateToken(userID, name, userType, department, secret string) (string, error) {
-	return generateTokenWithExpiry(userID, name, userType, department, secret, 30*24*time.Hour)
+	return generateTokenWithExpiry(userID, name, userType, department, secret, 12*time.Hour)
 }
 
 func GenerateTVToken(userID, name, userType, department, secret string) (string, error) {
