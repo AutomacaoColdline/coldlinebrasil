@@ -13,6 +13,10 @@ const (
 	ServiceIndustria    = "industria"
 	ServiceAutomation   = "automation"
 	ServiceDepartamento = "departamento"
+	// ServicePesquisa is not a protected route group (pesquisa.coldline.com.br
+	// is an external site) - it only exists so AllowedServices membership
+	// checks have a named constant, mirroring GRANULAR_SERVICES on the frontend.
+	ServicePesquisa = "pesquisa"
 )
 
 // SuperAdminIdentification is the badge number of the single user allowed to

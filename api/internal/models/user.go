@@ -13,6 +13,7 @@ type User struct {
 	UrlPhoto             string           `json:"urlPhoto"`
 	WorkHourCost         string           `gorm:"column:work_hour_cost" json:"workHourCost"`
 	AllowedServices      []string         `gorm:"type:jsonb;serializer:json;column:allowed_services" json:"allowedServices"`
+	MustChangePassword   bool             `gorm:"column:must_change_password;default:true" json:"mustChangePassword"`
 }
 
 func (User) TableName() string { return "users" }

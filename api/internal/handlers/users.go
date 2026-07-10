@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"coldline-api/internal/authz"
 	"coldline-api/internal/middleware"
 	"coldline-api/internal/models"
 	"coldline-api/internal/repositories"
@@ -58,32 +59,6 @@ func (h *UserHandler) GetByID(c *gin.Context) {
 	}
 	user.Password = ""
 	c.JSON(http.StatusOK, user)
-}
-
-func (h *UserHandler) GetByIdentification(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	user, err := h.repo.FindOne(ctx, "identification_number = ?", c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
-		return
-	}
-
-	token, err := middleware.GenerateToken(
-		user.ID,
-		user.Name,
-		safeRef(user.UserType),
-		safeDept(user.Department),
-		h.jwtSecret,
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao gerar token"})
-		return
-	}
-
-	user.Password = ""
-	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
@@ -154,6 +129,11 @@ func (h *UserHandler) TVLogin(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
 }
 
+// DefaultNewUserPassword is the password assigned to users created without an
+// explicit password (e.g. via the Controle de Acessos "Novo Usuário" modal).
+// They're forced to change it on first login (MustChangePassword).
+const DefaultNewUserPassword = "12345678"
+
 func (h *UserHandler) Create(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
@@ -161,14 +141,16 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if user.Password != "" {
-		hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao processar senha"})
-			return
-		}
-		user.Password = string(hashed)
+	if user.Password == "" {
+		user.Password = DefaultNewUserPassword
 	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao processar senha"})
+		return
+	}
+	user.Password = string(hashed)
+	user.MustChangePassword = true
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -235,11 +217,96 @@ func (h *UserHandler) UpdateServices(c *gin.Context) {
 func (h *UserHandler) Delete(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	user, err := h.repo.FindByID(ctx, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
+		return
+	}
+	if user.IdentificationNumber == authz.SuperAdminIdentification {
+		c.JSON(http.StatusForbidden, gin.H{"message": "O admin master não pode ser excluído"})
+		return
+	}
+
 	if err := h.repo.Delete(ctx, c.Param("id")); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deletado com sucesso"})
+}
+
+// ChangePassword lets an authenticated user set their own new password,
+// confirming the current one first. Clears MustChangePassword on success -
+// used both for the forced first-login flow and voluntary changes later.
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.NewPassword == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos"})
+		return
+	}
+
+	userID, _ := c.Get("userId")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	user, err := h.repo.FindByID(ctx, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Senha atual incorreta"})
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao processar senha"})
+		return
+	}
+
+	if err := h.repo.MergeUpdate(ctx, user.ID, map[string]interface{}{
+		"password":             string(hashed),
+		"must_change_password": false,
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Senha atualizada com sucesso"})
+}
+
+// AdminSetPassword lets the super admin reset any user's password. The
+// target is forced to change it again on their next login.
+func (h *UserHandler) AdminSetPassword(c *gin.Context) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Senha é obrigatória"})
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Erro ao processar senha"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.repo.MergeUpdate(ctx, c.Param("id"), map[string]interface{}{
+		"password":             string(hashed),
+		"must_change_password": true,
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Senha redefinida com sucesso"})
 }
 
 func (h *UserHandler) Search(c *gin.Context) {

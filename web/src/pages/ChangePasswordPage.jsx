@@ -1,35 +1,48 @@
 import { useState } from 'react'
 import { useAuth, resolveLandingPath } from '../context/AuthContext'
-import { useNavigate, Navigate } from 'react-router-dom'
-import { Snowflake, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react'
+import { api } from '../services/api'
+import { useNavigate } from 'react-router-dom'
+import { Snowflake, Lock, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react'
+import { persistAuth, readStoredAuth } from '../utils/authStorage'
 
-export default function LoginPage() {
+export default function ChangePasswordPage() {
   const navigate = useNavigate()
-  const { login, isAuthenticated, loading, modulePath } = useAuth()
+  const { user, logout } = useAuth()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  if (!loading && isAuthenticated) {
-    return <Navigate to={modulePath} replace />
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email.trim() || !password) return
     setError('')
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('Preencha todos os campos')
+      return
+    }
+    if (newPassword.length < 6) {
+      setError('A nova senha deve ter no mínimo 6 caracteres')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('A nova senha e a confirmação não conferem')
+      return
+    }
+
     setSubmitting(true)
     try {
-      const user = await login(email.trim(), password)
-      if (user.mustChangePassword) {
-        navigate('/trocar-senha', { replace: true })
-      } else {
-        navigate(resolveLandingPath(user), { replace: true })
+      await api.changePassword(currentPassword, newPassword)
+      const stored = readStoredAuth()
+      if (stored?.user) {
+        persistAuth(stored.token, { ...stored.user, mustChangePassword: false })
       }
-    } catch {
-      setError('Email ou senha inválidos. Verifique e tente novamente.')
+      navigate(resolveLandingPath({ ...user, mustChangePassword: false }), { replace: true })
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Erro ao alterar senha'
+      setError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -37,7 +50,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel */}
       <div className="hidden lg:flex w-1/2 bg-[#0f172a] flex-col justify-between p-12">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-brand-mid rounded-xl flex items-center justify-center">
@@ -47,16 +59,16 @@ export default function LoginPage() {
         </div>
         <div>
           <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-            Sistema de<br />Gestão Industrial
+            Troca de<br />Senha Obrigatória
           </h1>
           <p className="text-slate-400 text-base leading-relaxed max-w-sm">
-            Controle de processos, máquinas e ocorrências em tempo real com dados do MongoDB.
+            Por segurança, você precisa definir uma nova senha antes de acessar o sistema.
           </p>
         </div>
         <div className="flex gap-6">
           {[
-            { label: '+26 anos', sub: 'de experiência' },
-            { label: 'Tempo real', sub: 'monitoramento' },
+            { label: 'Segurança', sub: 'primeiro acesso' },
+            { label: 'Confirmação', sub: 'nova senha' },
             { label: 'Campo Grande', sub: 'MS, Brasil' },
           ].map(({ label, sub }) => (
             <div key={label}>
@@ -67,7 +79,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-slate-50">
         <div className="w-full max-w-sm">
           <div className="flex lg:hidden items-center gap-2 mb-8 sm:mb-10 justify-center">
@@ -77,8 +88,12 @@ export default function LoginPage() {
             <span className="font-bold text-lg text-slate-800">Coldline Brasil</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900 mb-1">Bem-vindo</h2>
-          <p className="text-slate-500 text-sm mb-6 sm:mb-8">Entre com seu email e senha</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">Trocar Senha</h2>
+          <p className="text-slate-500 text-sm mb-6 sm:mb-8">
+            {user?.mustChangePassword
+              ? 'Primeiro acesso: crie uma nova senha'
+              : 'Digite sua senha atual e a nova senha'}
+          </p>
 
           {error && (
             <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-100 rounded-xl mb-6">
@@ -90,15 +105,15 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email
+                Senha Atual
               </label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Sua senha atual"
                   className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-mid/30 focus:border-brand-mid transition-all"
                   autoFocus
                 />
@@ -107,15 +122,31 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Senha
+                Nova Senha
               </label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-mid/30 focus:border-brand-mid transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Confirmar Nova Senha
+              </label>
+              <div className="relative">
+                <CheckCircle2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a nova senha"
                   className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-mid/30 focus:border-brand-mid transition-all"
                 />
               </div>
@@ -123,21 +154,17 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={submitting || !email.trim() || !password}
+              disabled={submitting || !currentPassword || !newPassword || !confirmPassword}
               className="w-full py-3 bg-brand-mid hover:bg-brand-700 text-white font-semibold rounded-xl transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
             >
               {submitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Entrando...
+                  Alterando...
                 </>
-              ) : 'Entrar'}
+              ) : 'Alterar Senha'}
             </button>
           </form>
-
-          <p className="text-center text-xs text-slate-400 mt-8">
-            © {new Date().getFullYear()} Coldline Brasil · Campo Grande, MS
-          </p>
         </div>
       </div>
     </div>

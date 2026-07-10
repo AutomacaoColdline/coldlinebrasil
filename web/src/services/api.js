@@ -26,8 +26,9 @@ http.interceptors.response.use(
 
 export const api = {
   // Auth
-  loginByIdentification: (id) => http.get(`/api/User/identification/${id}`),
   login: (email, password) => http.post('/api/User/login', { email, password }),
+  changePassword: (currentPassword, newPassword) => http.post('/api/User/change-password', { currentPassword, newPassword }),
+  adminSetPassword: (id, password) => http.put(`/api/User/${id}/password`, { password }),
 
   // Dashboard
   getDashboard: () => http.get('/api/dashboard'),

@@ -17,6 +17,10 @@ export const MODULE_PATHS = {
 // o bucket único de sempre.
 export const GRANULAR_SERVICES = ['industria', 'automation', 'departamento']
 
+// Serviços que não fazem parte da navegação principal (não entram em
+// resolveLandingPath), mas ainda assim são controlados por AllowedServices.
+export const EXTRA_ACCESS_SERVICES = ['pesquisa']
+
 export function resolveModule(user) {
   if (!user) return null
 
@@ -57,6 +61,11 @@ export function hasServiceAccess(user, service) {
   if (!user) return false
   if (resolveModule(user) === 'admin') return true
 
+  if (EXTRA_ACCESS_SERVICES.includes(service)) {
+    const allowed = Array.isArray(user.allowedServices) ? user.allowedServices : null
+    return allowed ? allowed.includes(service) : false
+  }
+
   // Assistência não faz parte do controle granular (allowedServices cobre só
   // industria/automation/departamento) - continua no bucket único de sempre.
   if (!GRANULAR_SERVICES.includes(service)) return resolveModule(user) === service
@@ -93,13 +102,6 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('storage', syncAuthState)
   }, [])
 
-  const loginByIdentification = useCallback(async (identificationNumber) => {
-    const { data } = await api.loginByIdentification(identificationNumber)
-    persistAuth(data.token, data.user)
-    setUser(data.user)
-    return data.user
-  }, [])
-
   const login = useCallback(async (email, password) => {
     const { data } = await api.login(email, password)
     persistAuth(data.token, data.user)
@@ -121,7 +123,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, loginByIdentification, login, logout,
+      user, loading, login, logout,
       isAdmin, isIndustria, isRestricted, isSuperAdmin,
       userModule, modulePath,
       hasServiceAccess: (service) => hasServiceAccess(user, service),

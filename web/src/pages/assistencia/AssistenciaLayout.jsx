@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
-  ClipboardList, Users, LogOut, Snowflake, ChevronLeft, HardHat, UserCircle, Menu, X,
+  ClipboardList, Users, LogOut, Snowflake, ChevronLeft, HardHat, UserCircle, Menu, X, Search,
 } from 'lucide-react'
 
 const adminNavItems = [
@@ -17,7 +17,7 @@ const restrictedNavItems = [
 ]
 
 export default function AssistenciaLayout() {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, isAdmin, hasServiceAccess } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -72,6 +72,13 @@ export default function AssistenciaLayout() {
             {label}
           </NavLink>
         ))}
+        {hasServiceAccess('pesquisa') && (
+          <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium text-white/40 hover:text-white hover:bg-white/[0.05] transition-all">
+            <Search size={14} />
+            Pesquisa
+          </a>
+        )}
       </nav>
 
       <div className="px-3 py-4 border-t border-white/[0.06] space-y-1">
@@ -130,6 +137,13 @@ export default function AssistenciaLayout() {
               {label}
             </NavLink>
           ))}
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium text-white/40 hover:text-white hover:bg-white/[0.05] transition-all">
+              <Search size={14} />
+              Pesquisa
+            </a>
+          )}
         </nav>
 
         <div className="px-3 py-4 border-t border-white/[0.06] space-y-1">
@@ -178,7 +192,7 @@ export default function AssistenciaLayout() {
           >
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">
               <Snowflake size={13} className="text-white" />
             </div>
@@ -187,6 +201,13 @@ export default function AssistenciaLayout() {
               <p className="text-orange-400 text-[10px] font-semibold leading-tight">Assistência</p>
             </div>
           </div>
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-purple-300 bg-purple-500/10 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-all shrink-0">
+              <Search size={13} />
+              <span className="hidden sm:inline">Pesquisa</span>
+            </a>
+          )}
         </div>
         <Outlet />
       </main>

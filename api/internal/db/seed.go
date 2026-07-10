@@ -35,6 +35,9 @@ func seed(db *gorm.DB) {
 	seedAdminUser(db)
 	seedMasterAdmin(db)
 	demoteLegacyAdmin(db)
+	ensureMasterAdminCredentials(db)
+	seedIndustriaUser(db)
+	seedTVSystemUser(db)
 }
 
 func seedConfigTable(db *gorm.DB, table string, names []string) {
@@ -163,4 +166,113 @@ func demoteLegacyAdmin(db *gorm.DB) {
 		"allowed_services": string(allowedJSON),
 	})
 	log.Println("🌱 Usuário 0001 reclassificado: acesso restrito à Indústria")
+}
+
+// ensureMasterAdminCredentials keeps the admin master's password pinned to
+// the fixed value chosen for this account, even on a database where
+// seedMasterAdmin already ran once with the old placeholder password. Runs
+// every boot but only rewrites the hash when it doesn't already match.
+func ensureMasterAdminCredentials(db *gorm.DB) {
+	const email = "automacao@coldline.com.br"
+	const password = "Automacao2026@Admin"
+
+	var user models.User
+	if err := db.Table("users").Where("email = ?", email).First(&user).Error; err != nil {
+		return
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) == nil {
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("❌ Erro ao gerar senha do admin master: %v", err)
+		return
+	}
+
+	db.Table("users").Where("id = ?", user.ID).Updates(map[string]interface{}{
+		"password":             string(hashed),
+		"must_change_password": false,
+	})
+	log.Println("🌱 Credenciais do admin master atualizadas")
+}
+
+// seedIndustriaUser creates the industria@coldline.com.br account with
+// access limited to the Indústria service. Fine-grained tuning of its
+// department/type is expected to be done later via Controle de Acessos.
+func seedIndustriaUser(db *gorm.DB) {
+	const email = "industria@coldline.com.br"
+
+	var count int64
+	db.Table("users").Where("email = ?", email).Count(&count)
+	if count > 0 {
+		return
+	}
+
+	userType := findOrCreateBaseEntity(db, "user_types", "Operador")
+	dept := findOrCreateBaseEntity(db, "departments", "Indústria")
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(DefaultNewUserPasswordSeed), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("❌ Erro ao gerar senha do usuário indústria: %v", err)
+		return
+	}
+
+	userTypeJSON, _ := json.Marshal(models.ReferenceEntity{ID: userType.ID, Name: userType.Name})
+	deptJSON, _ := json.Marshal(models.ReferenceEntity{ID: dept.ID, Name: dept.Name})
+	allowedJSON, _ := json.Marshal([]string{authz.ServiceIndustria})
+
+	industriaUser := map[string]interface{}{
+		"name":                  "Usuário Indústria",
+		"email":                 email,
+		"password":              string(hashed),
+		"identification_number": "1001",
+		"user_type":             string(userTypeJSON),
+		"department":            string(deptJSON),
+		"work_hour_cost":        "0",
+		"allowed_services":      string(allowedJSON),
+		"must_change_password":  true,
+	}
+
+	db.Table("users").Create(&industriaUser)
+	log.Printf("🌱 Usuário indústria criado: %s / senha inicial %s", email, DefaultNewUserPasswordSeed)
+}
+
+// TVSystemIdentification is the badge number of the headless account used by
+// the TV/kiosk dashboard to authenticate silently, without any login screen.
+const TVSystemIdentification = "9999"
+
+// DefaultNewUserPasswordSeed mirrors handlers.DefaultNewUserPassword - kept
+// as a separate constant here since db must not import handlers.
+const DefaultNewUserPasswordSeed = "12345678"
+
+// seedTVSystemUser creates the headless account the TV dashboard logs in as
+// automatically (no password ever checked for TVLogin, no login screen).
+func seedTVSystemUser(db *gorm.DB) {
+	var count int64
+	db.Table("users").Where("identification_number = ?", TVSystemIdentification).Count(&count)
+	if count > 0 {
+		return
+	}
+
+	userType := findOrCreateBaseEntity(db, "user_types", "Visitante")
+	dept := findOrCreateBaseEntity(db, "departments", "Indústria")
+
+	userTypeJSON, _ := json.Marshal(models.ReferenceEntity{ID: userType.ID, Name: userType.Name})
+	deptJSON, _ := json.Marshal(models.ReferenceEntity{ID: dept.ID, Name: dept.Name})
+	allowedJSON, _ := json.Marshal([]string{authz.ServiceIndustria})
+
+	tvUser := map[string]interface{}{
+		"name":                   "TV Indústria",
+		"identification_number":  TVSystemIdentification,
+		"user_type":              string(userTypeJSON),
+		"department":             string(deptJSON),
+		"work_hour_cost":         "0",
+		"allowed_services":       string(allowedJSON),
+		"must_change_password":   false,
+	}
+
+	db.Table("users").Create(&tvUser)
+	log.Printf("🌱 Usuário de sistema da TV criado: identificação %s", TVSystemIdentification)
 }

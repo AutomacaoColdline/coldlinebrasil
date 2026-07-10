@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard, Monitor, Eye, LogOut, Snowflake,
   ChevronLeft, ChevronRight, ArrowLeft, Loader2, UserCircle, Globe2, RadioTower,
-  Headphones, BarChart3, FileText, Menu, X, ShieldCheck,
+  Headphones, BarChart3, FileText, Menu, X, ShieldCheck, Search,
 } from 'lucide-react'
 
 const adminNavItems = [
@@ -31,7 +31,7 @@ const restrictedNavItems = [
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
 export default function AutomationLayout() {
-  const { user, logout, loading, isAdmin, isSuperAdmin } = useAuth()
+  const { user, logout, loading, isAdmin, isSuperAdmin, hasServiceAccess } = useAuth()
   const navigate                  = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -117,6 +117,13 @@ export default function AutomationLayout() {
             <span>{label}</span>
           </NavLink>
         ))}
+        {hasServiceAccess('pesquisa') && (
+          <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1">
+            <Search size={17} className="shrink-0" />
+            <span>Pesquisa</span>
+          </a>
+        )}
       </nav>
 
       <div className="border-t border-white/10 p-3 space-y-1">
@@ -187,6 +194,14 @@ export default function AutomationLayout() {
               {!collapsed && <span>{label}</span>}
             </NavLink>
           ))}
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className={`flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1 ${collapsed ? 'justify-center px-0' : ''}`}
+              title={collapsed ? 'Pesquisa' : undefined}>
+              <Search size={17} className="shrink-0" />
+              {!collapsed && <span>Pesquisa</span>}
+            </a>
+          )}
         </nav>
 
         <div className="border-t border-white/10 p-3 space-y-1">
@@ -239,12 +254,19 @@ export default function AutomationLayout() {
           >
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-7 h-7 bg-cyan-500 rounded-lg flex items-center justify-center shrink-0">
               <Snowflake size={14} className="text-white" />
             </div>
             <span className="font-semibold text-sm text-slate-800 truncate">Automação</span>
           </div>
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all shrink-0">
+              <Search size={13} />
+              <span className="hidden sm:inline">Pesquisa</span>
+            </a>
+          )}
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
           <Snowflake size={400} className="text-slate-900/[0.03]" strokeWidth={0.5} />

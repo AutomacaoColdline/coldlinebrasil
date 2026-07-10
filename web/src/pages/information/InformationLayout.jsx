@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
-  LayoutDashboard, LogOut, ArrowLeft, ChevronLeft, ChevronRight, Database, Loader2, Menu, X,
+  LayoutDashboard, LogOut, ArrowLeft, ChevronLeft, ChevronRight, Database, Loader2, Menu, X, Search,
 } from 'lucide-react'
 
 const navItems = [
@@ -10,7 +10,7 @@ const navItems = [
 ]
 
 export default function InformationLayout() {
-  const { user, logout, loading } = useAuth()
+  const { user, logout, loading, hasServiceAccess } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -73,6 +73,13 @@ export default function InformationLayout() {
             <span>{label}</span>
           </NavLink>
         ))}
+        {hasServiceAccess('pesquisa') && (
+          <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1">
+            <Search size={17} className="shrink-0" />
+            <span>Pesquisa</span>
+          </a>
+        )}
       </nav>
 
       <div className="border-t border-white/10 p-3 space-y-1">
@@ -124,6 +131,14 @@ export default function InformationLayout() {
               {!collapsed && <span>{label}</span>}
             </NavLink>
           ))}
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className={`flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1 ${collapsed ? 'justify-center px-0' : ''}`}
+              title={collapsed ? 'Pesquisa' : undefined}>
+              <Search size={17} className="shrink-0" />
+              {!collapsed && <span>Pesquisa</span>}
+            </a>
+          )}
         </nav>
 
         <div className="border-t border-white/10 p-3 space-y-1">
@@ -167,12 +182,19 @@ export default function InformationLayout() {
           >
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center shrink-0">
               <Database size={14} className="text-white" />
             </div>
             <span className="font-semibold text-sm text-white truncate">Departamento</span>
           </div>
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-purple-300 bg-purple-500/10 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-all shrink-0">
+              <Search size={13} />
+              <span className="hidden sm:inline">Pesquisa</span>
+            </a>
+          )}
         </div>
         <Outlet />
       </main>

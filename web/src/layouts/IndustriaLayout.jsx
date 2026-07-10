@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   Home, Users, Cog, Activity,
   Settings, ClipboardList, ChevronLeft, ChevronRight,
-  LogOut, Building2, Tv, ArrowLeft, UserCircle, Menu, X,
+  LogOut, Building2, Tv, ArrowLeft, UserCircle, Menu, X, Search,
 } from 'lucide-react'
 
 const adminNav = [
@@ -26,7 +26,7 @@ const restrictedNav = [
 export default function IndustriaLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, isAdmin, hasServiceAccess } = useAuth()
   const navigate = useNavigate()
 
   const nav = isAdmin ? adminNav : restrictedNav
@@ -80,6 +80,13 @@ export default function IndustriaLayout() {
             className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1">
             <Tv size={18} className="shrink-0" />
             <span>Modo TV</span>
+          </a>
+        )}
+        {hasServiceAccess('pesquisa') && (
+          <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1">
+            <Search size={18} className="shrink-0" />
+            <span>Pesquisa</span>
           </a>
         )}
       </nav>
@@ -146,6 +153,13 @@ export default function IndustriaLayout() {
               <span>Modo TV</span>
             </a>
           )}
+          {hasServiceAccess('pesquisa') && !collapsed && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all mt-1">
+              <Search size={18} className="shrink-0" />
+              <span>Pesquisa</span>
+            </a>
+          )}
         </nav>
         <div className="border-t border-white/10 p-3 space-y-1">
           {!collapsed && user && (
@@ -200,12 +214,19 @@ export default function IndustriaLayout() {
           >
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
               <Building2 size={14} className="text-white" />
             </div>
             <span className="font-semibold text-sm text-slate-800 truncate">Indústria</span>
           </div>
+          {hasServiceAccess('pesquisa') && (
+            <a href="https://pesquisa.coldline.com.br" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all shrink-0">
+              <Search size={13} />
+              <span className="hidden sm:inline">Pesquisa</span>
+            </a>
+          )}
         </div>
         <Outlet />
       </main>

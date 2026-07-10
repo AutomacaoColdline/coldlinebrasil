@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { Loader2 } from 'lucide-react'
 
 import LoginPage from './pages/LoginPage'
+import ChangePasswordPage from './pages/ChangePasswordPage'
 import HomePage from './pages/HomePage'
 import TVLoginPage from './pages/TVLoginPage'
 
@@ -47,9 +48,13 @@ function Spinner() {
 }
 
 function Auth({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, user } = useAuth()
+  const location = window.location
   if (loading) return <Spinner />
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.mustChangePassword && !location.pathname.includes('/trocar-senha')) {
+    return <Navigate to="/trocar-senha" replace />
+  }
   return children
 }
 
@@ -83,6 +88,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/trocar-senha" element={<Auth><ChangePasswordPage /></Auth>} />
 
         <Route path="/home" element={
           <Auth><AdminOnly><HomePage /></AdminOnly></Auth>

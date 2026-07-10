@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { Building2, Zap, Wrench, LogOut, Snowflake, ChevronRight, Database, Search } from 'lucide-react'
 
 export default function HomePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasServiceAccess } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -67,7 +67,7 @@ export default function HomePage() {
       badge: 'bg-purple-50 text-purple-700 border-purple-200',
       path: 'https://pesquisa.coldline.com.br',
       external: true,
-      enabled: true,
+      enabled: hasServiceAccess('pesquisa'),
     },
   ]
 
