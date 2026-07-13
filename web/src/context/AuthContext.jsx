@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { flushSync } from 'react-dom'
 import { api } from '../services/api'
 import { clearStoredAuth, persistAuth, readStoredAuth } from '../utils/authStorage'
 
@@ -105,7 +106,10 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const { data } = await api.login(email, password)
     persistAuth(data.token, data.user)
-    setUser(data.user)
+    // flushSync: garante que o contexto reflita o usuário logado antes do
+    // caller navegar - sem isso, os guards de rota (Auth/AdminOnly) podem
+    // renderizar num tick anterior à atualização e mandar de volta pro login.
+    flushSync(() => setUser(data.user))
     return data.user
   }, [])
 

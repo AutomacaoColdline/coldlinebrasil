@@ -5,7 +5,7 @@ import { Snowflake, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { login, isAuthenticated, loading, modulePath } = useAuth()
+  const { login, refreshUser, isAuthenticated, loading, modulePath } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +23,7 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       const user = await login(email.trim(), password)
+      refreshUser()
       if (user.mustChangePassword) {
         navigate('/trocar-senha', { replace: true })
       } else {
