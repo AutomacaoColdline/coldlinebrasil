@@ -29,6 +29,8 @@ export const api = {
   login: (email, password) => http.post('/api/User/login', { email, password }),
   changePassword: (currentPassword, newPassword) => http.post('/api/User/change-password', { currentPassword, newPassword }),
   adminSetPassword: (id, password) => http.put(`/api/User/${id}/password`, { password }),
+  forgotPassword: (email) => http.post('/api/User/forgot-password', { email }),
+  resetPassword: (token, newPassword) => http.post('/api/User/reset-password', { token, newPassword }),
 
   // Dashboard
   getDashboard: () => http.get('/api/dashboard'),

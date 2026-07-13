@@ -9,6 +9,7 @@ import (
 	"coldline-api/internal/authz"
 	"coldline-api/internal/config"
 	dbpkg "coldline-api/internal/db"
+	"coldline-api/internal/email"
 	"coldline-api/internal/handlers"
 	"coldline-api/internal/middleware"
 	"coldline-api/internal/scheduler"
@@ -63,7 +64,14 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	userHandler := handlers.NewUserHandler(db, cfg.JWTSecret)
+	emailCfg := email.Config{
+		Host: cfg.SMTPHost,
+		Port: cfg.SMTPPort,
+		User: cfg.SMTPUser,
+		Pass: cfg.SMTPPass,
+		From: cfg.EmailFrom,
+	}
+	userHandler := handlers.NewUserHandler(db, cfg.JWTSecret, emailCfg, cfg.AppBaseURL)
 	processHandler := handlers.NewProcessHandler(db)
 	machineHandler := handlers.NewMachineHandler(db)
 	occurrenceHandler := handlers.NewOccurrenceHandler(db)
@@ -101,6 +109,8 @@ func main() {
 		users := api.Group("/User")
 		users.POST("/login", userHandler.Login)
 		users.GET("/tv-identification/:id", userHandler.TVLogin)
+		users.POST("/forgot-password", userHandler.ForgotPassword)
+		users.POST("/reset-password", userHandler.ResetPassword)
 
 		usersAuth := api.Group("/User", auth)
 		usersAuth.GET("", userHandler.GetAll)
