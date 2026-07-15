@@ -1,10 +1,30 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../../services/api'
 import { GRANULAR_SERVICES, hasServiceAccess } from '../../context/AuthContext'
+import { copyTextToClipboard } from '../../utils/clipboard'
 import {
   Search, Loader2, Users, UserPlus, Save, X, Pencil, Trash2, KeyRound,
-  Building2, UserCog, ShieldCheck, AlertCircle, ChevronRight,
+  Building2, UserCog, ShieldCheck, AlertCircle, ChevronRight, Copy, Check,
 } from 'lucide-react'
+
+function CopyBtn({ text }) {
+  const [ok, setOk] = useState(false)
+  if (!text) return null
+  const copy = (e) => {
+    e.stopPropagation()
+    copyTextToClipboard(text).then((copied) => {
+      if (!copied) return
+      setOk(true)
+      setTimeout(() => setOk(false), 1500)
+    })
+  }
+  return (
+    <button onClick={copy} title={`Copiar ${text}`}
+      className="shrink-0 text-slate-300 hover:text-slate-600 transition-colors">
+      {ok ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+    </button>
+  )
+}
 
 const SERVICE_LABELS = {
   industria: 'Indústria',
@@ -153,19 +173,17 @@ function EditUserModal({ user, departments, userTypes, onClose, onSaved }) {
 
 /* ────────────── Reset Password Modal ────────────── */
 
+const DEFAULT_PASSWORD = '12345678'
+
 function ResetPasswordModal({ user, onClose, onSaved }) {
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleSave = async () => {
     setError('')
-    if (!password || password.length < 6) { setError('A senha deve ter no mínimo 6 caracteres'); return }
-    if (password !== confirm) { setError('As senhas não conferem'); return }
     setSaving(true)
     try {
-      await api.adminSetPassword(user.id, password)
+      await api.adminSetPassword(user.id, DEFAULT_PASSWORD)
       onSaved()
     } catch (err) {
       setError(err?.response?.data?.message || 'Erro ao redefinir senha')
@@ -183,30 +201,19 @@ function ResetPasswordModal({ user, onClose, onSaved }) {
         </div>
         <div className="px-6 py-4 space-y-3">
           <p className="text-sm text-slate-500">
-            Redefinindo senha de <strong>{user.name}</strong>. O usuário precisará trocar a senha no próximo acesso.
+            A senha de <strong>{user.name}</strong> será redefinida para a senha padrão <strong>{DEFAULT_PASSWORD}</strong>.
+            O usuário precisará trocá-la no próximo acesso.
           </p>
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Nova Senha</label>
-            <input type="password" value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Confirmar Senha</label>
-            <input type="password" value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400" />
-          </div>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-100">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
-            Redefinir
+            Redefinir para {DEFAULT_PASSWORD}
           </button>
         </div>
       </div>
@@ -282,7 +289,7 @@ function CreateUserModal({ departments, onClose, onCreated }) {
 
           <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
             <p className="text-xs text-slate-500">
-              A senha inicial será <strong>12345678</strong>. O usuário precisará trocá-la no primeiro acesso.
+              A senha inicial será <strong>{DEFAULT_PASSWORD}</strong>. O usuário precisará trocá-la no primeiro acesso.
             </p>
           </div>
         </div>
@@ -552,10 +559,14 @@ export default function AccessControlPage() {
                                   <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Admin Master</span>
                                 )}
                               </p>
-                              <p className="text-xs text-slate-400 truncate">
-                                {u.identificationNumber ? `#${u.identificationNumber}` : ''}
-                                {u.email ? ` · ${u.email}` : ''}
-                                {u.userType?.name ? ` · ${u.userType.name}` : ''}
+                              <p className="text-xs text-slate-400 truncate flex items-center gap-1 min-w-0">
+                                <span className="truncate">
+                                  {u.identificationNumber ? `#${u.identificationNumber}` : ''}
+                                  {u.email ? ` · ${u.email}` : ''}
+                                  {u.userType?.name ? ` · ${u.userType.name}` : ''}
+                                </span>
+                                <CopyBtn text={u.identificationNumber} />
+                                <CopyBtn text={u.email} />
                               </p>
                             </div>
                           </div>

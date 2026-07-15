@@ -268,7 +268,11 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "Senha atual incorreta"})
+		// 400, não 401: isso é uma falha de validação dentro de uma sessão já
+		// autenticada. Um 401 aqui aciona o interceptor global do axios, que
+		// trata qualquer 401 como sessão inválida e força logout + redirect
+		// para /login — errar a senha atual não deveria derrubar a sessão.
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Senha atual incorreta"})
 		return
 	}
 
