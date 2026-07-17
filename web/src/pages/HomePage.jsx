@@ -21,7 +21,7 @@ export default function HomePage() {
       hover: 'hover:border-blue-400 hover:shadow-blue-100',
       badge: 'bg-blue-50 text-blue-700 border-blue-200',
       path: '/industria',
-      enabled: true,
+      enabled: hasServiceAccess('industria'),
     },
     {
       key: 'automation',
@@ -32,7 +32,7 @@ export default function HomePage() {
       hover: 'hover:border-cyan-400 hover:shadow-cyan-100',
       badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',
       path: '/automation',
-      enabled: true,
+      enabled: hasServiceAccess('automation'),
     },
     {
       key: 'information',
@@ -43,7 +43,7 @@ export default function HomePage() {
       hover: 'hover:border-emerald-400 hover:shadow-emerald-100',
       badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       path: '/departamento-informacao',
-      enabled: true,
+      enabled: hasServiceAccess('departamento'),
     },
     {
       key: 'assistencia',
@@ -54,7 +54,7 @@ export default function HomePage() {
       hover: 'hover:border-orange-300 hover:shadow-orange-100',
       badge: 'bg-orange-50 text-orange-700 border-orange-200',
       path: '/assistencia',
-      enabled: true,
+      enabled: hasServiceAccess('assistencia'),
       visible: false,
     },
     {

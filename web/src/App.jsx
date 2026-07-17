@@ -95,7 +95,7 @@ export default function App() {
         <Route path="/trocar-senha" element={<Auth><ChangePasswordPage /></Auth>} />
 
         <Route path="/home" element={
-          <Auth><AdminOnly><HomePage /></AdminOnly></Auth>
+          <Auth><HomePage /></Auth>
         } />
 
         <Route path="/industria/tv/login" element={<TVLoginPage />} />

@@ -79,14 +79,7 @@ export function hasServiceAccess(user, service) {
 
 export function resolveLandingPath(user) {
   if (!user) return '/login'
-  const module = resolveModule(user)
-  if (module === 'admin') return MODULE_PATHS.admin
-  if (module === 'assistencia') return MODULE_PATHS.assistencia
-
-  for (const service of GRANULAR_SERVICES) {
-    if (hasServiceAccess(user, service)) return MODULE_PATHS[service]
-  }
-  return MODULE_PATHS[module] || '/login'
+  return '/home'
 }
 
 function readStoredUser() {
