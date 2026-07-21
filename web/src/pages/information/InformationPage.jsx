@@ -13,7 +13,6 @@ import {
   Eye,
   FolderKanban,
   GraduationCap,
-  HandHelping,
   Hourglass,
   Loader2,
   Plus,
@@ -45,7 +44,6 @@ const DEMAND_CATEGORIES = ['Sistema', 'ERP Albatroz', 'CRM', 'Dashboard', 'Proce
 const DEMAND_PRIORITIES = ['Baixa', 'Media', 'Alta', 'Urgente']
 const DEMAND_STATUSES = ['Aberto', 'Em andamento', 'Aguardando aprovacao', 'Concluido', 'Cancelado']
 const DEMAND_APPROVALS = ['Sim', 'Nao', 'Aguardando']
-const APPROVAL_STATUSES = ['Pendente', 'Aprovado', 'Reprovado']
 const PROCESS_TYPES = ['Novo', 'Revisao', 'Automacao']
 const PROCESS_STATUSES = ['Em andamento', 'Concluido', 'Cancelado']
 const ROUTINE_STATUSES = ['Nao iniciado', 'Em andamento', 'Concluido', 'Cancelado']
@@ -70,13 +68,11 @@ const INFORMATION_DEPARTMENTS = [
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: FolderKanban },
   { id: 'demands', label: 'Demandas', icon: ClipboardList },
-  { id: 'approvals', label: 'Aprovacoes', icon: ShieldCheck },
   { id: 'trainings', label: 'Treinamentos', icon: GraduationCap },
   { id: 'processes', label: 'Processos', icon: Activity },
   { id: 'routines', label: 'Rotinas Diarias', icon: Hourglass },
   { id: 'checklist', label: 'Checklist Diario', icon: CheckSquare },
   { id: 'meetings', label: 'Reunioes', icon: CalendarDays },
-  { id: 'support', label: 'Apoio aos Departamentos', icon: HandHelping },
 ]
 
 function toDateInput(value) {
@@ -1119,7 +1115,6 @@ export default function InformationPage() {
   const [dashboardFilters, setDashboardFilters] = useState({ department: '', startDate: '', endDate: '' })
   const [dashboardData, setDashboardData] = useState({})
   const [dashboardLoading, setDashboardLoading] = useState(true)
-  const [demandOptions, setDemandOptions] = useState([])
   const [exporting, setExporting] = useState(false)
 
   const loadDashboard = useCallback(async () => {
@@ -1132,21 +1127,9 @@ export default function InformationPage() {
     }
   }, [dashboardFilters])
 
-  const loadDemandOptions = useCallback(async () => {
-    const items = await loadAllPages(informationApi.getDemands, {})
-    setDemandOptions(items.map((item) => ({
-      value: item.id,
-      label: `${item.requester || 'Sem solicitante'} - ${item.description || 'Demanda'}`,
-    })))
-  }, [])
-
   useEffect(() => {
     loadDashboard()
   }, [loadDashboard])
-
-  useEffect(() => {
-    loadDemandOptions()
-  }, [loadDemandOptions])
 
   const commonDateFilters = [
     { key: 'startDate', type: 'date' },
@@ -1302,59 +1285,6 @@ export default function InformationPage() {
           {exporting ? 'Exportando...' : 'Exportar Excel'}
         </button>
       }
-    />
-  )
-
-  const approvalTab = (
-    <ResourceTab
-      title="Aprovacoes"
-      description="Solicitacoes que exigem validacao formal antes de seguir."
-      createLabel="Nova Aprovacao"
-      list={informationApi.getApprovals}
-      create={informationApi.createApproval}
-      update={informationApi.updateApproval}
-      remove={informationApi.deleteApproval}
-      defaultFilters={{ department: '', approver: '', status: '', startDate: '', endDate: '', page: 1, pageSize: 10 }}
-      filters={[
-        { key: 'department', type: 'select', options: INFORMATION_DEPARTMENTS, placeholder: 'Departamento' },
-        { key: 'approver', placeholder: 'Aprovador' },
-        { key: 'status', type: 'select', options: APPROVAL_STATUSES, placeholder: 'Status' },
-        ...commonDateFilters,
-      ]}
-      columns={[
-        { key: 'date', label: 'Data', render: (item) => formatDate(item.date) },
-        { key: 'department', label: 'Departamento' },
-        { key: 'request', label: 'Solicitacao' },
-        { key: 'approver', label: 'Aprovador' },
-        { key: 'status', label: 'Status' },
-        { key: 'demand', label: 'Demanda Vinculada', render: (item) => item.demand?.name || '-' },
-      ]}
-      formFields={[
-        { key: 'date', label: 'Data', type: 'date' },
-        { key: 'department', label: 'Departamento', type: 'select', options: INFORMATION_DEPARTMENTS },
-        { key: 'request', label: 'Solicitacao', type: 'textarea', fullWidth: true },
-        { key: 'approver', label: 'Aprovador', type: 'text' },
-        { key: 'status', label: 'Status', type: 'select', options: APPROVAL_STATUSES },
-        { key: 'demandId', label: 'Demanda Vinculada', type: 'select', options: demandOptions, fullWidth: true, placeholder: 'Opcional' },
-      ]}
-      emptyForm={{ date: '', department: '', request: '', approver: '', status: '', demandId: '' }}
-      toForm={(item) => ({
-        date: toDateInput(item.date),
-        department: item.department || '',
-        request: item.request || '',
-        approver: item.approver || '',
-        status: item.status || '',
-        demandId: item.demandId || '',
-      })}
-      toPayload={(form) => ({
-        date: toIsoDate(form.date),
-        department: form.department,
-        request: form.request,
-        approver: form.approver,
-        status: form.status,
-        demandId: form.demandId || null,
-      })}
-      onChanged={loadDashboard}
     />
   )
 
@@ -1605,61 +1535,15 @@ export default function InformationPage() {
     />
   )
 
-  const supportTab = (
-    <ResourceTab
-      title="Apoio aos Departamentos"
-      description="Registre apoios estrategicos entregues aos demais setores."
-      createLabel="Novo Apoio"
-      list={informationApi.getDepartmentSupport}
-      create={informationApi.createDepartmentSupport}
-      update={informationApi.updateDepartmentSupport}
-      remove={informationApi.deleteDepartmentSupport}
-      defaultFilters={{ department: '', q: '', startDate: '', endDate: '', page: 1, pageSize: 10 }}
-      filters={[
-        { key: 'department', type: 'select', options: INFORMATION_DEPARTMENTS, placeholder: 'Departamento' },
-        { key: 'q', placeholder: 'Descricao do apoio' },
-        ...commonDateFilters,
-      ]}
-      columns={[
-        { key: 'date', label: 'Data', render: (item) => formatDate(item.date) },
-        { key: 'department', label: 'Departamento' },
-        { key: 'supportProvided', label: 'Apoio Prestado' },
-        { key: 'hours', label: 'Horas', render: (item) => formatHours(item.hours) },
-      ]}
-      formFields={[
-        { key: 'date', label: 'Data', type: 'date' },
-        { key: 'department', label: 'Departamento', type: 'select', options: INFORMATION_DEPARTMENTS },
-        { key: 'supportProvided', label: 'Apoio Prestado', type: 'textarea', fullWidth: true },
-        { key: 'hours', label: 'Horas', type: 'number', min: '0', step: '0.25' },
-      ]}
-      emptyForm={{ date: '', department: '', supportProvided: '', hours: '' }}
-      toForm={(item) => ({
-        date: toDateInput(item.date),
-        department: item.department || '',
-        supportProvided: item.supportProvided || '',
-        hours: item.hours ?? '',
-      })}
-      toPayload={(form) => ({
-        date: toIsoDate(form.date),
-        department: form.department,
-        supportProvided: form.supportProvided,
-        hours: Number(form.hours || 0),
-      })}
-      onChanged={loadDashboard}
-    />
-  )
-
   const content = useMemo(() => ({
     dashboard: <DashboardTab filters={dashboardFilters} setFilters={setDashboardFilters} data={dashboardData} loading={dashboardLoading} onRefresh={loadDashboard} />,
     demands: demandTab,
-    approvals: approvalTab,
     trainings: trainingTab,
     processes: processTab,
     routines: routinesTab,
     checklist: <ChecklistTab />,
     meetings: meetingsTab,
-    support: supportTab,
-  }), [approvalTab, dashboardData, dashboardFilters, dashboardLoading, demandTab, loadDashboard, meetingsTab, processTab, routinesTab, setDashboardFilters, supportTab, trainingTab])
+  }), [dashboardData, dashboardFilters, dashboardLoading, demandTab, loadDashboard, meetingsTab, processTab, routinesTab, setDashboardFilters, trainingTab])
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -1669,8 +1553,8 @@ export default function InformationPage() {
             <p className="text-xs uppercase tracking-[0.2em] text-emerald-500 font-semibold">Setor Interno</p>
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">Departamento de Informacao</h1>
             <p className="text-sm text-slate-500 mt-2 max-w-3xl">
-              Painel unificado para registrar demandas, aprovacoes, treinamentos, processos, rotinas, checklist semanal,
-              reunioes e apoio aos departamentos com persistencia real no banco.
+              Painel unificado para registrar demandas, treinamentos, processos, rotinas, checklist semanal
+              e reunioes com persistencia real no banco.
             </p>
           </div>
           <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-3">

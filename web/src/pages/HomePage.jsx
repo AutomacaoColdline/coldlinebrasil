@@ -37,7 +37,7 @@ export default function HomePage() {
     {
       key: 'information',
       label: 'Departamento de Informacao',
-      desc: 'Demandas, aprovacoes, treinamentos, rotinas e apoio aos departamentos.',
+      desc: 'Demandas, treinamentos, processos, rotinas e reunioes.',
       icon: Database,
       color: 'bg-emerald-500',
       hover: 'hover:border-emerald-400 hover:shadow-emerald-100',
