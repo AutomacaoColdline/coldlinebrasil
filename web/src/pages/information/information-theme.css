@@ -1,0 +1,32 @@
+.info-dark {
+  background-color: #0f172a;
+  color-scheme: dark;
+}
+
+.info-dark .bg-white { background-color: #1e293b; }
+.info-dark .bg-slate-50 { background-color: #0f172a; }
+.info-dark .bg-slate-100 { background-color: #334155; }
+
+.info-dark .text-slate-900 { color: #f8fafc; }
+.info-dark .text-slate-800 { color: #e2e8f0; }
+.info-dark .text-slate-700 { color: #cbd5e1; }
+.info-dark .text-slate-600 { color: #cbd5e1; }
+.info-dark .text-slate-500 { color: #94a3b8; }
+
+.info-dark .border-slate-100 { border-color: #334155; }
+.info-dark .border-slate-200 { border-color: #334155; }
+.info-dark .border-slate-300 { border-color: #475569; }
+
+.info-dark .bg-pink-50 { background-color: rgba(244, 114, 182, 0.12); }
+.info-dark .border-pink-100 { border-color: rgba(244, 114, 182, 0.3); }
+
+.info-dark input,
+.info-dark select,
+.info-dark textarea {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+.info-dark ::placeholder {
+  color: #64748b;
+}

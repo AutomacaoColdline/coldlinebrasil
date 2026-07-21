@@ -20,7 +20,6 @@ import {
   RefreshCw,
   Save,
   Search,
-  ShieldCheck,
   Trash2,
   Upload,
   Users,
@@ -36,6 +35,11 @@ import {
   Cell,
   Tooltip,
   Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from 'recharts'
 import { informationApi } from '../../services/informationApi'
 
@@ -216,7 +220,7 @@ function exportCSV(rows, filename) {
 
 function DashboardCard({ title, value, helper, icon: Icon, tone }) {
   const tones = {
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    pink: 'bg-pink-50 text-pink-500 border-pink-100',
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
     amber: 'bg-amber-50 text-amber-600 border-amber-100',
     rose: 'bg-rose-50 text-rose-600 border-rose-100',
@@ -307,7 +311,7 @@ function FormField({ field, value, onChange, form }) {
             onDrop={handleDrop}
             className={`relative rounded-2xl border-2 border-dashed p-6 transition-all duration-200 flex flex-col items-center justify-center text-center ${
               isDragActive
-                ? 'border-emerald-500 bg-emerald-50/50'
+                ? 'border-pink-400 bg-pink-50/50'
                 : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'
             }`}
           >
@@ -362,7 +366,7 @@ function FormField({ field, value, onChange, form }) {
                       href={resolveAssetUrl(item.url)}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline px-2 py-1 rounded-lg hover:bg-emerald-50 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs text-pink-500 hover:underline px-2 py-1 rounded-lg hover:bg-pink-50 transition-colors"
                     >
                       <Paperclip size={12} />
                       Abrir
@@ -474,7 +478,7 @@ function EntityModal({ title, fields, form, onChange, onClose, onSave, saving, s
               <button
                 onClick={onSave}
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-400 disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300 disabled:opacity-60"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 Salvar
@@ -664,7 +668,7 @@ function ResourceTab({
           {extraActions}
           <button
             onClick={openNew}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-400"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300"
           >
             <Plus size={14} />
             {createLabel}
@@ -733,7 +737,7 @@ function ResourceTab({
                     <button onClick={() => openView(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-sky-300 hover:text-sky-600 bg-white">
                       <Eye size={14} />
                     </button>
-                    <button onClick={() => openEdit(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-emerald-300 hover:text-emerald-600 bg-white">
+                    <button onClick={() => openEdit(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white">
                       <Edit size={14} />
                     </button>
                     <button onClick={() => setDeleting(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600 bg-white">
@@ -898,7 +902,7 @@ function ChecklistTab() {
         </div>
         <button
           onClick={() => setForm({ activity: '', orderIndex: data.items.length + 1 })}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-400"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300"
         >
           <Plus size={14} />
           Nova Atividade
@@ -926,7 +930,7 @@ function ChecklistTab() {
             <span className="font-semibold">{Math.round(data.completionPercentage || 0)}%</span>
           </div>
           <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${data.completionPercentage || 0}%` }} />
+            <div className="h-full bg-pink-400 rounded-full" style={{ width: `${data.completionPercentage || 0}%` }} />
           </div>
         </div>
       </div>
@@ -957,7 +961,7 @@ function ChecklistTab() {
                           disabled={saving}
                           className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
                             item[dayKey]
-                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              ? 'bg-pink-400 border-pink-400 text-white'
                               : 'bg-white border-slate-200 text-slate-400'
                           }`}
                         >
@@ -967,7 +971,7 @@ function ChecklistTab() {
                     ))}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setForm({ id: item.templateId, activity: item.activity, orderIndex: item.orderIndex })} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-emerald-300 hover:text-emerald-600">
+                        <button onClick={() => setForm({ id: item.templateId, activity: item.activity, orderIndex: item.orderIndex })} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500">
                           <Edit size={14} />
                         </button>
                         <button onClick={() => setDeleting(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600">
@@ -1014,15 +1018,11 @@ function ChecklistTab() {
 function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
   const cards = [
     { title: 'Demandas Recebidas', value: formatNumber(data.demandsReceived), icon: ClipboardList, tone: 'blue', helper: 'Total registrado no periodo selecionado.' },
-    { title: 'Demandas Concluidas', value: formatNumber(data.demandsCompleted), icon: CheckCircle2, tone: 'emerald', helper: 'Considera status concluido com data de conclusao.' },
+    { title: 'Demandas Concluidas', value: formatNumber(data.demandsCompleted), icon: CheckCircle2, tone: 'pink', helper: 'Considera status concluido com data de conclusao.' },
     { title: 'Em Andamento', value: formatNumber(data.demandsInProgress), icon: Activity, tone: 'amber', helper: 'Demandas que seguem em execucao.' },
-    { title: 'Aguardando Aprovacao', value: formatNumber(data.demandsWaitingApproval), icon: ShieldCheck, tone: 'rose', helper: 'Inclui demandas e aprovacoes vinculadas pendentes.' },
-    { title: 'Horas em Projetos', value: formatHours(data.projectHours), icon: FolderKanban, tone: 'violet', helper: 'Somatorio de horas em demandas e apoios.' },
     { title: 'Horas em Treinamentos', value: formatHours(data.trainingHours), icon: BookOpen, tone: 'cyan', helper: 'Horas registradas em treinamentos.' },
-    { title: 'Horas em Reunioes', value: formatHours(data.meetingHours), icon: CalendarDays, tone: 'slate', helper: 'Duracao acumulada das reunioes.' },
     { title: 'Processos Criados', value: formatNumber(data.processesCreated), icon: ClipboardCheck, tone: 'blue', helper: 'Processos com tipo Novo.' },
-    { title: 'Treinamentos Realizados', value: formatNumber(data.trainingsPerformed), icon: GraduationCap, tone: 'emerald', helper: 'Total de treinamentos do periodo.' },
-    { title: 'Departamentos Atendidos', value: formatNumber(data.departmentsAttended), icon: Building2, tone: 'amber', helper: 'Departamentos atendidos em registros do modulo.' },
+    { title: 'Treinamentos Realizados', value: formatNumber(data.trainingsPerformed), icon: GraduationCap, tone: 'pink', helper: 'Total de treinamentos do periodo.' },
   ]
 
   return (
@@ -1034,7 +1034,7 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
         </div>
         <button
           onClick={onRefresh}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600 hover:border-emerald-300"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600 hover:border-pink-200"
         >
           <RefreshCw size={14} />
           Atualizar
@@ -1100,6 +1100,24 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
                   />
                   <Legend />
                 </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {data.departmentsAttendedBreakdown && data.departmentsAttendedBreakdown.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <h3 className="text-base font-semibold text-slate-800 mb-4">Departamentos Atendidos</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={data.departmentsAttendedBreakdown} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="department" tick={{ fontSize: 12, fill: '#64748b' }} interval={0} angle={-20} textAnchor="end" height={60} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <Tooltip
+                    formatter={(value) => [value, 'Quantidade']}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Bar dataKey="count" name="Quantidade" fill="#f472b6" radius={[8, 8, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -1278,7 +1296,7 @@ export default function InformationPage() {
         <button
           onClick={handleExportDemands}
           disabled={exporting}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600 hover:border-emerald-300 hover:text-emerald-600 transition-colors disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600 hover:border-pink-200 hover:text-pink-500 transition-colors disabled:opacity-60"
           title="Exportar demandas para Excel"
         >
           {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
@@ -1386,7 +1404,7 @@ export default function InformationPage() {
         const totalHours = items.reduce((sum, item) => sum + Number(item.hours || 0), 0)
         const totalParticipants = items.reduce((sum, item) => sum + Number(item.trainedCount || 0), 0)
         return [
-          { title: 'Treinamentos', value: formatNumber(items.length), icon: GraduationCap, tone: 'emerald' },
+          { title: 'Treinamentos', value: formatNumber(items.length), icon: GraduationCap, tone: 'pink' },
           { title: 'Participantes', value: formatNumber(totalParticipants), icon: Users, tone: 'blue' },
           { title: 'Horas Treinadas', value: formatHours(totalHours), icon: BookOpen, tone: 'amber' },
           { title: 'Departamentos', value: formatNumber(departmentSet.size), icon: Building2, tone: 'violet' },
@@ -1550,16 +1568,16 @@ export default function InformationPage() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-emerald-500 font-semibold">Setor Interno</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-pink-400 font-semibold">Setor Interno</p>
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">Departamento de Informacao</h1>
             <p className="text-sm text-slate-500 mt-2 max-w-3xl">
               Painel unificado para registrar demandas, treinamentos, processos, rotinas, checklist semanal
               e reunioes com persistencia real no banco.
             </p>
           </div>
-          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-emerald-600">Ultima atualizacao</p>
-            <p className="text-sm font-semibold text-emerald-900 mt-1">{formatLiveDateTime(new Date().toISOString())}</p>
+          <div className="rounded-2xl bg-pink-50 border border-pink-100 px-4 py-3">
+            <p className="text-xs uppercase tracking-wide text-pink-500">Ultima atualizacao</p>
+            <p className="text-sm font-semibold text-pink-600 mt-1">{formatLiveDateTime(new Date().toISOString())}</p>
           </div>
         </div>
       </div>
@@ -1574,7 +1592,7 @@ export default function InformationPage() {
                 onClick={() => setSearchParams({ tab: id })}
                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   active
-                    ? 'bg-emerald-500 text-white shadow-sm'
+                    ? 'bg-pink-400 text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}
               >

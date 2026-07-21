@@ -340,14 +340,14 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 	processesCreated := countTable(processBase, "type = ?", "Novo")
 	trainingsPerformed := countTable(trainingBase, "")
 
-	departmentSet := map[string]struct{}{}
+	departmentCounts := map[string]int64{}
 	collectDepartments := func(column string, base *gorm.DB) {
 		var values []string
 		base.Select(column).Where(column + " <> ''").Find(&values)
 		for _, value := range values {
 			value = strings.TrimSpace(value)
 			if value != "" {
-				departmentSet[value] = struct{}{}
+				departmentCounts[value]++
 			}
 		}
 	}
@@ -391,6 +391,17 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		Order("count DESC").
 		Scan(&demandsCompletedByDepartment)
 
+	departmentsAttendedBreakdown := make([]demandByDepartment, 0, len(departmentCounts))
+	for department, count := range departmentCounts {
+		departmentsAttendedBreakdown = append(departmentsAttendedBreakdown, demandByDepartment{Department: department, Count: count})
+	}
+	sort.Slice(departmentsAttendedBreakdown, func(i, j int) bool {
+		if departmentsAttendedBreakdown[i].Count != departmentsAttendedBreakdown[j].Count {
+			return departmentsAttendedBreakdown[i].Count > departmentsAttendedBreakdown[j].Count
+		}
+		return departmentsAttendedBreakdown[i].Department < departmentsAttendedBreakdown[j].Department
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"demandsReceived":              demandsReceived,
 		"demandsCompleted":             demandsCompleted,
@@ -401,7 +412,7 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		"meetingHours":                 meetingsHours,
 		"processesCreated":             processesCreated,
 		"trainingsPerformed":           trainingsPerformed,
-		"departmentsAttended":          len(departmentSet),
+		"departmentsAttendedBreakdown": departmentsAttendedBreakdown,
 		"demandsCompletedByDepartment": demandsCompletedByDepartment,
 	})
 }
