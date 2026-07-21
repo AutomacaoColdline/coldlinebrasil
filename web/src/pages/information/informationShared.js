@@ -74,6 +74,13 @@ export function formatDateTime(value) {
   return `${formatDate(value)} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`
 }
 
+export function formatTime(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`
+}
+
 export function formatNumber(value) {
   return new Intl.NumberFormat('pt-BR').format(Number(value || 0))
 }

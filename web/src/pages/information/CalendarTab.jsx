@@ -22,23 +22,14 @@ import {
   demandNormalizeFormChange,
   demandToForm,
   demandToPayload,
+  formatTime,
   loadAllPages,
   toDateInput,
 } from './informationShared'
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
 
-const STATUS_TONES = {
-  'Aberto': 'bg-slate-100 text-slate-600 border-slate-200',
-  'Em andamento': 'bg-blue-50 text-blue-600 border-blue-100',
-  'Aguardando aprovacao': 'bg-amber-50 text-amber-600 border-amber-100',
-  'Concluido': 'bg-emerald-50 text-emerald-600 border-emerald-100',
-  'Cancelado': 'bg-rose-50 text-rose-600 border-rose-100',
-}
-
-function toneFor(status) {
-  return STATUS_TONES[status] || 'bg-slate-100 text-slate-600 border-slate-200'
-}
+const CHIP_TONE = 'bg-pink-50 border-pink-100 text-pink-700 hover:bg-pink-100 hover:border-pink-200'
 
 export default function CalendarTab({ onChanged }) {
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()))
@@ -223,7 +214,7 @@ export default function CalendarTab({ onChanged }) {
             return (
               <div
                 key={key}
-                className={`min-h-[110px] border-b border-r border-slate-100 p-2 flex flex-col gap-1 group ${inMonth ? 'bg-white' : 'bg-slate-50/50'}`}
+                className={`min-h-[140px] border-b border-r border-slate-100 p-2 flex flex-col gap-1 group ${inMonth ? 'bg-white' : 'bg-slate-50/50'}`}
               >
                 <div className="flex items-center justify-between">
                   <span
@@ -246,10 +237,14 @@ export default function CalendarTab({ onChanged }) {
                     <button
                       key={item.id}
                       onClick={() => openEdit(item)}
-                      className={`w-full text-left text-[11px] leading-tight px-1.5 py-1 rounded-lg border truncate ${toneFor(item.status)}`}
+                      className={`w-full text-left text-[11px] leading-tight px-1.5 py-1 rounded-lg border ${CHIP_TONE}`}
                       title={item.description}
                     >
-                      {item.requester || item.requestingDepartment || 'Demanda'}
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold">{formatTime(item.createdDate)}</span>
+                        {item.category && <span className="truncate opacity-75">{item.category}</span>}
+                      </div>
+                      <div className="truncate">{item.requester || item.requestingDepartment || 'Demanda'}</div>
                     </button>
                   ))}
                   {overflow > 0 && (
