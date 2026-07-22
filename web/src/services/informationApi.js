@@ -75,6 +75,11 @@ export const informationApi = {
   updateChecklistItem: (id, data) => http.put(`${base}/checklist/items/${id}`, data),
   deleteChecklistItem: (id) => http.delete(`${base}/checklist/items/${id}`),
   updateChecklistEntry: (id, data) => http.put(`${base}/checklist/entries/${id}`, data),
+
+  getPositions: () => http.get(`${base}/positions`),
+  createPosition: (data) => http.post(`${base}/positions`, data),
+  updatePosition: (id, data) => http.put(`${base}/positions/${id}`, data),
+  deletePosition: (id) => http.delete(`${base}/positions/${id}`),
 }
 
 export default informationApi

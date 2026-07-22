@@ -32,6 +32,7 @@ import AutomationAtendimentoReports from './pages/automation/AutomationAtendimen
 
 import InformationLayout from './pages/information/InformationLayout'
 import InformationPage from './pages/information/InformationPage'
+import OrgChartPage from './pages/information/OrgChartPage'
 
 import AccessControlPage from './pages/admin/AccessControlPage'
 
@@ -135,6 +136,7 @@ export default function App() {
           <Auth><ModuleGuard module="departamento"><InformationLayout /></ModuleGuard></Auth>
         }>
           <Route index element={<InformationPage />} />
+          <Route path="organograma" element={<OrgChartPage />} />
         </Route>
 
         <Route path="/assistencia" element={

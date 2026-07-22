@@ -134,3 +134,14 @@ type InformationDailyChecklist struct {
 }
 
 func (InformationDailyChecklist) TableName() string { return "information_daily_checklist" }
+
+type InformationPosition struct {
+	ID        string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Name      string    `json:"name"`
+	Area      string    `json:"area"`
+	ParentID  *string   `gorm:"column:parent_id" json:"parentId"`
+}
+
+func (InformationPosition) TableName() string { return "information_positions" }

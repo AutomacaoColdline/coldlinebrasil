@@ -39,6 +39,7 @@ type InformationHandler struct {
 	supportRepo           *repositories.Repository[models.InformationDepartmentSupport]
 	checklistTemplateRepo *repositories.Repository[models.InformationChecklistTemplate]
 	checklistEntryRepo    *repositories.Repository[models.InformationDailyChecklist]
+	positionRepo          *repositories.Repository[models.InformationPosition]
 }
 
 func NewInformationHandler(db *gorm.DB) *InformationHandler {
@@ -53,6 +54,7 @@ func NewInformationHandler(db *gorm.DB) *InformationHandler {
 		supportRepo:           repositories.New[models.InformationDepartmentSupport](db, "information_department_support"),
 		checklistTemplateRepo: repositories.New[models.InformationChecklistTemplate](db, "information_checklist_templates"),
 		checklistEntryRepo:    repositories.New[models.InformationDailyChecklist](db, "information_daily_checklist"),
+		positionRepo:          repositories.New[models.InformationPosition](db, "information_positions"),
 	}
 }
 
@@ -823,6 +825,81 @@ func (h *InformationHandler) UpdateDepartmentSupport(c *gin.Context) {
 
 func (h *InformationHandler) DeleteDepartmentSupport(c *gin.Context) {
 	deleteSimpleResource(c, h.supportRepo)
+}
+
+func (h *InformationHandler) GetPositions(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var items []models.InformationPosition
+	if err := h.positionRepo.Q(ctx).Order("name ASC").Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *InformationHandler) GetPositionByID(c *gin.Context) {
+	getSimpleByID(c, h.positionRepo, "Cargo nao encontrado")
+}
+
+func (h *InformationHandler) CreatePosition(c *gin.Context) {
+	var item models.InformationPosition
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	if item.ParentID != nil && strings.TrimSpace(*item.ParentID) == "" {
+		item.ParentID = nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := h.positionRepo.Create(ctx, &item); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
+
+func (h *InformationHandler) UpdatePosition(c *gin.Context) {
+	var payload map[string]interface{}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	delete(payload, "id")
+	id := c.Param("id")
+	if parentID, ok := payload["parentId"]; ok {
+		if parentStr, isString := parentID.(string); isString {
+			if strings.TrimSpace(parentStr) == "" {
+				payload["parentId"] = nil
+			} else if parentStr == id {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Um cargo nao pode ser superior de si mesmo"})
+				return
+			}
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := h.positionRepo.MergeUpdate(ctx, id, payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Atualizado"})
+}
+
+func (h *InformationHandler) DeletePosition(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	id := c.Param("id")
+	if err := h.positionRepo.Q(ctx).Where("parent_id = ?", id).Update("parent_id", nil).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	if err := h.positionRepo.Delete(ctx, id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Deletado"})
 }
 
 func (h *InformationHandler) GetChecklist(c *gin.Context) {

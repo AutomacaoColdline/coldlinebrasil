@@ -267,6 +267,11 @@ func main() {
 		info.PUT("/checklist/items/:id", informationHandler.UpdateChecklistTemplate)
 		info.DELETE("/checklist/items/:id", informationHandler.DeleteChecklistTemplate)
 		info.PUT("/checklist/entries/:id", informationHandler.UpdateChecklistEntry)
+		info.GET("/positions", informationHandler.GetPositions)
+		info.GET("/positions/:id", informationHandler.GetPositionByID)
+		info.POST("/positions", informationHandler.CreatePosition)
+		info.PUT("/positions/:id", informationHandler.UpdatePosition)
+		info.DELETE("/positions/:id", informationHandler.DeletePosition)
 
 		atd := api.Group("/Atendimento", auth, automationAccess)
 		atd.GET("", atendimentoHandler.GetAll)
