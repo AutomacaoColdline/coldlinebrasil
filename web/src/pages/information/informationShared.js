@@ -28,19 +28,6 @@ export const INFORMATION_DEPARTMENTS = [
   'Assistencia Tecnica',
 ]
 
-export const ORG_AREAS = [
-  'Administrativo',
-  'Operacional',
-  'Producao',
-  'Comercial',
-  'Financeiro',
-  'Diretoria',
-  'Logistica',
-  'Qualidade',
-  'Recursos Humanos',
-  'Tecnologia da Informacao',
-]
-
 export function toDateInput(value) {
   if (!value) return ''
   const date = new Date(value)

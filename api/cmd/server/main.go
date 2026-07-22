@@ -272,6 +272,12 @@ func main() {
 		info.POST("/positions", informationHandler.CreatePosition)
 		info.PUT("/positions/:id", informationHandler.UpdatePosition)
 		info.DELETE("/positions/:id", informationHandler.DeletePosition)
+		info.GET("/org-departments", informationHandler.GetOrgDepartments)
+		info.GET("/org-departments/:id", informationHandler.GetOrgDepartmentByID)
+		info.POST("/org-departments", informationHandler.CreateOrgDepartment)
+		info.PUT("/org-departments/:id", informationHandler.UpdateOrgDepartment)
+		info.DELETE("/org-departments/:id", informationHandler.DeleteOrgDepartment)
+		info.POST("/org-departments/reorder", informationHandler.ReorderOrgDepartments)
 
 		atd := api.Group("/Atendimento", auth, automationAccess)
 		atd.GET("", atendimentoHandler.GetAll)

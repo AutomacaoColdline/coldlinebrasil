@@ -40,6 +40,7 @@ type InformationHandler struct {
 	checklistTemplateRepo *repositories.Repository[models.InformationChecklistTemplate]
 	checklistEntryRepo    *repositories.Repository[models.InformationDailyChecklist]
 	positionRepo          *repositories.Repository[models.InformationPosition]
+	orgDepartmentRepo     *repositories.Repository[models.InformationOrgDepartment]
 }
 
 func NewInformationHandler(db *gorm.DB) *InformationHandler {
@@ -55,6 +56,7 @@ func NewInformationHandler(db *gorm.DB) *InformationHandler {
 		checklistTemplateRepo: repositories.New[models.InformationChecklistTemplate](db, "information_checklist_templates"),
 		checklistEntryRepo:    repositories.New[models.InformationDailyChecklist](db, "information_daily_checklist"),
 		positionRepo:          repositories.New[models.InformationPosition](db, "information_positions"),
+		orgDepartmentRepo:     repositories.New[models.InformationOrgDepartment](db, "information_org_departments"),
 	}
 }
 
@@ -851,6 +853,9 @@ func (h *InformationHandler) CreatePosition(c *gin.Context) {
 	if item.ParentID != nil && strings.TrimSpace(*item.ParentID) == "" {
 		item.ParentID = nil
 	}
+	if item.DepartmentID != nil && strings.TrimSpace(*item.DepartmentID) == "" {
+		item.DepartmentID = nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := h.positionRepo.Create(ctx, &item); err != nil {
@@ -878,6 +883,11 @@ func (h *InformationHandler) UpdatePosition(c *gin.Context) {
 			}
 		}
 	}
+	if departmentID, ok := payload["departmentId"]; ok {
+		if departmentStr, isString := departmentID.(string); isString && strings.TrimSpace(departmentStr) == "" {
+			payload["departmentId"] = nil
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := h.positionRepo.MergeUpdate(ctx, id, payload); err != nil {
@@ -900,6 +910,80 @@ func (h *InformationHandler) DeletePosition(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deletado"})
+}
+
+func (h *InformationHandler) GetOrgDepartments(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var items []models.InformationOrgDepartment
+	if err := h.orgDepartmentRepo.Q(ctx).Order("order_index ASC, name ASC").Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *InformationHandler) GetOrgDepartmentByID(c *gin.Context) {
+	getSimpleByID(c, h.orgDepartmentRepo, "Departamento nao encontrado")
+}
+
+func (h *InformationHandler) CreateOrgDepartment(c *gin.Context) {
+	var item models.InformationOrgDepartment
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var count int64
+	if err := h.orgDepartmentRepo.Q(ctx).Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	item.OrderIndex = int(count)
+	if err := h.orgDepartmentRepo.Create(ctx, &item); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
+
+func (h *InformationHandler) UpdateOrgDepartment(c *gin.Context) {
+	updateSimpleResource(c, h.orgDepartmentRepo)
+}
+
+func (h *InformationHandler) DeleteOrgDepartment(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	id := c.Param("id")
+	if err := h.positionRepo.Q(ctx).Where("department_id = ?", id).Update("department_id", nil).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	if err := h.orgDepartmentRepo.Delete(ctx, id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Deletado"})
+}
+
+func (h *InformationHandler) ReorderOrgDepartments(c *gin.Context) {
+	var payload struct {
+		Order []string `json:"order"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for index, id := range payload.Order {
+		if err := h.orgDepartmentRepo.Q(ctx).Where("id = ?", id).Update("order_index", index).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Reordenado"})
 }
 
 func (h *InformationHandler) GetChecklist(c *gin.Context) {

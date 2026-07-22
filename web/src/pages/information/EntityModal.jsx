@@ -151,28 +151,18 @@ export function FormField({ field, value, onChange, form }) {
   }
 
   return (
-    <>
-      <input
-        type={field.type || 'text'}
-        value={value}
-        min={field.min}
-        max={field.max}
-        step={field.step}
-        list={field.list ? `${field.key}-list` : undefined}
-        onChange={(event) => onChange(field.key, field.type === 'number' ? event.target.value : event.target.value)}
-        placeholder={field.placeholder}
-        readOnly={field.readOnly}
-        disabled={field.disabled}
-        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
-      />
-      {field.list && (
-        <datalist id={`${field.key}-list`}>
-          {field.list.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-      )}
-    </>
+    <input
+      type={field.type || 'text'}
+      value={value}
+      min={field.min}
+      max={field.max}
+      step={field.step}
+      onChange={(event) => onChange(field.key, field.type === 'number' ? event.target.value : event.target.value)}
+      placeholder={field.placeholder}
+      readOnly={field.readOnly}
+      disabled={field.disabled}
+      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+    />
   )
 }
 

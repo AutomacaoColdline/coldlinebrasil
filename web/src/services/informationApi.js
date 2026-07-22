@@ -80,6 +80,12 @@ export const informationApi = {
   createPosition: (data) => http.post(`${base}/positions`, data),
   updatePosition: (id, data) => http.put(`${base}/positions/${id}`, data),
   deletePosition: (id) => http.delete(`${base}/positions/${id}`),
+
+  getOrgDepartments: () => http.get(`${base}/org-departments`),
+  createOrgDepartment: (data) => http.post(`${base}/org-departments`, data),
+  updateOrgDepartment: (id, data) => http.put(`${base}/org-departments/${id}`, data),
+  deleteOrgDepartment: (id) => http.delete(`${base}/org-departments/${id}`),
+  reorderOrgDepartments: (order) => http.post(`${base}/org-departments/reorder`, { order }),
 }
 
 export default informationApi

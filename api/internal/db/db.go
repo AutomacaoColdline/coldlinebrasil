@@ -50,6 +50,7 @@ func migrate(db *gorm.DB) error {
 		&models.InformationChecklistTemplate{},
 		&models.InformationDailyChecklist{},
 		&models.InformationPosition{},
+		&models.InformationOrgDepartment{},
 		&models.ColdvisioGuideStep{},
 		&models.ColdvisioUpdateEntry{},
 		&models.ColdvisioUpdateFile{},
