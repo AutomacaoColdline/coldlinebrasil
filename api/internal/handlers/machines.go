@@ -136,7 +136,7 @@ func (h *MachineHandler) GetDetail(c *gin.Context) {
 		recentOcc = []models.Occurrence{}
 	}
 
-	stageSummary, hasFinishedTestChamber := h.computeStageSummary(ctx, machine)
+	stageSummary, hasFinishedFinalStage := h.computeStageSummary(ctx, machine)
 
 	c.JSON(http.StatusOK, gin.H{
 		"machine": machine,
@@ -149,13 +149,13 @@ func (h *MachineHandler) GetDetail(c *gin.Context) {
 		"recentProcesses":   recentProc,
 		"recentOccurrences": recentOcc,
 		"stageSummary":      stageSummary,
-		"canFinish":         hasFinishedTestChamber && machine.Status != models.Finished,
+		"canFinish":         hasFinishedFinalStage && machine.Status != models.Finished,
 	})
 }
 
 // stageTime é o tempo total (somando todos os processos finalizados) gasto
-// numa etapa de fabricação (Elétrica, Soldagem, Montagem, Acabamento, Câmara
-// de Teste) numa máquina.
+// numa etapa de fabricação (Elétrica, Soldagem, Montagem, Câmara de Teste,
+// Acabamento/Embalagem) numa máquina.
 type stageTime struct {
 	StageName    string `json:"stageName"`
 	TotalSeconds int    `json:"totalSeconds"`
@@ -163,8 +163,8 @@ type stageTime struct {
 }
 
 // computeStageSummary soma o tempo de fabricação por etapa e o total geral, e
-// indica se a máquina já tem uma Câmara de Teste finalizada (o que libera o
-// botão "Finalizar Máquina").
+// indica se a máquina já tem a etapa final (models.StageFinal) concluída —
+// o que libera o botão "Finalizar Máquina".
 func (h *MachineHandler) computeStageSummary(ctx context.Context, machine *models.Machine) (gin.H, bool) {
 	candidates := machineReferenceCandidates(machine, machine.ID)
 	var procs []models.Process
@@ -174,15 +174,15 @@ func (h *MachineHandler) computeStageSummary(ctx context.Context, machine *model
 
 	totalsByStage := map[string]int{}
 	totalSeconds := 0
-	hasFinishedTestChamber := false
+	hasFinishedFinalStage := false
 	for _, p := range procs {
 		if p.ProcessType == nil {
 			continue
 		}
-		// Existência da Câmara de Teste concluída independe da duração — mesmo
-		// um processo de 0s finalizado conta pra liberar "Finalizar Máquina".
-		if strings.EqualFold(strings.TrimSpace(p.ProcessType.Name), models.StageCamaraDeTeste) {
-			hasFinishedTestChamber = true
+		// Existência da etapa final concluída independe da duração — mesmo um
+		// processo de 0s finalizado conta pra liberar "Finalizar Máquina".
+		if strings.EqualFold(strings.TrimSpace(p.ProcessType.Name), models.StageFinal) {
+			hasFinishedFinalStage = true
 		}
 		secs := int(parseTimeToSeconds(p.ProcessTime))
 		if secs <= 0 {
@@ -202,11 +202,11 @@ func (h *MachineHandler) computeStageSummary(ctx context.Context, machine *model
 		"stages":         stages,
 		"totalSeconds":   totalSeconds,
 		"totalFormatted": formatSeconds(totalSeconds),
-	}, hasFinishedTestChamber
+	}, hasFinishedFinalStage
 }
 
 // FinishMachine marca a máquina como Finalizada — só permitido depois de um
-// processo de Câmara de Teste finalizado (a última etapa de fabricação).
+// processo de Acabamento/Embalagem finalizado (a última etapa de fabricação).
 func (h *MachineHandler) FinishMachine(c *gin.Context) {
 	id := c.Param("id")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -222,9 +222,9 @@ func (h *MachineHandler) FinishMachine(c *gin.Context) {
 		return
 	}
 
-	_, hasFinishedTestChamber := h.computeStageSummary(ctx, machine)
-	if !hasFinishedTestChamber {
-		c.JSON(http.StatusConflict, gin.H{"message": "A máquina ainda não concluiu a Câmara de Teste — não pode ser finalizada"})
+	_, hasFinishedFinalStage := h.computeStageSummary(ctx, machine)
+	if !hasFinishedFinalStage {
+		c.JSON(http.StatusConflict, gin.H{"message": "A máquina ainda não concluiu o Acabamento/Embalagem — não pode ser finalizada"})
 		return
 	}
 

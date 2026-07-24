@@ -68,8 +68,9 @@ function processKind(p) {
   return                             { label: 'Produção',   cls: 'bg-blue-100 text-blue-700'     }
 }
 
-const STAGE_ORDER_NAMES = ['Elétrica', 'Soldagem', 'Montagem', 'Acabamento', 'Câmara de Teste']
-const TEST_CHAMBER_NAME = 'Câmara de Teste'
+const STAGE_ORDER_NAMES = ['Elétrica', 'Soldagem', 'Montagem', 'Câmara de Teste', 'Acabamento/Embalagem']
+// Última etapa de fabricação — sua conclusão libera "Finalizar Máquina".
+const FINAL_STAGE_NAME = 'Acabamento/Embalagem'
 
 function sortStageTypes(types) {
   return [...types].sort((a, b) => {
@@ -446,7 +447,7 @@ function FinishMachineModal({ machine, onClose, onFinished }) {
             <CheckCircle size={20} className="text-green-600" />
           </div>
           <div>
-            <p className="font-semibold text-slate-800 text-sm">Câmara de Teste concluída</p>
+            <p className="font-semibold text-slate-800 text-sm">Acabamento/Embalagem concluído</p>
             <p className="text-xs text-slate-400 mt-0.5">{machine.name}</p>
           </div>
         </div>
@@ -885,7 +886,7 @@ export default function IndustriaProcessesPage() {
     setEndTarget(null)
     loadActive(); loadHistory()
     const stageName = String(proc?.processType?.name || '').trim()
-    if (proc?.machine?.id && stageName === TEST_CHAMBER_NAME && !proc?.reWork) {
+    if (proc?.machine?.id && stageName === FINAL_STAGE_NAME && !proc?.reWork) {
       setFinishSuggestMachine(proc.machine)
     }
   }

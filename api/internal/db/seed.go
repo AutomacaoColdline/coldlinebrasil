@@ -20,9 +20,7 @@ func seed(db *gorm.DB) {
 		"TI", "Manutenção", "Operação", "Engenharia", "Administrativo", "Automação",
 	})
 	seedConfigTable(db, "process_types", models.StageOrder)
-	seedConfigTable(db, "occurrence_types", []string{
-		models.PauseReasonFaltaDePeca, models.PauseReasonEmergencia,
-	})
+	seedConfigTable(db, "occurrence_types", models.PauseReasonOrder)
 	migrateIndustriaStageTypes(db)
 	seedConfigTable(db, "machine_types", []string{
 		"Compressor", "Bomba", "Motor", "Gerador", "Painel Elétrico", "CLP", "IHM",
@@ -89,24 +87,29 @@ func seedAdminUser(db *gorm.DB) {
 	log.Println("🌱 Usuário admin criado: admin@coldline.com.br / admin123")
 }
 
-// migrateIndustriaStageTypes substitui os antigos process_types/occurrence_types
-// genéricos (de manutenção) pelos 5 processos reais de fabricação e pelos 2
-// motivos de pausa (Falta de Peça / Emergência). Roda em todo boot, idempotente:
-// só insere o que falta e só remove as linhas com os nomes legados exatos —
-// nunca mexe em registros já customizados pelo usuário nem no tipo de pausa
-// automática do sistema ("Sistema - Fora do Expediente").
+// migrateIndustriaStageTypes garante que process_types tenha exatamente os 5
+// processos de fabricação (models.StageOrder) e que occurrence_types tenha
+// exatamente os 2 motivos de pausa (models.PauseReasonOrder) — é uma lista
+// fechada ("apenas esses"), não um conjunto livre editável.  Roda em todo
+// boot, idempotente: garante que os nomes canônicos existam e remove
+// qualquer outro nome (seed antigo de manutenção, digitado errado, teste,
+// etc.), exceto o tipo de pausa automática do sistema ("Sistema - Fora do
+// Expediente"), que o scheduler cria e depende do nome exato. Deletar uma
+// linha daqui não afeta processos/ocorrências já registrados — o nome fica
+// gravado neles como snapshot, não como referência viva.
 func migrateIndustriaStageTypes(db *gorm.DB) {
 	for _, name := range models.StageOrder {
 		findOrCreateBaseEntity(db, "process_types", name)
 	}
-	for _, name := range []string{models.PauseReasonFaltaDePeca, models.PauseReasonEmergencia} {
+	for _, name := range models.PauseReasonOrder {
 		findOrCreateBaseEntity(db, "occurrence_types", name)
 	}
-	if res := db.Table("process_types").Where("name IN ?", models.LegacyProcessTypeNames).Delete(&models.BaseEntity{}); res.RowsAffected > 0 {
-		log.Printf("🌱 process_types: %d tipo(s) legado(s) de manutenção removido(s)", res.RowsAffected)
+	if res := db.Table("process_types").Where("name NOT IN ?", models.StageOrder).Delete(&models.BaseEntity{}); res.RowsAffected > 0 {
+		log.Printf("🌱 process_types: %d tipo(s) fora da lista dos 5 processos removido(s)", res.RowsAffected)
 	}
-	if res := db.Table("occurrence_types").Where("name IN ?", models.LegacyOccurrenceTypeNames).Delete(&models.BaseEntity{}); res.RowsAffected > 0 {
-		log.Printf("🌱 occurrence_types: %d motivo(s) legado(s) removido(s)", res.RowsAffected)
+	keepOccurrenceTypes := append(append([]string{}, models.PauseReasonOrder...), models.SystemOccurrenceTypeName)
+	if res := db.Table("occurrence_types").Where("name NOT IN ?", keepOccurrenceTypes).Delete(&models.BaseEntity{}); res.RowsAffected > 0 {
+		log.Printf("🌱 occurrence_types: %d motivo(s) fora da lista dos 2 motivos removido(s)", res.RowsAffected)
 	}
 }
 

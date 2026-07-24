@@ -8,7 +8,8 @@ import {
 import { formatDateTimePtBrSP } from '../../utils/industriaWorkTime'
 import { isSystemOutOfShiftOccurrence } from '../../utils/industriaOccurrences'
 
-const TEST_CHAMBER_NAME = 'Câmara de Teste'
+// Última etapa de fabricação — sua conclusão libera "Finalizar Máquina".
+const FINAL_STAGE_NAME = 'Acabamento/Embalagem'
 
 function parseTimeToSeconds(t) {
   const parts = String(t || '').split(':').map(Number)
@@ -25,22 +26,22 @@ function fmtSecs(s) {
 }
 
 // Soma o tempo de fabricação finalizado por etapa (Elétrica/Soldagem/...) e
-// indica se já existe uma Câmara de Teste concluída (libera "Finalizar Máquina").
+// indica se já existe um Acabamento/Embalagem concluído (libera "Finalizar Máquina").
 function computeStageSummary(processes) {
   const totals = {}
   let totalSeconds = 0
-  let hasFinishedTestChamber = false
+  let hasFinishedFinalStage = false
   for (const p of processes) {
     if (!p.finished || !p.processType?.name) continue
-    // Existência da Câmara de Teste concluída independe da duração — mesmo um
+    // Existência da etapa final concluída independe da duração — mesmo um
     // processo de 0s finalizado conta pra liberar "Finalizar Máquina".
-    if (p.processType.name.trim() === TEST_CHAMBER_NAME) hasFinishedTestChamber = true
+    if (p.processType.name.trim() === FINAL_STAGE_NAME) hasFinishedFinalStage = true
     const secs = parseTimeToSeconds(p.processTime)
     if (secs <= 0) continue
     totals[p.processType.name] = (totals[p.processType.name] || 0) + secs
     totalSeconds += secs
   }
-  return { totals, totalSeconds, hasFinishedTestChamber }
+  return { totals, totalSeconds, hasFinishedFinalStage }
 }
 
 async function loadAllPages(fetcher, params = {}, pageSize = 200) {
@@ -346,7 +347,7 @@ export default function IndustriaMachineDetailPage() {
 
   const { machine, stats, recentProcesses, recentOccurrences, stageSummary } = detail
   const s = STATUS[machine.status] || STATUS[1]
-  const canFinish = stageSummary.hasFinishedTestChamber && machine.status !== 5
+  const canFinish = stageSummary.hasFinishedFinalStage && machine.status !== 5
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
