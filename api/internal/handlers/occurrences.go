@@ -155,11 +155,18 @@ func (h *OccurrenceHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Tipo de ocorrência inválido"})
 		return
 	} else {
-		if isOutroOccurrenceTypeName(ot.Name) && strings.TrimSpace(occ.Description) == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"message": `Informe o motivo quando o tipo de ocorrência for "Outro"`})
+		rawParts := make([]PartRef, 0, len(occ.Parts))
+		for _, p := range occ.Parts {
+			rawParts = append(rawParts, PartRef{ID: p.ID, Name: p.Name})
+		}
+		partRepo := repositories.New[models.BaseEntity](h.db, "parts")
+		resolvedParts, verr := validatePauseReason(ctx, partRepo, ot.Name, occ.Description, rawParts)
+		if verr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": strings.TrimPrefix(verr.Error(), "bad_request: ")})
 			return
 		}
 		occ.OccurrenceType = &models.ReferenceEntity{ID: ot.ID, Name: ot.Name}
+		occ.Parts = resolvedParts
 	}
 
 	if occ.Machine != nil {
@@ -272,9 +279,16 @@ func (h *OccurrenceHandler) Update(c *gin.Context) {
 			if rawDescription, ok := payload["description"]; ok {
 				finalDescription = strings.TrimSpace(fmt.Sprint(rawDescription))
 			}
-			if isOutroOccurrenceTypeName(ot.Name) && finalDescription == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"message": `Informe o motivo quando o tipo de ocorrência for "Outro"`})
+			if (isOutroOccurrenceTypeName(ot.Name) || isEmergenciaOccurrenceTypeName(ot.Name)) && finalDescription == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Informe a descrição do motivo"})
 				return
+			}
+			if isFaltaDePecaOccurrenceTypeName(ot.Name) {
+				finalParts, _ := payload["parts"].([]interface{})
+				if len(finalParts) == 0 && len(current.Parts) == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{"message": "Selecione ao menos uma peça em falta"})
+					return
+				}
 			}
 			payload["occurrenceType"] = map[string]interface{}{"id": ot.ID, "name": ot.Name}
 		}
@@ -291,8 +305,8 @@ func (h *OccurrenceHandler) Update(c *gin.Context) {
 				}
 			}
 		}
-		if isOutroOccurrenceTypeName(finalTypeName) && strings.TrimSpace(fmt.Sprint(rawDescription)) == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"message": `Informe o motivo quando o tipo de ocorrência for "Outro"`})
+		if (isOutroOccurrenceTypeName(finalTypeName) || isEmergenciaOccurrenceTypeName(finalTypeName)) && strings.TrimSpace(fmt.Sprint(rawDescription)) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Informe a descrição do motivo"})
 			return
 		}
 	}

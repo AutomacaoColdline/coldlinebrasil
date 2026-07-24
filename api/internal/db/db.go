@@ -61,7 +61,7 @@ func migrate(db *gorm.DB) error {
 		return err
 	}
 
-	for _, t := range []string{"user_types", "departments", "process_types", "occurrence_types", "machine_types", "monitoring_types"} {
+	for _, t := range []string{"user_types", "departments", "process_types", "occurrence_types", "machine_types", "monitoring_types", "parts"} {
 		if err := db.Table(t).AutoMigrate(&models.BaseEntity{}); err != nil {
 			return err
 		}

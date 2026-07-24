@@ -3,10 +3,45 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import {
   ArrowLeft, RefreshCw, Cog, AlertTriangle, Activity,
-  CheckCircle, Clock, ChevronLeft, ChevronRight,
+  CheckCircle, Clock, ChevronLeft, ChevronRight, QrCode, Package, Flag, Timer,
 } from 'lucide-react'
 import { formatDateTimePtBrSP } from '../../utils/industriaWorkTime'
 import { isSystemOutOfShiftOccurrence } from '../../utils/industriaOccurrences'
+
+const TEST_CHAMBER_NAME = 'Câmara de Teste'
+
+function parseTimeToSeconds(t) {
+  const parts = String(t || '').split(':').map(Number)
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return 0
+  return parts[0] * 3600 + parts[1] * 60 + parts[2]
+}
+
+function fmtSecs(s) {
+  if (!s || s < 0) s = 0
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = Math.floor(s % 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
+
+// Soma o tempo de fabricação finalizado por etapa (Elétrica/Soldagem/...) e
+// indica se já existe uma Câmara de Teste concluída (libera "Finalizar Máquina").
+function computeStageSummary(processes) {
+  const totals = {}
+  let totalSeconds = 0
+  let hasFinishedTestChamber = false
+  for (const p of processes) {
+    if (!p.finished || !p.processType?.name) continue
+    // Existência da Câmara de Teste concluída independe da duração — mesmo um
+    // processo de 0s finalizado conta pra liberar "Finalizar Máquina".
+    if (p.processType.name.trim() === TEST_CHAMBER_NAME) hasFinishedTestChamber = true
+    const secs = parseTimeToSeconds(p.processTime)
+    if (secs <= 0) continue
+    totals[p.processType.name] = (totals[p.processType.name] || 0) + secs
+    totalSeconds += secs
+  }
+  return { totals, totalSeconds, hasFinishedTestChamber }
+}
 
 async function loadAllPages(fetcher, params = {}, pageSize = 200) {
   const first = await fetcher({ ...params, page: 1, pageSize })
@@ -273,6 +308,7 @@ export default function IndustriaMachineDetailPage() {
         },
         recentProcesses: sortedProcesses,
         recentOccurrences: sortedOccurrences,
+        stageSummary: computeStageSummary(sortedProcesses),
       })
     } catch {
       navigate('/industria/machines')
@@ -283,6 +319,23 @@ export default function IndustriaMachineDetailPage() {
 
   useEffect(() => { load() }, [load])
 
+  const [finishing, setFinishing] = useState(false)
+  const [finishError, setFinishError] = useState('')
+
+  const handleFinish = async () => {
+    if (!detail) return
+    setFinishing(true)
+    setFinishError('')
+    try {
+      await api.finishMachine(detail.machine.id)
+      load()
+    } catch (err) {
+      setFinishError(err?.response?.data?.message || 'Erro ao finalizar máquina')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-slate-50">
       <RefreshCw size={22} className="animate-spin text-slate-300" />
@@ -291,8 +344,9 @@ export default function IndustriaMachineDetailPage() {
 
   if (!detail) return null
 
-  const { machine, stats, recentProcesses, recentOccurrences } = detail
+  const { machine, stats, recentProcesses, recentOccurrences, stageSummary } = detail
   const s = STATUS[machine.status] || STATUS[1]
+  const canFinish = stageSummary.hasFinishedTestChamber && machine.status !== 5
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
@@ -314,11 +368,31 @@ export default function IndustriaMachineDetailPage() {
               <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
               {s.label}
             </span>
+            {machine.isStock && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                <Package size={11} /> Estoque
+              </span>
+            )}
           </div>
           {machine.customerName && (
             <p className="text-sm text-slate-400 mt-0.5">{machine.customerName}</p>
           )}
         </div>
+        <button
+          onClick={() => navigate(`/industria/machines/${machine.id}/qr`)}
+          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+        >
+          <QrCode size={14} /> <span className="hidden sm:inline">QR code</span>
+        </button>
+        {canFinish && (
+          <button
+            onClick={handleFinish}
+            disabled={finishing}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            <Flag size={14} /> {finishing ? 'Finalizando…' : 'Finalizar máquina'}
+          </button>
+        )}
         <button
           onClick={load}
           className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
@@ -326,6 +400,33 @@ export default function IndustriaMachineDetailPage() {
           <RefreshCw size={14} />
         </button>
       </div>
+
+      {finishError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-2.5 mb-6">{finishError}</p>
+      )}
+
+      {/* Tempo de fabricação por etapa */}
+      {stageSummary.totalSeconds > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
+              <Timer size={15} className="text-blue-600" />
+            </div>
+            <h2 className="font-semibold text-slate-700 text-sm">Tempo de fabricação por etapa</h2>
+            <span className="ml-auto text-xs text-slate-400">
+              Total: <span className="font-mono font-semibold text-slate-700">{fmtSecs(stageSummary.totalSeconds)}</span>
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {Object.entries(stageSummary.totals).map(([name, secs]) => (
+              <div key={name} className="bg-slate-50 rounded-xl px-3 py-2.5 text-center">
+                <p className="text-xs text-slate-500 truncate">{name}</p>
+                <p className="font-mono text-sm font-bold text-slate-800 mt-0.5">{fmtSecs(secs)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

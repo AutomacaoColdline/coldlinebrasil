@@ -812,8 +812,9 @@ func (h *ProcessHandler) MonthlySummary(c *gin.Context) {
 
 func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 	var req struct {
-		OccurrenceTypeId string `json:"occurrenceTypeId"`
-		Description      string `json:"description"`
+		OccurrenceTypeId string    `json:"occurrenceTypeId"`
+		Description      string    `json:"description"`
+		Parts            []PartRef `json:"parts"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -835,6 +836,7 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 		userRepo := repositories.New[models.User](tx, "users")
 		machineRepo := repositories.New[models.Machine](tx, "machines")
 		occTypeRepo := repositories.New[models.BaseEntity](tx, "occurrence_types")
+		partRepo := repositories.New[models.BaseEntity](tx, "parts")
 
 		var process models.Process
 		if err := repo.Q(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", c.Param("id")).First(&process).Error; err != nil {
@@ -860,10 +862,12 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 			Machine:        process.Machine,
 		}
 		if ot, err := occTypeRepo.FindByID(ctx, req.OccurrenceTypeId); err == nil {
-			if strings.EqualFold(strings.TrimSpace(ot.Name), "Outro") && strings.TrimSpace(req.Description) == "" {
-				return fmt.Errorf(`bad_request: informe o motivo quando o tipo de ocorrência for "Outro"`)
+			resolvedParts, verr := validatePauseReason(ctx, partRepo, ot.Name, req.Description, req.Parts)
+			if verr != nil {
+				return verr
 			}
 			occ.OccurrenceType = &models.ReferenceEntity{ID: ot.ID, Name: ot.Name}
+			occ.Parts = resolvedParts
 		} else {
 			return fmt.Errorf("bad_request: tipo de ocorrência inválido")
 		}

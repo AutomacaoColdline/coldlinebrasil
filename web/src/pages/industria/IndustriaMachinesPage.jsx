@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import {
   Cog, Loader2, RefreshCw, Plus, Search,
-  Pencil, Trash2, Eye, ChevronLeft, ChevronRight, X,
+  Pencil, Trash2, Eye, ChevronLeft, ChevronRight, X, QrCode, Package,
 } from 'lucide-react'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -25,6 +25,7 @@ const EMPTY_FORM = {
   voltage:              '',
   machineType:          null,
   status:               1,
+  isStock:              true,
 }
 
 // ── Machine Form Modal ────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ function MachineModal({ machine, onClose, onSaved }) {
     voltage:              machine.voltage              || '',
     machineType:          machine.machineType          || null,
     status:               machine.status               || 1,
+    isStock:              machine.isStock !== false,
   } : { ...EMPTY_FORM })
   const [types, setTypes]   = useState([])
   const [saving, setSaving] = useState(false)
@@ -140,6 +142,20 @@ function MachineModal({ machine, onClose, onSaved }) {
                 value={form.serialNumber}
                 onChange={e => set('serialNumber', e.target.value)}
               />
+            </div>
+
+            <div className="col-span-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.isStock}
+                  onChange={e => set('isStock', e.target.checked)}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500/20"
+                />
+                <span className="text-sm text-amber-800">
+                  Máquina de estoque <span className="text-amber-600">(ainda sem cliente / número de série definitivo)</span>
+                </span>
+              </label>
             </div>
 
             <div>
@@ -379,6 +395,12 @@ export default function IndustriaMachinesPage() {
                   </span>
                 </div>
 
+                {m.isStock && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 mb-2">
+                    <Package size={9} /> Estoque
+                  </span>
+                )}
+
                 {/* Serial number */}
                 {m.serialNumber && (
                   <p className="text-xs text-slate-500 mb-1 truncate font-mono">
@@ -409,6 +431,13 @@ export default function IndustriaMachinesPage() {
                     className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 transition-colors"
                   >
                     <Pencil size={12} /> Editar
+                  </button>
+                  <button
+                    onClick={() => navigate(`/industria/machines/${m.id}/qr`)}
+                    title="Imprimir QR code"
+                    className="px-3 py-1.5 rounded-lg text-xs text-slate-400 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  >
+                    <QrCode size={12} />
                   </button>
                   <button
                     onClick={() => handleDelete(m)}

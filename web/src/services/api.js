@@ -71,6 +71,7 @@ export const api = {
   createMachine: (data) => http.post('/api/Machine', data),
   updateMachine: (id, data) => http.put(`/api/Machine/${id}`, data),
   deleteMachine: (id) => http.delete(`/api/Machine/${id}`),
+  finishMachine: (id) => http.post(`/api/Machine/${id}/finish`),
 
   // Occurrences
   getOccurrences: (params) => http.get('/api/Occurrence', { params }),
@@ -106,6 +107,13 @@ export const api = {
   createMachineType: (data) => http.post('/api/MachineType', data),
   updateMachineType: (id, data) => http.put(`/api/MachineType/${id}`, data),
   deleteMachineType: (id) => http.delete(`/api/MachineType/${id}`),
+
+  // Parts (peças — motivo de pausa "Falta de Peça")
+  getParts: () => http.get('/api/Part'),
+  searchParts: (q) => http.get('/api/Part/search', { params: { q } }),
+  createPart: (data) => http.post('/api/Part', data),
+  updatePart: (id, data) => http.put(`/api/Part/${id}`, data),
+  deletePart: (id) => http.delete(`/api/Part/${id}`),
 }
 
 export default api

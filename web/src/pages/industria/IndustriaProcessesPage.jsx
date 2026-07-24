@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
 import {
-  Plus, RefreshCw, Search, ChevronLeft, ChevronRight,
-  StopCircle, Clock, Cog, X, Loader2, Activity,
+  RefreshCw, Search, ChevronLeft, ChevronRight,
+  StopCircle, Clock, Cog, X, Loader2, Activity, Camera,
   CheckCircle, PauseCircle, PlayCircle, Pencil,
 } from 'lucide-react'
 import {
@@ -17,6 +18,8 @@ import {
 } from '../../utils/industriaWorkTime'
 import { isIndustriaOperatorUser } from '../../utils/industriaUsers'
 import MachinePicker from '../../components/MachinePicker'
+import QrScannerModal from '../../components/QrScannerModal'
+import PartsPicker from '../../components/PartsPicker'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,72 +68,130 @@ function processKind(p) {
   return                             { label: 'Produção',   cls: 'bg-blue-100 text-blue-700'     }
 }
 
-// ── Create modal ──────────────────────────────────────────────────────────────
+const STAGE_ORDER_NAMES = ['Elétrica', 'Soldagem', 'Montagem', 'Acabamento', 'Câmara de Teste']
+const TEST_CHAMBER_NAME = 'Câmara de Teste'
 
-function CreateModal({ onClose, onCreated }) {
-  const [users,    setUsers]    = useState([])
-  const [machines, setMachines] = useState([])
-  const [ptypes,   setPtypes]   = useState([])
-  const [busy,     setBusy]     = useState(true)
-
-  const [form, setForm] = useState({
-    userId: '', machineId: '', processTypeId: '',
-    startDate: toSpInput(),
-    preIndustrialization: false, reWork: false, prototype: false,
+function sortStageTypes(types) {
+  return [...types].sort((a, b) => {
+    const ia = STAGE_ORDER_NAMES.indexOf(a.name)
+    const ib = STAGE_ORDER_NAMES.indexOf(b.name)
+    if (ia === -1 && ib === -1) return a.name.localeCompare(b.name)
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
   })
+}
+
+// Aceita a URL completa impressa no QR (.../industria/scan/<id>) ou só o id.
+function parseScanText(text) {
+  const m = /\/industria\/scan\/([a-zA-Z0-9-]+)/.exec(text || '')
+  return m ? m[1] : String(text || '').trim()
+}
+
+// ── Iniciar meu trabalho: escanear QR → (atribuir dados se estoque) → escolher processo ──
+
+function ScanStartModal({ initialMachineId, currentUser, onClose, onStarted }) {
+  const [step, setStep] = useState('scan') // scan | confirm | stage
+  const [showScanner, setShowScanner] = useState(false)
+  const [machines, setMachines] = useState([])
+  const [machine, setMachine] = useState(null)
+  const [ptypes, setPtypes] = useState([])
+  const [processTypeId, setProcessTypeId] = useState('')
+  const [reWork, setReWork] = useState(false)
+  const [stockForm, setStockForm] = useState({ serialNumber: '', customerName: '', isStock: true })
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState('')
-  const [uq,     setUq]     = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     Promise.all([
-      api.searchUsersPaginated({ pageSize: 200 }),
       api.getMachines(),
       api.getProcessTypes(),
-    ]).then(([u, m, pt]) => {
-      const allUsers = u.data?.items || u.data || []
-      setUsers(allUsers.filter(isIndustriaOperatorUser))
+    ]).then(([m, pt]) => {
       setMachines(m.data || [])
-      setPtypes(pt.data || [])
-    }).catch(() => {}).finally(() => setBusy(false))
+      setPtypes(sortStageTypes(pt.data || []))
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  const filteredUsers = users.filter(u => {
-    const q = uq.toLowerCase()
-    return !q
-      || u.name?.toLowerCase().includes(q)
-      || u.identificationNumber?.toLowerCase().includes(q)
-  })
-
-  const submit = async (e) => {
-    e.preventDefault()
+  const selectMachine = useCallback((m) => {
     setError('')
-    if (!form.userId || !form.processTypeId) {
-      setError('Operador e tipo de processo são obrigatórios')
-      return
+    setMachine(m)
+    setStockForm({
+      serialNumber: m.serialNumber || '',
+      customerName: m.customerName || '',
+      isStock: m.isStock !== false,
+    })
+    setStep(m.isStock ? 'confirm' : 'stage')
+  }, [])
+
+  const loadMachineById = useCallback(async (id) => {
+    setError('')
+    try {
+      const r = await api.getMachineById(id)
+      selectMachine(r.data)
+    } catch {
+      setError('Máquina não encontrada para esse QR code')
     }
+  }, [selectMachine])
+
+  useEffect(() => {
+    if (initialMachineId) loadMachineById(initialMachineId)
+  }, [initialMachineId, loadMachineById])
+
+  const handleDecode = (text) => {
+    setShowScanner(false)
+    const id = parseScanText(text)
+    if (id) loadMachineById(id)
+  }
+
+  const handleManual = (query) => {
+    setShowScanner(false)
+    const q = query.trim().toLowerCase()
+    const found = machines.find(m =>
+      (m.identificationNumber || '').toLowerCase() === q ||
+      (m.serialNumber || '').toLowerCase() === q,
+    )
+    if (found) { selectMachine(found); return }
+    setError(`Nenhuma máquina encontrada para "${query}"`)
+  }
+
+  const saveStockAssign = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const payload = {
+        serialNumber: stockForm.serialNumber,
+        customerName: stockForm.customerName,
+        isStock: stockForm.isStock,
+      }
+      await api.updateMachine(machine.id, payload)
+      setMachine(m => ({ ...m, ...payload }))
+      setStep('stage')
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Erro ao salvar dados da máquina')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const start = async () => {
+    setError('')
+    if (!processTypeId) { setError('Selecione um processo'); return }
     setSaving(true)
     try {
-      const u  = users.find(u => u.id === form.userId)
-      const m  = machines.find(m => m.id === form.machineId)
-      const pt = ptypes.find(t => (t.id || t._id) === form.processTypeId)
-
+      const pt = ptypes.find(t => (t.id || t._id) === processTypeId)
       await api.createProcess({
-        user:        u  ? { id: u.id,          name: u.name }                                           : null,
-        machine:     m  ? { id: m.id,          name: m.identificationNumber || m.customerName || m.id } : null,
-        processType: pt ? { id: pt.id || pt._id, name: pt.name }                                        : null,
-        startDate:   new Date(form.startDate).toISOString(),
-        preIndustrialization: form.preIndustrialization,
-        reWork:      form.reWork,
-        prototype:   form.prototype,
-        finished:    false,
+        user: { id: currentUser.id, name: currentUser.name },
+        machine: machine ? { id: machine.id, name: machine.identificationNumber || machine.customerName || machine.id } : null,
+        processType: pt ? { id: pt.id || pt._id, name: pt.name } : null,
+        reWork,
+        startDate: new Date().toISOString(),
+        finished: false,
         occurrences: [],
       })
-      onCreated()
+      onStarted()
     } catch (err) {
-      setError(err?.response?.data?.message || 'Erro ao criar processo')
+      setError(err?.response?.data?.message || 'Erro ao iniciar processo')
     } finally {
       setSaving(false)
     }
@@ -138,119 +199,159 @@ function CreateModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-slate-800 font-semibold">Novo Processo</h2>
+          <h2 className="text-slate-800 font-semibold">Iniciar meu trabalho</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
         </div>
 
-        {busy ? (
-          <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin text-slate-300" /></div>
-        ) : (
-          <form onSubmit={submit} className="overflow-y-auto flex-1 p-6 space-y-4">
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-            )}
+        <div className="overflow-y-auto flex-1 p-6 space-y-4">
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+          )}
 
-            {/* Operador */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Operador *</label>
-              <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 placeholder-slate-300"
-                placeholder="Buscar por nome ou matrícula…"
-                value={uq}
-                onChange={e => setUq(e.target.value)}
-              />
-              <select
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                value={form.userId}
-                onChange={e => set('userId', e.target.value)}
-                required
-                size={5}
+          {step === 'scan' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="w-full flex flex-col items-center justify-center gap-3 py-10 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-50 transition-colors"
               >
-                <option value="">— selecione —</option>
-                {filteredUsers.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}{u.identificationNumber ? ` #${u.identificationNumber}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Máquina */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Máquina</label>
-              <MachinePicker
-                machines={machines}
-                value={form.machineId}
-                onChange={(id, machine) => {
-                  set('machineId', id)
-                }}
-              />
-            </div>
-
-            {/* Tipo */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Tipo de processo *</label>
-              <select
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                value={form.processTypeId}
-                onChange={e => set('processTypeId', e.target.value)}
-                required
+                <Camera size={32} />
+                <span className="font-semibold text-sm">Escanear QR da máquina</span>
+              </button>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">Ou buscar manualmente</label>
+                <MachinePicker
+                  machines={machines}
+                  value={machine?.id}
+                  onChange={(id, m) => { if (m) selectMachine(m) }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep('stage')}
+                className="w-full text-center text-xs text-slate-400 hover:text-slate-600 transition-colors pt-1"
               >
-                <option value="">— selecione —</option>
-                {ptypes.map(t => (
-                  <option key={t.id || t._id} value={t.id || t._id}>{t.name}</option>
-                ))}
-              </select>
-            </div>
+                Continuar sem vincular máquina
+              </button>
+            </>
+          )}
 
-            {/* Início */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Horário de início</label>
-              <input
-                type="datetime-local"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                value={form.startDate}
-                onChange={e => set('startDate', e.target.value)}
-              />
-            </div>
-
-            {/* Flags */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-2">Modalidade</label>
-              <div className="flex flex-wrap gap-4">
-                {[
-                  { k: 'preIndustrialization', label: 'Pré-industrialização' },
-                  { k: 'reWork',               label: 'Retrabalho'           },
-                  { k: 'prototype',            label: 'Protótipo'            },
-                ].map(({ k, label }) => (
-                  <label key={k} className="flex items-center gap-2 cursor-pointer select-none">
+          {step === 'confirm' && machine && (
+            <>
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Máquina de estoque</p>
+                <p className="text-sm text-amber-800 mb-3">
+                  {machine.identificationNumber || machine.id?.slice(-6)} ainda não tem cliente / número
+                  de série definitivo. Atribua agora ou pule — o mesmo QR sempre volta pra essa máquina.
+                </p>
+                <div className="space-y-2">
+                  <input
+                    value={stockForm.customerName}
+                    onChange={e => setStockForm(f => ({ ...f, customerName: e.target.value }))}
+                    placeholder="Cliente / OS"
+                    className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                  <input
+                    value={stockForm.serialNumber}
+                    onChange={e => setStockForm(f => ({ ...f, serialNumber: e.target.value }))}
+                    placeholder="Número de série"
+                    className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                  <label className="flex items-center gap-2 text-xs text-amber-700 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={form[k]}
-                      onChange={e => set(k, e.target.checked)}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                      checked={stockForm.isStock}
+                      onChange={e => setStockForm(f => ({ ...f, isStock: e.target.checked }))}
+                      className="rounded border-amber-300 text-amber-600 focus:ring-amber-500/20"
                     />
-                    <span className="text-sm text-slate-600">{label}</span>
+                    Ainda é de estoque
                   </label>
-                ))}
+                </div>
               </div>
-            </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setStep('stage')}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition-all">
+                  Pular por agora
+                </button>
+                <button type="button" onClick={saveStockAssign} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-all">
+                  {saving ? 'Salvando…' : 'Salvar e continuar'}
+                </button>
+              </div>
+            </>
+          )}
 
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition-all">
-                Cancelar
-              </button>
-              <button type="submit" disabled={saving}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all">
+          {step === 'stage' && (
+            <>
+              {machine && (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
+                  <Cog size={14} className="text-slate-400 shrink-0" />
+                  <p className="text-sm text-slate-700 font-medium truncate">
+                    {machine.identificationNumber || machine.customerName || machine.id?.slice(-6)}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-2">Qual o seu processo? *</label>
+                {loading ? (
+                  <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-slate-300" /></div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {ptypes.map(t => {
+                      const id = t.id || t._id
+                      const active = processTypeId === id
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setProcessTypeId(id)}
+                          className={`py-4 rounded-2xl text-sm font-semibold border-2 transition-all ${
+                            active
+                              ? 'border-blue-600 bg-blue-600 text-white shadow-md'
+                              : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'
+                          }`}
+                        >
+                          {t.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none bg-yellow-50 border border-yellow-100 rounded-xl px-3 py-2.5 w-fit">
+                <input
+                  type="checkbox"
+                  checked={reWork}
+                  onChange={e => setReWork(e.target.checked)}
+                  className="rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500/20"
+                />
+                <span className="text-xs font-medium text-yellow-700">Retrabalho</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={start}
+                disabled={saving || !processTypeId}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-40 transition-all"
+              >
                 {saving ? 'Iniciando…' : 'Iniciar processo'}
               </button>
-            </div>
-          </form>
-        )}
+            </>
+          )}
+        </div>
       </div>
+
+      {showScanner && (
+        <QrScannerModal
+          onClose={() => setShowScanner(false)}
+          onDecode={handleDecode}
+          onManual={handleManual}
+        />
+      )}
     </div>
   )
 }
@@ -264,7 +365,7 @@ function EndModal({ proc, onClose, onEnded }) {
     setSaving(true)
     try {
       await api.endProcess(proc.id)
-      onEnded()
+      onEnded(proc)
     } catch (err) {
       alert(err?.response?.data?.message || 'Erro ao encerrar')
     } finally { setSaving(false) }
@@ -293,6 +394,52 @@ function EndModal({ proc, onClose, onEnded }) {
           <button onClick={confirm} disabled={saving}
             className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-all">
             {saving ? 'Encerrando…' : 'Confirmar encerramento'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Sugestão de finalizar máquina (após encerrar Câmara de Teste) ──────────────
+
+function FinishMachineModal({ machine, onClose, onFinished }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const confirm = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await api.finishMachine(machine.id)
+      onFinished()
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Erro ao finalizar máquina')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-none md:rounded-2xl w-full max-w-sm shadow-2xl border border-slate-100 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <CheckCircle size={20} className="text-green-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-slate-800 text-sm">Câmara de Teste concluída</p>
+            <p className="text-xs text-slate-400 mt-0.5">{machine.name}</p>
+          </div>
+        </div>
+        {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{error}</p>}
+        <p className="text-sm text-slate-600 mb-5">Essa era a última etapa de fabricação. Finalizar a máquina agora?</p>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition-all">
+            Agora não
+          </button>
+          <button onClick={confirm} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-all">
+            {saving ? 'Finalizando…' : 'Finalizar máquina'}
           </button>
         </div>
       </div>
@@ -392,35 +539,36 @@ function EditHistoryTimeModal({ proc, onClose, onSaved }) {
   )
 }
 
-// ── Pause modal ───────────────────────────────────────────────────────────────
+// ── Pause modal: 2 motivos (Falta de Peça / Emergência) ────────────────────────
 
 function PauseModal({ proc, onClose, onPaused }) {
   const [occurrenceTypes, setOccurrenceTypes] = useState([])
-  const [form, setForm] = useState({ occurrenceTypeId: '', description: '' })
+  const [reasonId, setReasonId] = useState('')
+  const [description, setDescription] = useState('')
+  const [parts, setParts] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const selectedType = occurrenceTypes.find((t) => t.id === form.occurrenceTypeId)
-  const isOutroType = String(selectedType?.name || '').trim().toLowerCase() === 'outro'
 
   useEffect(() => {
     api.getOccurrenceTypes().then(r => setOccurrenceTypes(r.data || [])).catch(() => {})
   }, [])
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const selected = occurrenceTypes.find((t) => t.id === reasonId)
+  const isFaltaDePeca = String(selected?.name || '').trim().toLowerCase() === 'falta de peça'
+  const isEmergencia = String(selected?.name || '').trim().toLowerCase() === 'emergência'
 
   const confirm = async () => {
     setError('')
-    if (!form.occurrenceTypeId) {
-      setError('Tipo de ocorrência é obrigatório')
-      return
-    }
-    if (isOutroType && !String(form.description || '').trim()) {
-      setError('Informe o motivo quando o tipo for "Outro"')
-      return
-    }
+    if (!reasonId) { setError('Selecione o motivo da pausa'); return }
+    if (isFaltaDePeca && parts.length === 0) { setError('Selecione ao menos uma peça em falta'); return }
+    if (isEmergencia && !description.trim()) { setError('Descreva a emergência'); return }
     setSaving(true)
     try {
-      await api.pauseProcess(proc.id, form)
+      await api.pauseProcess(proc.id, {
+        occurrenceTypeId: reasonId,
+        description,
+        parts: isFaltaDePeca ? parts.map(p => ({ id: p.id, name: p.name })) : undefined,
+      })
       onPaused()
     } catch (err) {
       setError(err?.response?.data?.message || 'Erro ao pausar processo')
@@ -448,30 +596,44 @@ function PauseModal({ proc, onClose, onPaused }) {
 
         <div className="space-y-3 mb-5">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Motivo da ocorrência *</label>
-            <select
-              value={form.occurrenceTypeId}
-              onChange={e => set('occurrenceTypeId', e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-              required
-            >
-              <option value="">Selecione o motivo...</option>
-              {occurrenceTypes.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">Motivo da pausa *</label>
+            <div className="grid grid-cols-2 gap-2">
+              {occurrenceTypes.map(t => {
+                const active = reasonId === t.id
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setReasonId(t.id)}
+                    className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all ${
+                      active ? 'border-orange-500 bg-orange-500 text-white' : 'border-slate-200 text-slate-700 hover:border-orange-300'
+                    }`}
+                  >
+                    {t.name}
+                  </button>
+                )
+              })}
+            </div>
           </div>
+
+          {isFaltaDePeca && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Peças em falta *</label>
+              <PartsPicker value={parts} onChange={setParts} />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
-              {isOutroType ? 'Motivo *' : 'Descrição (opcional)'}
+              {isEmergencia ? 'Descreva a emergência *' : 'Descrição (opcional)'}
             </label>
             <textarea
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
               rows={2}
-              placeholder={isOutroType ? 'Descreva o motivo para cadastro futuro desse tipo...' : 'Descreva brevemente a ocorrência...'}
+              placeholder={isEmergencia ? 'O que está acontecendo?' : 'Detalhes adicionais...'}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 resize-none"
-              required={isOutroType}
+              required={isEmergencia}
             />
           </div>
         </div>
@@ -605,7 +767,8 @@ function ActiveCard({ proc, now, onEnd, onPause, onResume }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function IndustriaProcessesPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { user: currentUser } = useAuth()
 
   // ── active state
   const [active,        setActive]        = useState([])
@@ -620,10 +783,26 @@ export default function IndustriaProcessesPage() {
   const machineId = searchParams.get('machineId') || ''
 
   // ── modals
-  const [showCreate,  setShowCreate]  = useState(false)
+  // scanModal: null (fechado) | { initialMachineId } — objeto em vez de bool
+  // pra carregar o id vindo do deep link (?scanMachineId=) só na abertura que
+  // o consome, sem vazar pra reaberturas manuais seguintes do botão.
+  const [scanModal,    setScanModal]  = useState(null)
   const [endTarget,   setEndTarget]   = useState(null)
   const [pauseTarget, setPauseTarget] = useState(null)
   const [editTarget,  setEditTarget]  = useState(null)
+  const [finishSuggestMachine, setFinishSuggestMachine] = useState(null)
+
+  // Deep link do QR impresso: /industria/scan/:id → ?scanMachineId=:id → abre
+  // direto o fluxo já com a máquina resolvida. Roda só uma vez (mount).
+  useEffect(() => {
+    const id = searchParams.get('scanMachineId')
+    if (!id) return
+    setScanModal({ initialMachineId: id })
+    const next = new URLSearchParams(searchParams)
+    next.delete('scanMachineId')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── 1-second client tick drives all live timers (no extra API calls)
   const [now, setNow] = useState(Date.now())
@@ -680,8 +859,17 @@ export default function IndustriaProcessesPage() {
     return () => clearInterval(t)
   }, [loadActive])
 
-  const handleCreated = () => { setShowCreate(false); loadActive() }
-  const handleEnded   = () => { setEndTarget(null); loadActive(); loadHistory() }
+  const handleStarted = () => { setScanModal(null); loadActive() }
+
+  const handleEnded = (proc) => {
+    setEndTarget(null)
+    loadActive(); loadHistory()
+    const stageName = String(proc?.processType?.name || '').trim()
+    if (proc?.machine?.id && stageName === TEST_CHAMBER_NAME && !proc?.reWork) {
+      setFinishSuggestMachine(proc.machine)
+    }
+  }
+
   const handlePaused  = () => { setPauseTarget(null); loadActive() }
 
   const handleResume  = async (proc) => {
@@ -705,10 +893,10 @@ export default function IndustriaProcessesPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => setScanModal({ initialMachineId: '' })}
           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
         >
-          <Plus size={14} /> <span className="hidden sm:inline">Novo processo</span>
+          <Camera size={14} /> <span>Iniciar meu trabalho</span>
         </button>
       </div>
 
@@ -874,10 +1062,24 @@ export default function IndustriaProcessesPage() {
       </section>
 
       {/* ── Modals ── */}
-      {showCreate   && <CreateModal onClose={() => setShowCreate(false)}   onCreated={handleCreated} />}
+      {scanModal && currentUser && (
+        <ScanStartModal
+          initialMachineId={scanModal.initialMachineId}
+          currentUser={currentUser}
+          onClose={() => setScanModal(null)}
+          onStarted={handleStarted}
+        />
+      )}
       {endTarget    && <EndModal    proc={endTarget}   onClose={() => setEndTarget(null)}   onEnded={handleEnded} />}
       {pauseTarget  && <PauseModal  proc={pauseTarget} onClose={() => setPauseTarget(null)} onPaused={handlePaused} />}
       {editTarget   && <EditHistoryTimeModal proc={editTarget} onClose={() => setEditTarget(null)} onSaved={() => { setEditTarget(null); loadHistory() }} />}
+      {finishSuggestMachine && (
+        <FinishMachineModal
+          machine={finishSuggestMachine}
+          onClose={() => setFinishSuggestMachine(null)}
+          onFinished={() => { setFinishSuggestMachine(null); loadActive() }}
+        />
+      )}
     </div>
   )
 }

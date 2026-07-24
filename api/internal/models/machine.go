@@ -28,6 +28,10 @@ type Machine struct {
 	Time                 string            `gorm:"column:time_val" json:"time"`
 	CreatedAt            time.Time         `json:"createdAt"`
 	Users                []ReferenceEntity `gorm:"type:jsonb;serializer:json" json:"users"`
+	// IsStock indica que a máquina ainda está em estoque (sem número de série/cliente
+	// definitivo atribuído). Controlado manualmente via checkbox no cadastro; o QR code
+	// impresso na criação continua apontando pro mesmo registro depois de atribuído.
+	IsStock bool `gorm:"column:is_stock;default:true" json:"isStock"`
 }
 
 func (Machine) TableName() string { return "machines" }

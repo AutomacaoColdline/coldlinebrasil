@@ -83,6 +83,7 @@ func main() {
 	coldvisioGuideHandler := handlers.NewColdvisioGuideHandler(db)
 	informationHandler := handlers.NewInformationHandler(db)
 	atendimentoHandler := handlers.NewAtendimentoHandler(db)
+	partHandler := handlers.NewPartHandler(db)
 
 	userTypeHandler := handlers.NewCRUDHandler(db, "user_types")
 	departmentHandler := handlers.NewCRUDHandler(db, "departments")
@@ -154,6 +155,14 @@ func main() {
 		mach.POST("", machineHandler.Create)
 		mach.PUT("/:id", machineHandler.Update)
 		mach.DELETE("/:id", machineHandler.Delete)
+		mach.POST("/:id/finish", machineHandler.FinishMachine)
+
+		parts := api.Group("/Part", auth, industriaAccess)
+		parts.GET("", partHandler.GetAll)
+		parts.GET("/search", partHandler.Search)
+		parts.POST("", partHandler.Create)
+		parts.PUT("/:id", partHandler.Update)
+		parts.DELETE("/:id", partHandler.Delete)
 
 		occ := api.Group("/Occurrence", auth, industriaAccess)
 		occ.GET("", occurrenceHandler.GetAll)

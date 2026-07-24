@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { Loader2 } from 'lucide-react'
 
@@ -15,6 +15,7 @@ import IndustriaTVPage from './pages/IndustriaTVPage'
 import IndustriaUsersPage from './pages/industria/IndustriaUsersPage'
 import IndustriaMachinesPage from './pages/industria/IndustriaMachinesPage'
 import IndustriaMachineDetailPage from './pages/industria/IndustriaMachineDetailPage'
+import IndustriaMachineQrPage from './pages/industria/IndustriaMachineQrPage'
 import IndustriaOccurrencesPage from './pages/industria/IndustriaOccurrencesPage'
 import IndustriaProcessesPage from './pages/industria/IndustriaProcessesPage'
 import IndustriaConfigPage from './pages/industria/IndustriaConfigPage'
@@ -86,6 +87,14 @@ function TVAuth({ children }) {
   return children
 }
 
+// Alvo do QR code impresso na máquina: qualquer app de câmera que ler o QR
+// abre essa URL, que redireciona pra tela de "Meu Trabalho" já com a máquina
+// selecionada (login normal se ainda não estiver autenticado).
+function IndustriaScanRedirect() {
+  const { machineId } = useParams()
+  return <Navigate to={`/industria/processes?scanMachineId=${machineId}`} replace />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -101,6 +110,8 @@ export default function App() {
 
         <Route path="/industria/tv/login" element={<TVLoginPage />} />
         <Route path="/industria/tv" element={<TVAuth><IndustriaTVPage /></TVAuth>} />
+        <Route path="/industria/machines/:id/qr" element={<Auth><IndustriaMachineQrPage /></Auth>} />
+        <Route path="/industria/scan/:machineId" element={<Auth><IndustriaScanRedirect /></Auth>} />
 
         <Route path="/industria" element={
           <Auth><ModuleGuard module="industria"><IndustriaLayout /></ModuleGuard></Auth>
