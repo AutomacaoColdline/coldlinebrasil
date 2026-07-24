@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   RefreshCw, Search, ChevronLeft, ChevronRight,
   StopCircle, Clock, Cog, X, Loader2, Activity, Camera,
-  CheckCircle, PauseCircle, PlayCircle, Pencil,
+  CheckCircle, PauseCircle, PlayCircle, Pencil, Lock,
 } from 'lucide-react'
 import {
   workingSeconds,
@@ -102,6 +102,11 @@ function ScanStartModal({ initialMachineId, currentUser, onClose, onStarted }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Uma vez atribuído, o número de série trava — não pode ser alterado por
+  // aqui (evita o operador trocar sem querer). Só um admin corrige, editando
+  // a máquina direto na tela de Máquinas.
+  const hasExistingSerial = !!(machine?.serialNumber || '').trim()
 
   useEffect(() => {
     Promise.all([
@@ -253,12 +258,27 @@ function ScanStartModal({ initialMachineId, currentUser, onClose, onStarted }) {
                     placeholder="Cliente / OS"
                     className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   />
-                  <input
-                    value={stockForm.serialNumber}
-                    onChange={e => setStockForm(f => ({ ...f, serialNumber: e.target.value }))}
-                    placeholder="Número de série"
-                    className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                  />
+                  <div className="relative">
+                    <input
+                      value={stockForm.serialNumber}
+                      onChange={e => setStockForm(f => ({ ...f, serialNumber: e.target.value }))}
+                      placeholder="Número de série"
+                      disabled={hasExistingSerial}
+                      className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${
+                        hasExistingSerial
+                          ? 'border-slate-200 bg-slate-100 text-slate-500 pr-9 cursor-not-allowed'
+                          : 'border-amber-200 bg-white'
+                      }`}
+                    />
+                    {hasExistingSerial && (
+                      <Lock size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    )}
+                  </div>
+                  {hasExistingSerial && (
+                    <p className="text-[11px] text-amber-600">
+                      Número de série já atribuído — travado. Corrija na tela de Máquinas se precisar.
+                    </p>
+                  )}
                   <label className="flex items-center gap-2 text-xs text-amber-700 cursor-pointer select-none">
                     <input
                       type="checkbox"
