@@ -850,10 +850,15 @@ export default function IndustriaProcessesPage() {
         api.searchUsersPaginated({ page: 1, pageSize: 2000 }),
       ])
       const operatorIds = new Set((u.data?.items || u.data || []).filter(isIndustriaOperatorUser).map(x => x.id))
-      setActive((r.data?.items || []).filter(p => p.user?.id && operatorIds.has(p.user.id)))
+      // Sempre mostra o próprio processo do usuário logado, mesmo que ele não
+      // seja do tipo Operador (ex.: admin testando o fluxo "Iniciar meu
+      // trabalho") — sem isso o processo é criado mas some da tela.
+      setActive((r.data?.items || []).filter(p =>
+        p.user?.id && (operatorIds.has(p.user.id) || p.user.id === currentUser?.id),
+      ))
     } catch { setActive([]) }
     finally { setLoadingActive(false) }
-  }, [machineId])
+  }, [machineId, currentUser?.id])
 
   // ── load history (completed, paginated)
   const loadHistory = useCallback(async () => {
@@ -868,11 +873,11 @@ export default function IndustriaProcessesPage() {
         api.searchUsersPaginated({ page: 1, pageSize: 2000 }),
       ])
       const operatorIds = new Set((u.data?.items || u.data || []).filter(isIndustriaOperatorUser).map(x => x.id))
-      const ok = item => item.user?.id && operatorIds.has(item.user.id)
+      const ok = item => item.user?.id && (operatorIds.has(item.user.id) || item.user.id === currentUser?.id)
       setHistory({ ...r.data, items: (r.data.items || []).filter(ok) })
     } catch { setHistory({ items: [], total: 0, totalPages: 1 }) }
     finally { setLoadingHistory(false) }
-  }, [page, q, filterFinished, machineId])
+  }, [page, q, filterFinished, machineId, currentUser?.id])
 
   useEffect(() => { loadActive() }, [loadActive])
   useEffect(() => { loadHistory() }, [loadHistory])
