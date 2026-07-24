@@ -17,6 +17,7 @@ import {
   spLocalToUtc,
 } from '../../utils/industriaWorkTime'
 import { isIndustriaOperatorUser } from '../../utils/industriaUsers'
+import { isSystemOccurrenceTypeName } from '../../utils/industriaOccurrences'
 import MachinePicker from '../../components/MachinePicker'
 import QrScannerModal from '../../components/QrScannerModal'
 import PartsPicker from '../../components/PartsPicker'
@@ -68,9 +69,9 @@ function processKind(p) {
   return                             { label: 'Produção',   cls: 'bg-blue-100 text-blue-700'     }
 }
 
-const STAGE_ORDER_NAMES = ['Elétrica', 'Soldagem', 'Montagem', 'Câmara de Teste', 'Acabamento/Embalagem']
+const STAGE_ORDER_NAMES = ['Elétrica', 'Soldagem', 'Montagem', 'Câmara de Teste', 'Finalização']
 // Última etapa de fabricação — sua conclusão libera "Finalizar Máquina".
-const FINAL_STAGE_NAME = 'Acabamento/Embalagem'
+const FINAL_STAGE_NAME = 'Finalização'
 
 function sortStageTypes(types) {
   return [...types].sort((a, b) => {
@@ -447,7 +448,7 @@ function FinishMachineModal({ machine, onClose, onFinished }) {
             <CheckCircle size={20} className="text-green-600" />
           </div>
           <div>
-            <p className="font-semibold text-slate-800 text-sm">Acabamento/Embalagem concluído</p>
+            <p className="font-semibold text-slate-800 text-sm">Finalização concluída</p>
             <p className="text-xs text-slate-400 mt-0.5">{machine.name}</p>
           </div>
         </div>
@@ -571,7 +572,9 @@ function PauseModal({ proc, onClose, onPaused }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.getOccurrenceTypes().then(r => setOccurrenceTypes(r.data || [])).catch(() => {})
+    api.getOccurrenceTypes()
+      .then(r => setOccurrenceTypes((r.data || []).filter(t => !isSystemOccurrenceTypeName(t.name))))
+      .catch(() => {})
   }, [])
 
   const selected = occurrenceTypes.find((t) => t.id === reasonId)

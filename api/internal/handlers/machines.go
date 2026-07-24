@@ -155,7 +155,7 @@ func (h *MachineHandler) GetDetail(c *gin.Context) {
 
 // stageTime é o tempo total (somando todos os processos finalizados) gasto
 // numa etapa de fabricação (Elétrica, Soldagem, Montagem, Câmara de Teste,
-// Acabamento/Embalagem) numa máquina.
+// Finalização) numa máquina.
 type stageTime struct {
 	StageName    string `json:"stageName"`
 	TotalSeconds int    `json:"totalSeconds"`
@@ -206,7 +206,7 @@ func (h *MachineHandler) computeStageSummary(ctx context.Context, machine *model
 }
 
 // FinishMachine marca a máquina como Finalizada — só permitido depois de um
-// processo de Acabamento/Embalagem finalizado (a última etapa de fabricação).
+// processo de Finalização concluído (a última etapa de fabricação).
 func (h *MachineHandler) FinishMachine(c *gin.Context) {
 	id := c.Param("id")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -224,7 +224,7 @@ func (h *MachineHandler) FinishMachine(c *gin.Context) {
 
 	_, hasFinishedFinalStage := h.computeStageSummary(ctx, machine)
 	if !hasFinishedFinalStage {
-		c.JSON(http.StatusConflict, gin.H{"message": "A máquina ainda não concluiu o Acabamento/Embalagem — não pode ser finalizada"})
+		c.JSON(http.StatusConflict, gin.H{"message": "A máquina ainda não concluiu a Finalização — não pode ser finalizada"})
 		return
 	}
 

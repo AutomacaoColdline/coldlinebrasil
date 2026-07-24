@@ -9,7 +9,7 @@ import { formatDateTimePtBrSP } from '../../utils/industriaWorkTime'
 import { isSystemOutOfShiftOccurrence } from '../../utils/industriaOccurrences'
 
 // Última etapa de fabricação — sua conclusão libera "Finalizar Máquina".
-const FINAL_STAGE_NAME = 'Acabamento/Embalagem'
+const FINAL_STAGE_NAME = 'Finalização'
 
 function parseTimeToSeconds(t) {
   const parts = String(t || '').split(':').map(Number)
@@ -26,7 +26,7 @@ function fmtSecs(s) {
 }
 
 // Soma o tempo de fabricação finalizado por etapa (Elétrica/Soldagem/...) e
-// indica se já existe um Acabamento/Embalagem concluído (libera "Finalizar Máquina").
+// indica se já existe uma Finalização concluída (libera "Finalizar Máquina").
 function computeStageSummary(processes) {
   const totals = {}
   let totalSeconds = 0

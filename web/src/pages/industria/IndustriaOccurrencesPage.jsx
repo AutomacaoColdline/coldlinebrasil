@@ -6,7 +6,7 @@ import {
   Pencil, Trash2, CheckCircle2, X, AlertTriangle,
 } from 'lucide-react'
 import { formatDateTimePtBrSP } from '../../utils/industriaWorkTime'
-import { isSystemOutOfShiftOccurrence } from '../../utils/industriaOccurrences'
+import { isSystemOutOfShiftOccurrence, isSystemOccurrenceTypeName } from '../../utils/industriaOccurrences'
 import { isIndustriaOperatorUser } from '../../utils/industriaUsers'
 
 const EMPTY_FORM = {
@@ -45,7 +45,7 @@ function OccurrenceModal({ occurrence, onClose, onSaved }) {
       setMachines(mRes.data?.items || [])
       const allUsers = uRes.data?.items || uRes.data || []
       setUsers(allUsers.filter(isIndustriaOperatorUser))
-      setOccTypes(otRes.data || [])
+      setOccTypes((otRes.data || []).filter(t => !isSystemOccurrenceTypeName(t.name)))
     }).catch(() => {})
   }, [])
 
