@@ -246,6 +246,12 @@ func (h *MachineHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "identificationNumber obrigatório"})
 		return
 	}
+	// Não existe numeração de série separada — o código de identificação já É
+	// o número de série, então nasce preenchido (evita o operador digitar de
+	// novo depois de já ter escaneado/identificado a máquina).
+	if machine.SerialNumber == "" {
+		machine.SerialNumber = machine.IdentificationNumber
+	}
 	machine.CreatedAt = time.Now().UTC()
 	if machine.Status == 0 {
 		machine.Status = models.WaitingProduction

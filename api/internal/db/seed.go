@@ -22,6 +22,7 @@ func seed(db *gorm.DB) {
 	seedConfigTable(db, "process_types", models.StageOrder)
 	seedConfigTable(db, "occurrence_types", models.PauseReasonOrder)
 	migrateIndustriaStageTypes(db)
+	backfillMachineSerialNumbers(db)
 	seedConfigTable(db, "machine_types", []string{
 		"Compressor", "Bomba", "Motor", "Gerador", "Painel Elétrico", "CLP", "IHM",
 	})
@@ -110,6 +111,20 @@ func migrateIndustriaStageTypes(db *gorm.DB) {
 	keepOccurrenceTypes := append(append([]string{}, models.PauseReasonOrder...), models.SystemOccurrenceTypeName)
 	if res := db.Table("occurrence_types").Where("name NOT IN ?", keepOccurrenceTypes).Delete(&models.BaseEntity{}); res.RowsAffected > 0 {
 		log.Printf("🌱 occurrence_types: %d motivo(s) fora da lista dos 2 motivos removido(s)", res.RowsAffected)
+	}
+}
+
+// backfillMachineSerialNumbers copia identification_number pra serial_number
+// em máquinas antigas que ficaram sem série (não existe numeração separada —
+// o código de identificação já É o número de série). Roda em todo boot,
+// idempotente: só toca máquina com serial ainda vazio. Máquinas novas já
+// nascem com a série preenchida (ver MachineHandler.Create).
+func backfillMachineSerialNumbers(db *gorm.DB) {
+	res := db.Table("machines").
+		Where("serial_number = '' AND identification_number <> ''").
+		Updates(map[string]interface{}{"serial_number": gorm.Expr("identification_number")})
+	if res.RowsAffected > 0 {
+		log.Printf("🌱 machines: %d máquina(s) tiveram número de série preenchido a partir do código de identificação", res.RowsAffected)
 	}
 }
 
