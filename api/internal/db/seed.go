@@ -121,7 +121,7 @@ func migrateIndustriaStageTypes(db *gorm.DB) {
 // nascem com a série preenchida (ver MachineHandler.Create).
 func backfillMachineSerialNumbers(db *gorm.DB) {
 	res := db.Table("machines").
-		Where("serial_number = '' AND identification_number <> ''").
+		Where("(serial_number IS NULL OR serial_number = '') AND identification_number <> ''").
 		Updates(map[string]interface{}{"serial_number": gorm.Expr("identification_number")})
 	if res.RowsAffected > 0 {
 		log.Printf("🌱 machines: %d máquina(s) tiveram número de série preenchido a partir do código de identificação", res.RowsAffected)
