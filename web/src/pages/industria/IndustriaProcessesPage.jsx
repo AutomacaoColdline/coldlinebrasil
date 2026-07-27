@@ -585,15 +585,19 @@ function PauseModal({ proc, onClose, onPaused }) {
     setError('')
     if (!reasonId) { setError('Selecione o motivo da pausa'); return }
     if (isFaltaDePeca && parts.length === 0) { setError('Selecione ao menos uma peça em falta'); return }
+    if (isFaltaDePeca && parts.some(p => !(Number(p.quantity) > 0))) {
+      setError('Informe a quantidade de todas as peças em falta')
+      return
+    }
     if (isEmergencia && !description.trim()) { setError('Descreva a emergência'); return }
     setSaving(true)
     try {
-      await api.pauseProcess(proc.id, {
+      const res = await api.pauseProcess(proc.id, {
         occurrenceTypeId: reasonId,
         description,
-        parts: isFaltaDePeca ? parts.map(p => ({ id: p.id, name: p.name })) : undefined,
+        parts: isFaltaDePeca ? parts.map(p => ({ id: p.id, name: p.name, quantity: Number(p.quantity) })) : undefined,
       })
-      onPaused()
+      onPaused(res.data?.occurrence?.emailSent)
     } catch (err) {
       setError(err?.response?.data?.message || 'Erro ao pausar processo')
     } finally {
@@ -899,7 +903,13 @@ export default function IndustriaProcessesPage() {
     }
   }
 
-  const handlePaused  = () => { setPauseTarget(null); loadActive() }
+  const handlePaused  = (emailSent) => {
+    setPauseTarget(null)
+    loadActive()
+    if (emailSent === false) {
+      alert('Pausa registrada, mas o email de requisição não pôde ser enviado. Confira os endereços cadastrados em Configurações.')
+    }
+  }
 
   const handleResume  = async (proc) => {
     try {

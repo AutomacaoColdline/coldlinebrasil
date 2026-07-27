@@ -72,9 +72,9 @@ func main() {
 		From: cfg.EmailFrom,
 	}
 	userHandler := handlers.NewUserHandler(db, cfg.JWTSecret, emailCfg, cfg.AppBaseURL)
-	processHandler := handlers.NewProcessHandler(db)
+	processHandler := handlers.NewProcessHandler(db, emailCfg)
 	machineHandler := handlers.NewMachineHandler(db)
-	occurrenceHandler := handlers.NewOccurrenceHandler(db)
+	occurrenceHandler := handlers.NewOccurrenceHandler(db, emailCfg)
 	dashboardHandler := handlers.NewDashboardHandler(db)
 	noteHandler := handlers.NewNoteHandler(db)
 	monitoringHandler := handlers.NewMonitoringHandler(db)
@@ -84,6 +84,7 @@ func main() {
 	informationHandler := handlers.NewInformationHandler(db)
 	atendimentoHandler := handlers.NewAtendimentoHandler(db)
 	partHandler := handlers.NewPartHandler(db)
+	requisitionEmailHandler := handlers.NewRequisitionEmailHandler(db)
 
 	userTypeHandler := handlers.NewCRUDHandler(db, "user_types")
 	departmentHandler := handlers.NewCRUDHandler(db, "departments")
@@ -163,6 +164,12 @@ func main() {
 		parts.POST("", partHandler.Create)
 		parts.PUT("/:id", partHandler.Update)
 		parts.DELETE("/:id", partHandler.Delete)
+
+		reqEmails := api.Group("/RequisitionEmail", auth, industriaAccess)
+		reqEmails.GET("", requisitionEmailHandler.GetAll)
+		reqEmails.POST("", requisitionEmailHandler.Create)
+		reqEmails.PUT("/:id", requisitionEmailHandler.Update)
+		reqEmails.DELETE("/:id", requisitionEmailHandler.Delete)
 
 		occ := api.Group("/Occurrence", auth, industriaAccess)
 		occ.GET("", occurrenceHandler.GetAll)

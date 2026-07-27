@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/smtp"
+	"strings"
 )
 
 type Config struct {
@@ -20,12 +21,17 @@ func (c Config) configured() bool {
 	return c.Host != "" && c.User != "" && c.Pass != "" && c.From != ""
 }
 
-// Send manda um email HTML simples. net/smtp.SendMail faz upgrade automático
-// para STARTTLS quando o servidor anuncia suporte (caso do Gmail/Workspace
-// na porta 587), então não é preciso lidar com TLS manualmente aqui.
-func Send(cfg Config, to, subject, htmlBody string) error {
+// Send manda um único email HTML para uma lista de destinatários (todos
+// visíveis no cabeçalho "To", todos recebendo a mesma mensagem — não é um
+// email por pessoa). net/smtp.SendMail faz upgrade automático para STARTTLS
+// quando o servidor anuncia suporte (caso do Gmail/Workspace na porta 587),
+// então não é preciso lidar com TLS manualmente aqui.
+func Send(cfg Config, to []string, subject, htmlBody string) error {
 	if !cfg.configured() {
 		return errors.New("smtp não configurado (defina SMTP_HOST/SMTP_USER/SMTP_PASS/EMAIL_FROM)")
+	}
+	if len(to) == 0 {
+		return errors.New("nenhum destinatário informado")
 	}
 
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
@@ -33,8 +39,8 @@ func Send(cfg Config, to, subject, htmlBody string) error {
 
 	msg := fmt.Sprintf(
 		"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\n\r\n%s\r\n",
-		cfg.From, to, subject, htmlBody,
+		cfg.From, strings.Join(to, ", "), subject, htmlBody,
 	)
 
-	return smtp.SendMail(addr, auth, cfg.User, []string{to}, []byte(msg))
+	return smtp.SendMail(addr, auth, cfg.User, to, []byte(msg))
 }

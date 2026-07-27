@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"coldline-api/internal/email"
 	"coldline-api/internal/models"
 	"coldline-api/internal/repositories"
 	"coldline-api/internal/utils"
@@ -27,9 +28,10 @@ type ProcessHandler struct {
 	ptypeRepo          *repositories.Repository[models.BaseEntity]
 	occurrenceRepo     *repositories.Repository[models.Occurrence]
 	occurrenceTypeRepo *repositories.Repository[models.BaseEntity]
+	emailCfg           email.Config
 }
 
-func NewProcessHandler(db *gorm.DB) *ProcessHandler {
+func NewProcessHandler(db *gorm.DB, emailCfg email.Config) *ProcessHandler {
 	return &ProcessHandler{
 		db:                 db,
 		repo:               repositories.New[models.Process](db, "processes"),
@@ -38,6 +40,7 @@ func NewProcessHandler(db *gorm.DB) *ProcessHandler {
 		ptypeRepo:          repositories.New[models.BaseEntity](db, "process_types"),
 		occurrenceRepo:     repositories.New[models.Occurrence](db, "occurrences"),
 		occurrenceTypeRepo: repositories.New[models.BaseEntity](db, "occurrence_types"),
+		emailCfg:           emailCfg,
 	}
 }
 
@@ -830,13 +833,14 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 	defer cancel()
 
 	var outOcc *models.Occurrence
+	var justCreated bool
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		repo := repositories.New[models.Process](tx, "processes")
 		occRepo := repositories.New[models.Occurrence](tx, "occurrences")
 		userRepo := repositories.New[models.User](tx, "users")
 		machineRepo := repositories.New[models.Machine](tx, "machines")
 		occTypeRepo := repositories.New[models.BaseEntity](tx, "occurrence_types")
-		partRepo := repositories.New[models.BaseEntity](tx, "parts")
+		partRepo := repositories.New[models.Part](tx, "parts")
 
 		var process models.Process
 		if err := repo.Q(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", c.Param("id")).First(&process).Error; err != nil {
@@ -895,6 +899,7 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 			}
 		}
 		outOcc = occ
+		justCreated = true
 		return nil
 	}); err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -907,6 +912,10 @@ func (h *ProcessHandler) PauseProcess(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
+	}
+	if justCreated && outOcc != nil && outOcc.OccurrenceType != nil && isFaltaDePecaOccurrenceTypeName(outOcc.OccurrenceType.Name) && len(outOcc.Parts) > 0 {
+		sent := sendPartsRequisitionEmail(ctx, h.db, h.emailCfg, outOcc)
+		outOcc.EmailSent = &sent
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Processo pausado", "occurrence": outOcc})
 }

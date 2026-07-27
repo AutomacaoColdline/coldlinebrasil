@@ -4,12 +4,12 @@ import { api } from '../services/api'
 
 /**
  * Multi-select de peças com busca por nome + criação inline (quando a peça
- * digitada ainda não existe no catálogo). Usado no motivo de pausa "Falta de
- * Peça". Itens sem `id` (recém-digitados) são criados no backend na hora de
- * salvar a pausa.
+ * digitada ainda não existe no catálogo), com quantidade por peça pra virar
+ * uma requisição. Usado no motivo de pausa "Falta de Peça". Itens sem `id`
+ * (recém-digitados) são criados no backend na hora de salvar a pausa.
  *
  * Props:
- *   value    — array de { id, name }
+ *   value    — array de { id, name, unitOfMeasure, quantity }
  *   onChange — (novoArray) => void
  */
 export default function PartsPicker({ value = [], onChange }) {
@@ -44,7 +44,7 @@ export default function PartsPicker({ value = [], onChange }) {
   const selectedNames = new Set(value.map(v => v.name.trim().toLowerCase()))
 
   const add = (part) => {
-    onChange([...value, part])
+    onChange([...value, { quantity: '', unitOfMeasure: '', ...part }])
     setQuery('')
     setResults([])
     setOpen(false)
@@ -54,23 +54,40 @@ export default function PartsPicker({ value = [], onChange }) {
     onChange(value.filter((_, i) => i !== idx))
   }
 
+  const setQuantity = (idx, quantity) => {
+    onChange(value.map((p, i) => (i === idx ? { ...p, quantity } : p)))
+  }
+
   const exactMatch = results.some(r => r.name.trim().toLowerCase() === query.trim().toLowerCase())
   const canCreateNew = query.trim().length > 0 && !exactMatch && !selectedNames.has(query.trim().toLowerCase())
 
   return (
     <div ref={wrapRef} className="relative">
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
+        <div className="space-y-1.5 mb-2">
           {value.map((p, i) => (
-            <span
+            <div
               key={p.id || `new-${p.name}-${i}`}
-              className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700"
+              className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100"
             >
-              {p.name}{!p.id && <span className="text-orange-400"> (nova)</span>}
-              <button type="button" onClick={() => remove(i)} className="p-0.5 hover:bg-orange-200 rounded-full transition-colors">
+              <span className="flex-1 truncate">
+                {p.name}{!p.id && <span className="text-orange-400"> (nova)</span>}
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={p.quantity}
+                onChange={e => setQuantity(i, e.target.value)}
+                placeholder="Qtd."
+                className="w-16 px-1.5 py-1 rounded-lg border border-orange-200 bg-white text-slate-800 text-xs text-center focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+              />
+              {p.unitOfMeasure && <span className="text-orange-400 w-6 text-center">{p.unitOfMeasure}</span>}
+              <button type="button" onClick={() => remove(i)} className="p-1 hover:bg-orange-200 rounded-full transition-colors">
                 <X size={11} />
               </button>
-            </span>
+            </div>
           ))}
         </div>
       )}
@@ -96,7 +113,7 @@ export default function PartsPicker({ value = [], onChange }) {
                 <li key={r.id}>
                   <button
                     type="button"
-                    onClick={() => add({ id: r.id, name: r.name })}
+                    onClick={() => add({ id: r.id, name: r.name, unitOfMeasure: r.unitOfMeasure || '' })}
                     className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     {r.name}

@@ -114,6 +114,12 @@ export const api = {
   createPart: (data) => http.post('/api/Part', data),
   updatePart: (id, data) => http.put(`/api/Part/${id}`, data),
   deletePart: (id) => http.delete(`/api/Part/${id}`),
+
+  // Emails de requisição (recebem a notificação de "Falta de Peça")
+  getRequisitionEmails: () => http.get('/api/RequisitionEmail'),
+  createRequisitionEmail: (data) => http.post('/api/RequisitionEmail', data),
+  updateRequisitionEmail: (id, data) => http.put(`/api/RequisitionEmail/${id}`, data),
+  deleteRequisitionEmail: (id) => http.delete(`/api/RequisitionEmail/${id}`),
 }
 
 export default api

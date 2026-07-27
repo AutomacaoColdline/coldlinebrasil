@@ -23,6 +23,7 @@ func seed(db *gorm.DB) {
 	seedConfigTable(db, "occurrence_types", models.PauseReasonOrder)
 	migrateIndustriaStageTypes(db)
 	backfillMachineSerialNumbers(db)
+	backfillPartUnitOfMeasure(db)
 	seedConfigTable(db, "machine_types", []string{
 		"Compressor", "Bomba", "Motor", "Gerador", "Painel Elétrico", "CLP", "IHM",
 	})
@@ -125,6 +126,18 @@ func backfillMachineSerialNumbers(db *gorm.DB) {
 		Updates(map[string]interface{}{"serial_number": gorm.Expr("identification_number")})
 	if res.RowsAffected > 0 {
 		log.Printf("🌱 machines: %d máquina(s) tiveram número de série preenchido a partir do código de identificação", res.RowsAffected)
+	}
+}
+
+// backfillPartUnitOfMeasure preenche "pç" nas peças antigas que ficaram sem
+// unidade de medida (campo introduzido depois que peças já existiam,
+// criadas inline no picker sem esse dado). Roda em todo boot, idempotente.
+func backfillPartUnitOfMeasure(db *gorm.DB) {
+	res := db.Table("parts").
+		Where("unit_of_measure IS NULL OR unit_of_measure = ''").
+		Update("unit_of_measure", "pç")
+	if res.RowsAffected > 0 {
+		log.Printf("🌱 parts: %d peça(s) tiveram unidade de medida preenchida com 'pç'", res.RowsAffected)
 	}
 }
 

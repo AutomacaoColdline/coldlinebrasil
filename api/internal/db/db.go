@@ -56,12 +56,13 @@ func migrate(db *gorm.DB) error {
 		&models.ColdvisioUpdateFile{},
 		&models.Atendimento{},
 		&models.AtendimentoChecklistTemplate{},
+		&models.Part{},
 	)
 	if err != nil {
 		return err
 	}
 
-	for _, t := range []string{"user_types", "departments", "process_types", "occurrence_types", "machine_types", "monitoring_types", "parts"} {
+	for _, t := range []string{"user_types", "departments", "process_types", "occurrence_types", "machine_types", "monitoring_types", "requisition_emails"} {
 		if err := db.Table(t).AutoMigrate(&models.BaseEntity{}); err != nil {
 			return err
 		}

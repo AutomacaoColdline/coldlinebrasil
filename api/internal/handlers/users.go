@@ -382,7 +382,7 @@ func (h *UserHandler) ForgotPassword(c *gin.Context) {
 		user.Name, resetLink,
 	)
 
-	if err := email.Send(h.emailCfg, user.Email, "Recuperação de senha - Coldline Brasil", body); err != nil {
+	if err := email.Send(h.emailCfg, []string{user.Email}, "Recuperação de senha - Coldline Brasil", body); err != nil {
 		log.Printf("❌ Erro ao enviar email de recuperação para %s: %v", user.Email, err)
 	}
 

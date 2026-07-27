@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"coldline-api/internal/email"
 	"coldline-api/internal/models"
 	"coldline-api/internal/repositories"
 	"coldline-api/internal/utils"
@@ -25,9 +26,10 @@ type OccurrenceHandler struct {
 	machineRepo        *repositories.Repository[models.Machine]
 	userRepo           *repositories.Repository[models.User]
 	occurrenceTypeRepo *repositories.Repository[models.BaseEntity]
+	emailCfg           email.Config
 }
 
-func NewOccurrenceHandler(db *gorm.DB) *OccurrenceHandler {
+func NewOccurrenceHandler(db *gorm.DB, emailCfg email.Config) *OccurrenceHandler {
 	return &OccurrenceHandler{
 		db:                 db,
 		repo:               repositories.New[models.Occurrence](db, "occurrences"),
@@ -35,6 +37,7 @@ func NewOccurrenceHandler(db *gorm.DB) *OccurrenceHandler {
 		machineRepo:        repositories.New[models.Machine](db, "machines"),
 		userRepo:           repositories.New[models.User](db, "users"),
 		occurrenceTypeRepo: repositories.New[models.BaseEntity](db, "occurrence_types"),
+		emailCfg:           emailCfg,
 	}
 }
 
@@ -157,9 +160,9 @@ func (h *OccurrenceHandler) Create(c *gin.Context) {
 	} else {
 		rawParts := make([]PartRef, 0, len(occ.Parts))
 		for _, p := range occ.Parts {
-			rawParts = append(rawParts, PartRef{ID: p.ID, Name: p.Name})
+			rawParts = append(rawParts, PartRef{ID: p.ID, Name: p.Name, Quantity: p.Quantity})
 		}
-		partRepo := repositories.New[models.BaseEntity](h.db, "parts")
+		partRepo := repositories.New[models.Part](h.db, "parts")
 		resolvedParts, verr := validatePauseReason(ctx, partRepo, ot.Name, occ.Description, rawParts)
 		if verr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": strings.TrimPrefix(verr.Error(), "bad_request: ")})
@@ -228,6 +231,11 @@ func (h *OccurrenceHandler) Create(c *gin.Context) {
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
+	}
+
+	if occ.OccurrenceType != nil && isFaltaDePecaOccurrenceTypeName(occ.OccurrenceType.Name) && len(occ.Parts) > 0 {
+		sent := sendPartsRequisitionEmail(ctx, h.db, h.emailCfg, &occ)
+		occ.EmailSent = &sent
 	}
 
 	c.JSON(http.StatusCreated, occ)

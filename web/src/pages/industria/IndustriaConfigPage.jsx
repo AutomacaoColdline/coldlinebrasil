@@ -4,7 +4,7 @@ import { Settings, Loader2, Pencil, Trash2, Plus, X, Save, RefreshCw } from 'luc
 
 // ── Generic section table ─────────────────────────────────────────────────────
 
-function Section({ title, items, loading, onEdit, onDelete, onNew }) {
+function Section({ title, items, loading, onEdit, onDelete, onNew, renderName = item => item.name }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -33,7 +33,7 @@ function Section({ title, items, loading, onEdit, onDelete, onNew }) {
           <tbody>
             {items.map(item => (
               <tr key={item.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/30">
-                <td className="py-2.5 px-4 text-sm text-slate-800">{item.name}</td>
+                <td className="py-2.5 px-4 text-sm text-slate-800">{renderName(item)}</td>
                 <td className="py-2.5 px-4 text-xs text-slate-500">{item.description || '—'}</td>
                 <td className="py-2.5 px-4">
                   <div className="flex gap-1 justify-end">
@@ -56,8 +56,16 @@ function Section({ title, items, loading, onEdit, onDelete, onNew }) {
 
 // ── Form modal ────────────────────────────────────────────────────────────────
 
-function Modal({ item, title, onClose, onSave }) {
-  const [form, setForm] = useState({ name: item?.name || '', description: item?.description || '' })
+const UNIT_OPTIONS = ['pç', 'cm', 'm']
+
+function Modal({ item, title, sectionKey, onClose, onSave }) {
+  const isPart = sectionKey === 'part'
+  const isEmail = sectionKey === 'email'
+  const [form, setForm] = useState({
+    name: item?.name || '',
+    description: item?.description || '',
+    unitOfMeasure: item?.unitOfMeasure || 'pç',
+  })
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
 
@@ -65,7 +73,11 @@ function Modal({ item, title, onClose, onSave }) {
 
   const handleSave = async () => {
     setError('')
-    if (!form.name.trim()) { setError('Nome é obrigatório'); return }
+    if (!form.name.trim()) { setError(isEmail ? 'Email é obrigatório' : 'Nome é obrigatório'); return }
+    if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.name.trim())) {
+      setError('Informe um email válido')
+      return
+    }
     setSaving(true)
     try {
       await onSave(form)
@@ -88,15 +100,30 @@ function Modal({ item, title, onClose, onSave }) {
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Nome *</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{isEmail ? 'Email *' : 'Nome *'}</label>
             <input
+              type={isEmail ? 'email' : 'text'}
               value={form.name}
               onChange={e => set('name', e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
+          {isPart && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Unidade de Medida</label>
+              <select
+                value={form.unitOfMeasure}
+                onChange={e => set('unitOfMeasure', e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          )}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Descrição</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              {isEmail ? 'Nome/Setor (opcional)' : 'Descrição'}
+            </label>
             <textarea
               value={form.description}
               onChange={e => set('description', e.target.value)}
@@ -155,6 +182,8 @@ export default function IndustriaConfigPage() {
   const [machTypes,   setMachTypes]  = useState([])
   const [userTypes,   setUserTypes]  = useState([])
   const [departments, setDepts]      = useState([])
+  const [parts,       setParts]      = useState([])
+  const [reqEmails,   setReqEmails]  = useState([])
   const [loading,     setLoading]    = useState(true)
 
   // modal = { type: string, item: null|object }
@@ -165,18 +194,22 @@ export default function IndustriaConfigPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const [pt, ot, mt, ut, d] = await Promise.all([
+      const [pt, ot, mt, ut, d, pa, re] = await Promise.all([
         api.getProcessTypes(),
         api.getOccurrenceTypes(),
         api.getMachineTypes(),
         api.getUserTypes(),
         api.getDepartments(),
+        api.getParts(),
+        api.getRequisitionEmails(),
       ])
       setProcTypes(pt.data || [])
       setOccTypes(ot.data  || [])
       setMachTypes(mt.data || [])
       setUserTypes(ut.data || [])
       setDepts(d.data      || [])
+      setParts(pa.data     || [])
+      setReqEmails(re.data || [])
     } catch {}
     finally { setLoading(false) }
   }
@@ -184,11 +217,13 @@ export default function IndustriaConfigPage() {
   useEffect(() => { load() }, [])
 
   const apiMap = {
-    proc:  { create: api.createProcessType,    update: api.updateProcessType,    del: api.deleteProcessType    },
-    occ:   { create: api.createOccurrenceType, update: api.updateOccurrenceType, del: api.deleteOccurrenceType },
-    mach:  { create: api.createMachineType,    update: api.updateMachineType,    del: api.deleteMachineType    },
-    user:  { create: api.createUserType,       update: api.updateUserType,       del: api.deleteUserType       },
-    dept:  { create: api.createDepartment,     update: api.updateDepartment,     del: api.deleteDepartment     },
+    proc:  { create: api.createProcessType,       update: api.updateProcessType,       del: api.deleteProcessType       },
+    occ:   { create: api.createOccurrenceType,    update: api.updateOccurrenceType,    del: api.deleteOccurrenceType    },
+    mach:  { create: api.createMachineType,       update: api.updateMachineType,       del: api.deleteMachineType       },
+    user:  { create: api.createUserType,          update: api.updateUserType,          del: api.deleteUserType          },
+    dept:  { create: api.createDepartment,        update: api.updateDepartment,        del: api.deleteDepartment        },
+    part:  { create: api.createPart,              update: api.updatePart,              del: api.deletePart              },
+    email: { create: api.createRequisitionEmail,  update: api.updateRequisitionEmail,  del: api.deleteRequisitionEmail  },
   }
 
   const handleSave = async (form) => {
@@ -208,16 +243,23 @@ export default function IndustriaConfigPage() {
   }
 
   const sections = [
-    { key: 'proc', title: 'Tipos de Processo',    items: procTypes  },
-    { key: 'occ',  title: 'Tipos de Ocorrência',  items: occTypes   },
-    { key: 'mach', title: 'Tipos de Máquina',     items: machTypes  },
-    { key: 'user', title: 'Tipos de Usuário',     items: userTypes  },
-    { key: 'dept', title: 'Departamentos',        items: departments},
+    { key: 'proc',  title: 'Tipos de Processo',      items: procTypes  },
+    { key: 'occ',   title: 'Tipos de Ocorrência',    items: occTypes   },
+    { key: 'mach',  title: 'Tipos de Máquina',       items: machTypes  },
+    { key: 'user',  title: 'Tipos de Usuário',       items: userTypes  },
+    { key: 'dept',  title: 'Departamentos',          items: departments},
+    { key: 'part',  title: 'Peças',                  items: parts      },
+    { key: 'email', title: 'Emails de Requisição',   items: reqEmails  },
   ]
 
   const modalTitle = {
     proc: 'Tipo de Processo', occ: 'Tipo de Ocorrência',
     mach: 'Tipo de Máquina',  user: 'Tipo de Usuário', dept: 'Departamento',
+    part: 'Peça', email: 'Email de Requisição',
+  }
+
+  const renderName = {
+    part: item => item.unitOfMeasure ? `${item.name} (${item.unitOfMeasure})` : item.name,
   }
 
   return (
@@ -242,6 +284,7 @@ export default function IndustriaConfigPage() {
             onNew={() => setModal({ type: key, item: null })}
             onEdit={item => setModal({ type: key, item })}
             onDelete={item => setDelModal({ type: key, item })}
+            renderName={renderName[key]}
           />
         ))}
       </div>
@@ -250,6 +293,7 @@ export default function IndustriaConfigPage() {
         <Modal
           item={modal.item}
           title={modalTitle[modal.type]}
+          sectionKey={modal.type}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />
