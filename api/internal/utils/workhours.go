@@ -9,6 +9,11 @@ import (
 // Working shift timezone (default: MS/Campo Grande): 07:30-11:30 and 13:00-17:30
 var workLoc = mustLoadLocation(os.Getenv("WORK_TZ"))
 
+// Location expõe o fuso horário do turno de trabalho (America/Campo_Grande
+// por padrão) pra quem precisa formatar datas pro horário local da operação,
+// fora dos cálculos de jornada.
+func Location() *time.Location { return workLoc }
+
 func mustLoadLocation(name string) *time.Location {
 	if name == "" {
 		name = "America/Campo_Grande"

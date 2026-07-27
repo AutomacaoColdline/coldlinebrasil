@@ -10,6 +10,7 @@ import (
 	"coldline-api/internal/email"
 	"coldline-api/internal/models"
 	"coldline-api/internal/repositories"
+	"coldline-api/internal/utils"
 
 	"gorm.io/gorm"
 )
@@ -91,7 +92,7 @@ func sendPartsRequisitionEmail(ctx context.Context, db *gorm.DB, cfg email.Confi
 			</table>
 		</div>`,
 		html.EscapeString(processName), html.EscapeString(machineName),
-		html.EscapeString(userName), occ.StartDate.Local().Format("02/01/2006 15:04"),
+		html.EscapeString(userName), occ.StartDate.In(utils.Location()).Format("02/01/2006 15:04"),
 		descriptionBlock, rows,
 	)
 
