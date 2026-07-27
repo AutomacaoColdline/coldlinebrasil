@@ -568,6 +568,7 @@ function PauseModal({ proc, onClose, onPaused }) {
   const [reasonId, setReasonId] = useState('')
   const [description, setDescription] = useState('')
   const [parts, setParts] = useState([])
+  const [step, setStep] = useState('form') // 'form' | 'review' (revisão do pedido antes de enviar)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -581,15 +582,18 @@ function PauseModal({ proc, onClose, onPaused }) {
   const isFaltaDePeca = String(selected?.name || '').trim().toLowerCase() === 'falta de peça'
   const isEmergencia = String(selected?.name || '').trim().toLowerCase() === 'emergência'
 
-  const confirm = async () => {
-    setError('')
-    if (!reasonId) { setError('Selecione o motivo da pausa'); return }
-    if (isFaltaDePeca && parts.length === 0) { setError('Selecione ao menos uma peça em falta'); return }
+  const validate = () => {
+    if (!reasonId) { setError('Selecione o motivo da pausa'); return false }
+    if (isFaltaDePeca && parts.length === 0) { setError('Selecione ao menos uma peça em falta'); return false }
     if (isFaltaDePeca && parts.some(p => !(Number(p.quantity) > 0))) {
       setError('Informe a quantidade de todas as peças em falta')
-      return
+      return false
     }
-    if (isEmergencia && !description.trim()) { setError('Descreva a emergência'); return }
+    if (isEmergencia && !description.trim()) { setError('Descreva a emergência'); return false }
+    return true
+  }
+
+  const doPause = async () => {
     setSaving(true)
     try {
       const res = await api.pauseProcess(proc.id, {
@@ -600,9 +604,19 @@ function PauseModal({ proc, onClose, onPaused }) {
       onPaused(res.data?.occurrence?.emailSent)
     } catch (err) {
       setError(err?.response?.data?.message || 'Erro ao pausar processo')
+      setStep('form')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handlePrimaryClick = () => {
+    setError('')
+    if (!validate()) return
+    // "Falta de Peça" é um pedido de verdade — mostra um resumo pra conferir
+    // antes de disparar o email de requisição.
+    if (isFaltaDePeca && step === 'form') { setStep('review'); return }
+    doPause()
   }
 
   return (
@@ -622,60 +636,92 @@ function PauseModal({ proc, onClose, onPaused }) {
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{error}</p>
         )}
 
-        <div className="space-y-3 mb-5">
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Motivo da pausa *</label>
-            <div className="grid grid-cols-2 gap-2">
-              {occurrenceTypes.map(t => {
-                const active = reasonId === t.id
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setReasonId(t.id)}
-                    className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all ${
-                      active ? 'border-orange-500 bg-orange-500 text-white' : 'border-slate-200 text-slate-700 hover:border-orange-300'
-                    }`}
-                  >
-                    {t.name}
-                  </button>
-                )
-              })}
+        {step === 'review' ? (
+          <>
+            <div className="space-y-3 mb-5">
+              <p className="text-xs font-medium text-slate-500">Confira o pedido antes de enviar:</p>
+              <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                {parts.map((p, i) => (
+                  <div key={p.id || i} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span className="text-slate-700 truncate">{p.name}</span>
+                    <span className="text-slate-500 font-medium">{p.quantity} {p.unitOfMeasure}</span>
+                  </div>
+                ))}
+              </div>
+              {description.trim() && (
+                <p className="text-xs text-slate-500"><strong>Obs.:</strong> {description}</p>
+              )}
             </div>
-          </div>
 
-          {isFaltaDePeca && (
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Peças em falta *</label>
-              <PartsPicker value={parts} onChange={setParts} />
+            <div className="flex gap-3">
+              <button onClick={() => setStep('form')} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition-all disabled:opacity-50">
+                Voltar
+              </button>
+              <button onClick={doPause} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all">
+                {saving ? 'Enviando…' : 'Confirmar Pedido'}
+              </button>
             </div>
-          )}
+          </>
+        ) : (
+          <>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">Motivo da pausa *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {occurrenceTypes.map(t => {
+                    const active = reasonId === t.id
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setReasonId(t.id)}
+                        className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all ${
+                          active ? 'border-orange-500 bg-orange-500 text-white' : 'border-slate-200 text-slate-700 hover:border-orange-300'
+                        }`}
+                      >
+                        {t.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">
-              {isEmergencia ? 'Descreva a emergência *' : 'Descrição (opcional)'}
-            </label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={2}
-              placeholder={isEmergencia ? 'O que está acontecendo?' : 'Detalhes adicionais...'}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 resize-none"
-              required={isEmergencia}
-            />
-          </div>
-        </div>
+              {isFaltaDePeca && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Peças em falta *</label>
+                  <PartsPicker value={parts} onChange={setParts} />
+                </div>
+              )}
 
-        <div className="flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition-all">
-            Cancelar
-          </button>
-          <button onClick={confirm} disabled={saving}
-            className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all">
-            {saving ? 'Pausando…' : 'Pausar'}
-          </button>
-        </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  {isEmergencia ? 'Descreva a emergência *' : 'Descrição (opcional)'}
+                </label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={2}
+                  placeholder={isEmergencia ? 'O que está acontecendo?' : 'Detalhes adicionais...'}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 resize-none"
+                  required={isEmergencia}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition-all">
+                Cancelar
+              </button>
+              <button onClick={handlePrimaryClick} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 transition-all">
+                {saving ? 'Pausando…' : isFaltaDePeca ? 'Revisar Pedido' : 'Pausar'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -56,7 +56,7 @@ function Section({ title, items, loading, onEdit, onDelete, onNew, renderName = 
 
 // ── Form modal ────────────────────────────────────────────────────────────────
 
-const UNIT_OPTIONS = ['pç', 'cm', 'm']
+const UNIT_OPTIONS = ['pç', 'cm', 'm', 'lt']
 
 function Modal({ item, title, sectionKey, onClose, onSave }) {
   const isPart = sectionKey === 'part'

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X, Plus, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
 
-const UNIT_OPTIONS = ['pç', 'cm', 'm']
+const UNIT_OPTIONS = ['pç', 'cm', 'm', 'lt']
 
 /**
  * Multi-select de peças com busca por nome + criação inline (quando a peça
@@ -71,7 +71,9 @@ export default function PartsPicker({ value = [], onChange }) {
     <div ref={wrapRef} className="relative">
       {value.length > 0 && (
         <div className="space-y-1.5 mb-2">
-          {value.map((p, i) => (
+          {value.map((p, i) => {
+            const isInteger = (p.unitOfMeasure || 'pç') === 'pç'
+            return (
             <div
               key={p.id || `new-${p.name}-${i}`}
               className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100"
@@ -81,11 +83,14 @@ export default function PartsPicker({ value = [], onChange }) {
               </span>
               <input
                 type="number"
-                inputMode="decimal"
+                inputMode={isInteger ? 'numeric' : 'decimal'}
                 min="0"
-                step="0.01"
+                step={isInteger ? '1' : '0.01'}
                 value={p.quantity}
-                onChange={e => setQuantity(i, e.target.value)}
+                onChange={e => {
+                  const raw = e.target.value
+                  setQuantity(i, isInteger ? raw.replace(/[^0-9]/g, '') : raw)
+                }}
                 placeholder="Qtd."
                 className="w-16 px-1.5 py-1 rounded-lg border border-orange-200 bg-white text-slate-800 text-xs text-center focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
@@ -104,7 +109,8 @@ export default function PartsPicker({ value = [], onChange }) {
                 <X size={11} />
               </button>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
