@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X, Plus, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
 
-const UNIT_OPTIONS = ['pç', 'cm', 'm', 'lt', 'cj', 'ct']
+const UNIT_OPTIONS = ['pç', 'cm', 'm', 'm²', 'lt', 'kg', 'cj', 'ct']
 // Unidades contáveis (número inteiro) vs. fracionárias (aceitam vírgula/ponto).
 const WHOLE_UNITS = new Set(['pç', 'cj', 'ct'])
 
