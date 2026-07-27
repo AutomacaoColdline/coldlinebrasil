@@ -595,7 +595,7 @@ function PauseModal({ proc, onClose, onPaused }) {
       const res = await api.pauseProcess(proc.id, {
         occurrenceTypeId: reasonId,
         description,
-        parts: isFaltaDePeca ? parts.map(p => ({ id: p.id, name: p.name, quantity: Number(p.quantity) })) : undefined,
+        parts: isFaltaDePeca ? parts.map(p => ({ id: p.id, name: p.name, quantity: Number(p.quantity), unitOfMeasure: p.unitOfMeasure })) : undefined,
       })
       onPaused(res.data?.occurrence?.emailSent)
     } catch (err) {

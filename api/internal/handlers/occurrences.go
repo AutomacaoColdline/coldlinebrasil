@@ -160,7 +160,7 @@ func (h *OccurrenceHandler) Create(c *gin.Context) {
 	} else {
 		rawParts := make([]PartRef, 0, len(occ.Parts))
 		for _, p := range occ.Parts {
-			rawParts = append(rawParts, PartRef{ID: p.ID, Name: p.Name, Quantity: p.Quantity})
+			rawParts = append(rawParts, PartRef{ID: p.ID, Name: p.Name, Quantity: p.Quantity, UnitOfMeasure: p.UnitOfMeasure})
 		}
 		partRepo := repositories.New[models.Part](h.db, "parts")
 		resolvedParts, verr := validatePauseReason(ctx, partRepo, ot.Name, occ.Description, rawParts)

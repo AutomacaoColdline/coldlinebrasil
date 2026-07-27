@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X, Plus, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
 
+const UNIT_OPTIONS = ['pç', 'cm', 'm']
+
 /**
  * Multi-select de peças com busca por nome + criação inline (quando a peça
  * digitada ainda não existe no catálogo), com quantidade por peça pra virar
@@ -44,7 +46,7 @@ export default function PartsPicker({ value = [], onChange }) {
   const selectedNames = new Set(value.map(v => v.name.trim().toLowerCase()))
 
   const add = (part) => {
-    onChange([...value, { quantity: '', unitOfMeasure: '', ...part }])
+    onChange([...value, { quantity: '', unitOfMeasure: 'pç', ...part }])
     setQuery('')
     setResults([])
     setOpen(false)
@@ -56,6 +58,10 @@ export default function PartsPicker({ value = [], onChange }) {
 
   const setQuantity = (idx, quantity) => {
     onChange(value.map((p, i) => (i === idx ? { ...p, quantity } : p)))
+  }
+
+  const setUnit = (idx, unitOfMeasure) => {
+    onChange(value.map((p, i) => (i === idx ? { ...p, unitOfMeasure } : p)))
   }
 
   const exactMatch = results.some(r => r.name.trim().toLowerCase() === query.trim().toLowerCase())
@@ -83,7 +89,17 @@ export default function PartsPicker({ value = [], onChange }) {
                 placeholder="Qtd."
                 className="w-16 px-1.5 py-1 rounded-lg border border-orange-200 bg-white text-slate-800 text-xs text-center focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
-              {p.unitOfMeasure && <span className="text-orange-400 w-6 text-center">{p.unitOfMeasure}</span>}
+              {p.id ? (
+                p.unitOfMeasure && <span className="text-orange-400 w-8 text-center">{p.unitOfMeasure}</span>
+              ) : (
+                <select
+                  value={p.unitOfMeasure || 'pç'}
+                  onChange={e => setUnit(i, e.target.value)}
+                  className="w-14 px-1 py-1 rounded-lg border border-orange-200 bg-white text-slate-800 text-xs text-center focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                >
+                  {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              )}
               <button type="button" onClick={() => remove(i)} className="p-1 hover:bg-orange-200 rounded-full transition-colors">
                 <X size={11} />
               </button>
@@ -113,7 +129,7 @@ export default function PartsPicker({ value = [], onChange }) {
                 <li key={r.id}>
                   <button
                     type="button"
-                    onClick={() => add({ id: r.id, name: r.name, unitOfMeasure: r.unitOfMeasure || '' })}
+                    onClick={() => add({ id: r.id, name: r.name, unitOfMeasure: r.unitOfMeasure || 'pç' })}
                     className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     {r.name}

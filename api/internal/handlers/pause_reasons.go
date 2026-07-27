@@ -13,9 +13,10 @@ import (
 // id de uma peça já cadastrada, ou name pra criar uma nova na hora, mais a
 // quantidade requisitada dessa peça.
 type PartRef struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Quantity float64 `json:"quantity"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Quantity      float64 `json:"quantity"`
+	UnitOfMeasure string  `json:"unitOfMeasure"`
 }
 
 func resolvePartRef(ctx context.Context, partRepo *repositories.Repository[models.Part], ref PartRef) (models.RequisitionPart, error) {
@@ -32,7 +33,11 @@ func resolvePartRef(ctx context.Context, partRepo *repositories.Repository[model
 	if p, err := partRepo.FindOne(ctx, "name ILIKE ?", name); err == nil && p != nil {
 		return models.RequisitionPart{ID: p.ID, Name: p.Name, Quantity: ref.Quantity, UnitOfMeasure: p.UnitOfMeasure}, nil
 	}
-	p := &models.Part{Name: name, UnitOfMeasure: "pç"}
+	unit := strings.TrimSpace(ref.UnitOfMeasure)
+	if unit == "" {
+		unit = "pç"
+	}
+	p := &models.Part{Name: name, UnitOfMeasure: unit}
 	if err := partRepo.Create(ctx, p); err != nil {
 		return models.RequisitionPart{}, err
 	}
