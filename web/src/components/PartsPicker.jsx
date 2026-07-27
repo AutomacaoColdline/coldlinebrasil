@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X, Plus, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
 
-const UNIT_OPTIONS = ['pç', 'cm', 'm', 'lt']
+const UNIT_OPTIONS = ['pç', 'cm', 'm', 'lt', 'cj', 'ct']
+// Unidades contáveis (número inteiro) vs. fracionárias (aceitam vírgula/ponto).
+const WHOLE_UNITS = new Set(['pç', 'cj', 'ct'])
 
 /**
  * Multi-select de peças com busca por nome + criação inline (quando a peça
@@ -72,7 +74,7 @@ export default function PartsPicker({ value = [], onChange }) {
       {value.length > 0 && (
         <div className="space-y-1.5 mb-2">
           {value.map((p, i) => {
-            const isInteger = (p.unitOfMeasure || 'pç') === 'pç'
+            const isInteger = WHOLE_UNITS.has(p.unitOfMeasure || 'pç')
             return (
             <div
               key={p.id || `new-${p.name}-${i}`}
