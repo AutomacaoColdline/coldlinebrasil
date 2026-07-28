@@ -12,7 +12,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || ''
 
 const notTest = (p) => {
   const n = (p.user?.name || '').toLowerCase()
-  return n !== 'teste' && !n.includes('admin')
+  return n !== 'teste' && !n.includes('admin') && !n.includes('silvio')
 }
 
 function processStartMs(p) {

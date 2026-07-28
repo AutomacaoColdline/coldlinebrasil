@@ -47,7 +47,7 @@ export default function IndustriaPage() {
       ])
       const notTest = (p) => {
         const n = (p.user?.name || '').toLowerCase()
-        return n !== 'teste' && !n.includes('admin')
+        return n !== 'teste' && !n.includes('admin') && !n.includes('silvio')
       }
       setMachines(mr.data || [])
       setProcesses((dr.data?.activeProcesses || []).filter(notTest))
