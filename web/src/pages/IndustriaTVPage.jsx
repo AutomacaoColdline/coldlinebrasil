@@ -82,7 +82,7 @@ export default function IndustriaTVPage() {
         api.getDashboard(),
       ])
 
-      const operators   = (usersRes.data?.items || []).filter(isIndustriaOperatorUser)
+      const operators   = (usersRes.data?.items || []).filter(isIndustriaOperatorUser).filter(u => notTest({ user: u }))
       const machines    = machinesRes.data || []
       const activeProcs = (dashRes.data?.activeProcesses || []).filter(notTest)
 
