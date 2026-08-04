@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Plus, Trash2, X } from 'lucide-react'
+import { Download, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { UNIT_OPTIONS } from './productionShared'
+
+function filenameFromContentDisposition(headerValue, fallback) {
+  const match = /filename="?([^"]+)"?/i.exec(headerValue || '')
+  return match ? match[1] : fallback
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 function FilterInput({ value, onChange, placeholder }) {
   return (
@@ -186,11 +200,19 @@ export default function BomMaterialsTable({
   onRemoveLine,
   searchParts,
   emptyLabel = 'Nenhum material cadastrado.',
+  onExport,
+  onImport,
+  onImported,
+  exportFilename = 'bom.xlsx',
 }) {
   const [filters, setFilters] = useState({ quantity: '', unitOfMeasure: '', partName: '', internalCode: '', supplier: '' })
   const [adding, setAdding] = useState(false)
   const [savingAdd, setSavingAdd] = useState(false)
   const [removing, setRemoving] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importFeedback, setImportFeedback] = useState(null)
+  const importInputRef = useRef(null)
 
   const filtered = useMemo(() => {
     return (items || []).filter((item) => {
@@ -222,6 +244,38 @@ export default function BomMaterialsTable({
     }
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const response = await onExport()
+      const filename = filenameFromContentDisposition(response.headers?.['content-disposition'], exportFilename)
+      downloadBlob(response.data, filename)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setImporting(true)
+    setImportFeedback(null)
+    try {
+      const response = await onImport(file)
+      const { created = 0, updated = 0, partsCreated = 0 } = response.data || {}
+      setImportFeedback({
+        type: 'success',
+        message: `Importação concluída: ${created} adicionado(s), ${updated} atualizado(s)${partsCreated ? `, ${partsCreated} material(is) novo(s) no catálogo` : ''}.`,
+      })
+      await onImported?.()
+    } catch (err) {
+      setImportFeedback({ type: 'error', message: err?.response?.data?.message || err?.message || 'Erro ao importar planilha.' })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
@@ -239,16 +293,57 @@ export default function BomMaterialsTable({
           <FilterInput value={filters.internalCode} onChange={(v) => setFilters((c) => ({ ...c, internalCode: v }))} placeholder="Filtrar cod. interno" />
           <FilterInput value={filters.supplier} onChange={(v) => setFilters((c) => ({ ...c, supplier: v }))} placeholder="Filtrar fornecedor" />
         </div>
-        {!adding && (
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300 shrink-0"
-          >
-            <Plus size={14} />
-            Adicionar material
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {onExport && (
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              title="Exportar planilha Excel"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-slate-300 disabled:opacity-60"
+            >
+              {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Exportar Excel
+            </button>
+          )}
+          {onImport && (
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={importing}
+                title="Importar planilha Excel"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-slate-300 disabled:opacity-60"
+              >
+                {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Importar Excel
+              </button>
+            </>
+          )}
+          {!adding && (
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300"
+            >
+              <Plus size={14} />
+              Adicionar material
+            </button>
+          )}
+        </div>
       </div>
+
+      {importFeedback && (
+        <div className={`px-4 py-2.5 text-xs border-b ${
+          importFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+        }`}>
+          {importFeedback.message}
+        </div>
+      )}
 
       {loading ? (
         <div className="py-16 flex items-center justify-center">

@@ -288,6 +288,10 @@ export default function ProductionModelPage() {
           onRemoveLine={handleRemoveLine(loadStandardBom)}
           searchParts={productionApi.searchParts}
           emptyLabel="Nenhum material cadastrado no modelo padrao."
+          onExport={() => productionApi.exportModelBom(modelId)}
+          onImport={(file) => productionApi.importModelBom(modelId, file)}
+          onImported={loadStandardBom}
+          exportFilename={`bom_padrao_${model?.name || modelId}.xlsx`}
         />
       )}
 
@@ -342,6 +346,10 @@ export default function ProductionModelPage() {
                 onRemoveLine={handleRemoveLine(() => loadClientBom(selectedBuildId))}
                 searchParts={productionApi.searchParts}
                 emptyLabel={`Nenhum material cadastrado para ${selectedBuild.clientName}.`}
+                onExport={() => productionApi.exportBuildBom(selectedBuildId)}
+                onImport={(file) => productionApi.importBuildBom(selectedBuildId, file)}
+                onImported={() => loadClientBom(selectedBuildId)}
+                exportFilename={`bom_cliente_${selectedBuild.clientName}.xlsx`}
               />
               <EvaporatorAddressingSection buildId={selectedBuild.id} />
             </>

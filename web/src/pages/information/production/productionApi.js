@@ -29,6 +29,12 @@ export const productionApi = {
   getModelById: (modelId) => http.get(`${base}/models/${modelId}`),
   getModelBom: (modelId) => http.get(`${base}/models/${modelId}/bom`),
   createModelBomItem: (modelId, data) => http.post(`${base}/models/${modelId}/bom`, data),
+  exportModelBom: (modelId) => http.get(`${base}/models/${modelId}/bom/export`, { responseType: 'blob' }),
+  importModelBom: (modelId, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return http.post(`${base}/models/${modelId}/bom/import`, form)
+  },
 
   getBuilds: (modelId) => http.get(`${base}/models/${modelId}/builds`),
   createBuild: (modelId, data) => http.post(`${base}/models/${modelId}/builds`, data),
@@ -37,6 +43,12 @@ export const productionApi = {
   deleteBuild: (buildId) => http.delete(`${base}/builds/${buildId}`),
   getBuildBom: (buildId) => http.get(`${base}/builds/${buildId}/bom`),
   createBuildBomItem: (buildId, data) => http.post(`${base}/builds/${buildId}/bom`, data),
+  exportBuildBom: (buildId) => http.get(`${base}/builds/${buildId}/bom/export`, { responseType: 'blob' }),
+  importBuildBom: (buildId, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return http.post(`${base}/builds/${buildId}/bom/import`, form)
+  },
 
   updateBomItem: (id, data) => http.put(`${base}/bom/${id}`, data),
   deleteBomItem: (id) => http.delete(`${base}/bom/${id}`),

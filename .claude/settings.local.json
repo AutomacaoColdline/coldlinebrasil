@@ -46,7 +46,11 @@
       "Bash(nvm --version)",
       "Bash(node_modules/.bin/esbuild src/pages/information/OrgChartPage.jsx --bundle --format=esm --outfile=/tmp/claude-1001/-home-coldline-coldlinebrasil/73916300-4d75-4e5c-9f50-363275985d07/scratchpad/orgchart-check.js --external:react --external:react-dom --external:react-router-dom --external:lucide-react)",
       "Bash(docker exec *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(find / -maxdepth 6 -iname \"go1*\")",
+      "Bash(find / -maxdepth 6 -iname \"*golang*\" -type d)",
+      "Read(//usr/local/**)",
+      "Bash(env)"
     ]
   }
 }
