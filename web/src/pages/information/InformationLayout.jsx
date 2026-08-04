@@ -3,13 +3,14 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard, LogOut, ArrowLeft, Database, Loader2, Menu, X, Search,
-  PanelLeftClose, PanelLeftOpen, Sun, Moon, Workflow,
+  PanelLeftClose, PanelLeftOpen, Sun, Moon, Workflow, Factory,
 } from 'lucide-react'
 import './information-theme.css'
 
 const navItems = [
   { to: '/departamento-informacao', icon: LayoutDashboard, label: 'Departamento', end: true },
   { to: '/departamento-informacao/organograma', icon: Workflow, label: 'Organograma', end: false },
+  { to: '/departamento-informacao/producao', icon: Factory, label: 'Producao', end: false },
 ]
 
 export default function InformationLayout() {

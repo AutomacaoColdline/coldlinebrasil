@@ -31,6 +31,8 @@ func seed(db *gorm.DB) {
 		"XWEB", "SITRAD", "COLDVISIO",
 	})
 
+	seedProductionModels(db)
+
 	seedAdminUser(db)
 	seedMasterAdmin(db)
 	demoteLegacyAdmin(db)
@@ -138,6 +140,27 @@ func backfillPartUnitOfMeasure(db *gorm.DB) {
 		Update("unit_of_measure", "pç")
 	if res.RowsAffected > 0 {
 		log.Printf("🌱 parts: %d peça(s) tiveram unidade de medida preenchida com 'pç'", res.RowsAffected)
+	}
+}
+
+// seedProductionModels garante que os 4 modelos de equipamento do módulo
+// Produção existam, identificados por slug (lista fechada, definida pelo
+// negócio — não é criada pela UI). Idempotente: roda em todo boot.
+func seedProductionModels(db *gorm.DB) {
+	models_ := []struct{ Name, Slug string }{
+		{"Cold 5S", "cold-5s"},
+		{"Cold 10S", "cold-10s"},
+		{"Cold 15SXT", "cold-15sxt"},
+		{"Cold 20SE", "cold-20se"},
+	}
+	for _, m := range models_ {
+		var count int64
+		db.Table("production_models").Where("slug = ?", m.Slug).Count(&count)
+		if count > 0 {
+			continue
+		}
+		db.Table("production_models").Create(&models.ProductionModel{Name: m.Name, Slug: m.Slug})
+		log.Printf("🌱 Modelo de produção criado: %s", m.Name)
 	}
 }
 

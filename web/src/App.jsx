@@ -34,6 +34,8 @@ import AutomationAtendimentoReports from './pages/automation/AutomationAtendimen
 import InformationLayout from './pages/information/InformationLayout'
 import InformationPage from './pages/information/InformationPage'
 import OrgChartPage from './pages/information/OrgChartPage'
+import ProductionPage from './pages/information/production/ProductionPage'
+import ProductionModelPage from './pages/information/production/ProductionModelPage'
 
 import AccessControlPage from './pages/admin/AccessControlPage'
 
@@ -148,6 +150,8 @@ export default function App() {
         }>
           <Route index element={<InformationPage />} />
           <Route path="organograma" element={<OrgChartPage />} />
+          <Route path="producao" element={<ProductionPage />} />
+          <Route path="producao/:modelId" element={<ProductionModelPage />} />
         </Route>
 
         <Route path="/assistencia" element={

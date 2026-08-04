@@ -31,7 +31,22 @@
       "Bash(python -m json.tool)",
       "Bash(curl -s \"http://localhost:4000/api/dashboard\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXBhcnRtZW50IjoiVEkiLCJleHAiOjE3Nzc0Mjc3NDEsIm5hbWUiOiJBZG1pbmlzdHJhZG9yIiwic3ViIjoiMjdmYTU3OTAtYzNjMC00NDNiLTgxM2YtZjcxNWMwMjliMWQzIiwidXNlclR5cGUiOiIxNmQ3ZjY2NS03MGE1LTRkNTctYjRlOS01NGViMDU4MjVkNzAifQ.CNC70OpVy4xecFGu36jWvb8vLbW47q97jqAkVbOgZpo\")",
       "Bash(curl -s -X POST http://localhost:4000/api/User/tv-login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@coldline.com.br\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
-      "Bash(curl -s \"http://localhost:4000/api/User/tv-identification/0001\")"
+      "Bash(curl -s \"http://localhost:4000/api/User/tv-identification/0001\")",
+      "Read(//home/coldline/**)",
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(curl -s -o /tmp/login_resp.json -w \"HTTP_STATUS:%{http_code}\\\\n\" -X POST https://portal.coldline.com.br/api/User/login -H \"Content-Type: application/json\" -d '{\"email\":\"automacao@coldline.com.br\",\"password\":\"Automacao2026@Admin\"}')",
+      "Bash(mkdir *)",
+      "Bash(docker exec coldline_intranet-postgres-1 sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -c \" *)",
+      "Bash(npx eslint *)",
+      "Bash(command -v nvm)",
+      "Read(//usr/local/go/**)",
+      "Bash(find / -maxdepth 4 -iname \"go\" -type f)",
+      "Read(//usr/local/n/versions/**)",
+      "Bash(nvm --version)",
+      "Bash(node_modules/.bin/esbuild src/pages/information/OrgChartPage.jsx --bundle --format=esm --outfile=/tmp/claude-1001/-home-coldline-coldlinebrasil/73916300-4d75-4e5c-9f50-363275985d07/scratchpad/orgchart-check.js --external:react --external:react-dom --external:react-router-dom --external:lucide-react)",
+      "Bash(docker exec *)",
+      "Bash(git log *)"
     ]
   }
 }

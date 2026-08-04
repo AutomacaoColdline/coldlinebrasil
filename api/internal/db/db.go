@@ -57,6 +57,10 @@ func migrate(db *gorm.DB) error {
 		&models.Atendimento{},
 		&models.AtendimentoChecklistTemplate{},
 		&models.Part{},
+		&models.ProductionModel{},
+		&models.ProductionBomItem{},
+		&models.ProductionClientBuild{},
+		&models.ProductionSerialNumber{},
 	)
 	if err != nil {
 		return err
@@ -99,6 +103,11 @@ func ensureIndexes(db *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_atendimentos_client_ref_id ON atendimentos ((client_ref->>'id'))`,
 		`CREATE INDEX IF NOT EXISTS idx_atendimentos_technician_ref_id ON atendimentos ((technician_ref->>'id'))`,
 		`CREATE INDEX IF NOT EXISTS idx_atendimentos_number ON atendimentos (number)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_production_models_slug ON production_models (slug)`,
+		`CREATE INDEX IF NOT EXISTS idx_production_bom_items_model ON production_bom_items (production_model_id, variant)`,
+		`CREATE INDEX IF NOT EXISTS idx_production_bom_items_build ON production_bom_items (client_build_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_production_client_builds_model ON production_client_builds (production_model_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_production_serial_numbers_build ON production_serial_numbers (client_build_id)`,
 	}
 	for _, stmt := range stmts {
 		if err := db.Exec(stmt).Error; err != nil {
