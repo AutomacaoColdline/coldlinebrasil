@@ -1,50 +1,162 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ClipboardList, GitCompare, Loader2, Plus, Trash2, Users, X } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Edit, FolderOpen, GitCompare, Loader2, Plus, Trash2, Users, X } from 'lucide-react'
 import { productionApi } from './productionApi'
 import BomMaterialsTable from './BomMaterialsTable'
-import EvaporatorAddressingSection from './EvaporatorAddressingSection'
+import { BUILD_STATUSES, BUILD_STATUS_TONES, buildToForm, buildToPayload, emptyBuildForm } from './productionShared'
 import { formatNumber } from '../informationShared'
 
 const TABS = [
-  { id: 'standard', label: 'Modelo Padrao', icon: ClipboardList },
+  { id: 'standard', label: 'Modelo Padrão', icon: ClipboardList },
   { id: 'client', label: 'Modelo Criado ao Cliente', icon: Users },
-  { id: 'divergences', label: 'Divergencias Comparativas', icon: GitCompare },
+  { id: 'divergences', label: 'Divergências Comparativas', icon: GitCompare },
 ]
 
-function NewBuildModal({ onClose, onSave, saving, saveError }) {
-  const [clientName, setClientName] = useState('')
-  const [orderReference, setOrderReference] = useState('')
+function BuildModal({ initialForm, isEdit, onClose, onSave, saving, saveError }) {
+  const [form, setForm] = useState(initialForm)
+
+  const updateAddress = (index, key, value) => {
+    setForm((current) => {
+      const next = [...current.evaporatorAddresses]
+      next[index] = { ...next[index], [key]: value }
+      return { ...current, evaporatorAddresses: next }
+    })
+  }
+
+  const addAddress = () => {
+    setForm((current) => ({
+      ...current,
+      evaporatorAddresses: [...current.evaporatorAddresses, { evaporator: '', address: '' }],
+    }))
+  }
+
+  const removeAddress = (index) => {
+    setForm((current) => ({
+      ...current,
+      evaporatorAddresses: current.evaporatorAddresses.filter((_, i) => i !== index),
+    }))
+  }
+
+  const canSubmit = form.clientName.trim() && form.serialNumber.trim()
 
   return (
     <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900">Novo Modelo Criado ao Cliente</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{isEdit ? 'Editar Modelo Criado ao Cliente' : 'Novo Modelo Criado ao Cliente'}</h3>
           <button onClick={onClose} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-slate-300">
             <X size={16} />
           </button>
         </div>
-        <div className="p-5 space-y-3">
+
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Cliente</label>
-            <input value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Cliente ou Estoque</label>
+            <input
+              value={form.clientName}
+              onChange={(event) => setForm((c) => ({ ...c, clientName: event.target.value }))}
+              placeholder="Nome do cliente ou &quot;Estoque&quot;"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Pedido/Referencia</label>
-            <input value={orderReference} onChange={(e) => setOrderReference(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Pedido ou Referência</label>
+            <input
+              value={form.orderReference}
+              onChange={(event) => setForm((c) => ({ ...c, orderReference: event.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+            />
           </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Nº de Série</label>
+            <input
+              value={form.serialNumber}
+              onChange={(event) => setForm((c) => ({ ...c, serialNumber: event.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Status</label>
+            <select
+              value={form.status}
+              onChange={(event) => setForm((c) => ({ ...c, status: event.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+            >
+              {BUILD_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Tem Ventiladores?</label>
+            <select
+              value={form.hasEvaporatorAddressing ? 'sim' : 'nao'}
+              onChange={(event) => setForm((c) => ({ ...c, hasEvaporatorAddressing: event.target.value === 'sim' }))}
+              className="w-full md:w-72 border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
+            >
+              <option value="nao">Não tem ventiladores (sem endereçamento)</option>
+              <option value="sim">Tem ventiladores (com endereçamento)</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Observações</label>
+            <textarea
+              rows={2}
+              value={form.notes}
+              onChange={(event) => setForm((c) => ({ ...c, notes: event.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm resize-none"
+            />
+          </div>
+
+          {form.hasEvaporatorAddressing && (
+            <div className="md:col-span-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Endereçamento de Evaporadores</label>
+                <button onClick={addAddress} className="inline-flex items-center gap-1 text-xs text-pink-500 hover:text-pink-600 font-medium">
+                  <Plus size={12} /> Adicionar evaporador
+                </button>
+              </div>
+              {form.evaporatorAddresses.length === 0 ? (
+                <p className="text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl px-3 py-3 text-center">
+                  Nenhum evaporador adicionado.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {form.evaporatorAddresses.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        value={entry.evaporator}
+                        onChange={(event) => updateAddress(index, 'evaporator', event.target.value)}
+                        placeholder="Evaporador"
+                        className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                      />
+                      <input
+                        value={entry.address}
+                        onChange={(event) => updateAddress(index, 'address', event.target.value)}
+                        placeholder="Endereço"
+                        className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                      />
+                      <button onClick={() => removeAddress(index)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:border-rose-300 hover:text-rose-600 shrink-0">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
         <div className="px-6 py-4 border-t border-slate-100 flex items-center gap-2">
           {saveError && <p className="text-xs text-rose-500 mr-auto max-w-xs leading-relaxed">⚠️ {saveError}</p>}
           <div className="flex items-center gap-2 ml-auto">
             <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Cancelar</button>
             <button
-              onClick={() => onSave({ clientName, orderReference })}
-              disabled={saving || !clientName.trim()}
+              onClick={() => onSave(form)}
+              disabled={saving || !canSubmit}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300 disabled:opacity-60"
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : 'Criar'}
+              {saving ? <Loader2 size={14} className="animate-spin" /> : 'Salvar'}
             </button>
           </div>
         </div>
@@ -70,7 +182,8 @@ export default function ProductionModelPage() {
   const [clientBom, setClientBom] = useState([])
   const [clientBomLoading, setClientBomLoading] = useState(false)
 
-  const [newBuildOpen, setNewBuildOpen] = useState(false)
+  const [buildModalOpen, setBuildModalOpen] = useState(false)
+  const [editingBuild, setEditingBuild] = useState(null)
   const [savingBuild, setSavingBuild] = useState(false)
   const [buildSaveError, setBuildSaveError] = useState(null)
 
@@ -186,34 +299,52 @@ export default function ProductionModelPage() {
     await reload()
   }
 
-  const handleCreateBuild = async (form) => {
+  const openNewBuild = () => {
+    setEditingBuild(null)
+    setBuildSaveError(null)
+    setBuildModalOpen(true)
+  }
+
+  const openEditBuild = (build) => {
+    setEditingBuild(build)
+    setBuildSaveError(null)
+    setBuildModalOpen(true)
+  }
+
+  const handleSaveBuild = async (form) => {
     setSavingBuild(true)
     setBuildSaveError(null)
     try {
-      const response = await productionApi.createBuild(modelId, form)
-      setNewBuildOpen(false)
+      const payload = buildToPayload(form)
+      if (editingBuild?.id) {
+        await productionApi.updateBuild(editingBuild.id, payload)
+      } else {
+        const response = await productionApi.createBuild(modelId, payload)
+        setSelectedBuildId(response.data.id)
+      }
+      setBuildModalOpen(false)
+      setEditingBuild(null)
       await loadBuilds()
-      setSelectedBuildId(response.data.id)
     } catch (err) {
-      setBuildSaveError(err?.response?.data?.message || err?.message || 'Erro ao criar.')
+      setBuildSaveError(err?.response?.data?.message || err?.message || 'Erro ao salvar.')
     } finally {
       setSavingBuild(false)
     }
   }
 
   const handleDeleteBuild = async (build) => {
-    if (!window.confirm(`Excluir o pedido de "${build.clientName}"? Materiais e numeros de serie desse pedido tambem serao removidos.`)) return
+    if (!window.confirm(`Excluir "${build.clientName}" (Nº de série ${build.serialNumber})? Os materiais utilizados dessa unidade também serão removidos.`)) return
     await productionApi.deleteBuild(build.id)
     if (selectedBuildId === build.id) setSelectedBuildId(null)
     if (divergenceBuildId === build.id) setDivergenceBuildId(null)
     await loadBuilds()
   }
 
-  // Materiais sao pareados pelo nome (normalizado), nao pelo partId: dois
-  // materiais com o mesmo nome mas cadastrados como pecas diferentes (codigo,
-  // UN ou fornecedor divergentes) sao a mesma linha de BOM na pratica, e é
-  // esse desalinhamento de cadastro que essa aba tambem precisa apontar —
-  // nao so a diferenca de quantidade.
+  // Materiais são pareados pelo nome (normalizado), não pelo partId: dois
+  // materiais com o mesmo nome mas cadastrados como peças diferentes (código,
+  // UN ou fornecedor divergentes) são a mesma linha de BOM na prática, e é
+  // esse desalinhamento de cadastro que essa aba também precisa apontar —
+  // não só a diferença de quantidade.
   const divergences = useMemo(() => {
     if (!divergenceBuildId) return []
     const normalizeName = (name) => (name || '').trim().toLowerCase()
@@ -232,7 +363,7 @@ export default function ProductionModelPage() {
       const changes = []
       if (std && cli) {
         if ((std.internalCode || '') !== (cli.internalCode || '')) {
-          changes.push({ label: 'Cod. Interno', from: std.internalCode || '-', to: cli.internalCode || '-' })
+          changes.push({ label: 'Cód. Interno', from: std.internalCode || '-', to: cli.internalCode || '-' })
         }
         if ((std.unitOfMeasure || '') !== (cli.unitOfMeasure || '')) {
           changes.push({ label: 'UN', from: std.unitOfMeasure || '-', to: cli.unitOfMeasure || '-' })
@@ -278,7 +409,7 @@ export default function ProductionModelPage() {
           className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-3"
         >
           <ArrowLeft size={14} />
-          Voltar para Producao
+          Voltar para Produção
         </button>
         <p className="text-xs uppercase tracking-[0.2em] text-pink-400 font-semibold">Modelo de Equipamento</p>
         <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">{model?.name || '...'}</h1>
@@ -313,7 +444,7 @@ export default function ProductionModelPage() {
           onUpdatePartField={handleUpdatePartField(loadStandardBom)}
           onRemoveLine={handleRemoveLine(loadStandardBom)}
           searchParts={productionApi.searchParts}
-          emptyLabel="Nenhum material cadastrado no modelo padrao."
+          emptyLabel="Nenhum material cadastrado no modelo padrão."
           onExport={() => productionApi.exportModelBom(modelId)}
           onImport={(file) => productionApi.importModelBom(modelId, file)}
           onImported={loadStandardBom}
@@ -323,11 +454,11 @@ export default function ProductionModelPage() {
 
       {activeTab === 'client' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-              <h3 className="text-sm font-bold text-slate-900">Nº de série/Lote</h3>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-900">Nº de Série/Lote</h3>
               <button
-                onClick={() => { setBuildSaveError(null); setNewBuildOpen(true) }}
+                onClick={openNewBuild}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300"
               >
                 <Plus size={14} />
@@ -339,30 +470,77 @@ export default function ProductionModelPage() {
                 <Loader2 size={20} className="animate-spin text-slate-300" />
               </div>
             ) : builds.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">Nenhum pedido cadastrado para este modelo.</p>
+              <p className="text-sm text-slate-400 text-center py-6">Nenhuma unidade cadastrada para este modelo.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {builds.map((build) => (
-                  <div
-                    key={build.id}
-                    className={`flex items-center gap-2 pl-4 pr-2 py-2 rounded-xl border text-sm ${
-                      selectedBuildId === build.id ? 'bg-pink-50 border-pink-200 text-pink-600' : 'bg-white border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <button onClick={() => setSelectedBuildId(build.id)} className="font-medium">
-                      {build.clientName}{build.orderReference ? ` · ${build.orderReference}` : ''}
-                    </button>
-                    <button onClick={() => handleDeleteBuild(build)} className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500">
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      {['Cliente ou Estoque', 'Pedido/Referência', 'Nº de Série', 'Ventiladores', 'Status', 'Ações'].map((label) => (
+                        <th key={label} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {builds.map((build) => (
+                      <tr
+                        key={build.id}
+                        onClick={() => setSelectedBuildId(build.id)}
+                        className={`border-b border-slate-100 last:border-b-0 cursor-pointer ${
+                          selectedBuildId === build.id ? 'bg-pink-50/60' : 'hover:bg-slate-50/50'
+                        }`}
+                      >
+                        <td className="px-4 py-2.5 text-sm text-slate-800 font-medium">{build.clientName}</td>
+                        <td className="px-4 py-2.5 text-sm text-slate-600">{build.orderReference || '-'}</td>
+                        <td className="px-4 py-2.5 text-sm text-slate-600">{build.serialNumber || '-'}</td>
+                        <td className="px-4 py-2.5 text-sm text-slate-600">
+                          {build.hasEvaporatorAddressing ? `Sim (${(build.evaporatorAddresses || []).length})` : 'Não'}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-medium border ${BUILD_STATUS_TONES[build.status] || 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                            {build.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5" onClick={(event) => event.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setSelectedBuildId(build.id)}
+                              title="Abrir materiais utilizados"
+                              className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
+                                selectedBuildId === build.id ? 'border-pink-300 text-pink-500 bg-pink-50' : 'border-slate-200 text-slate-500 hover:border-pink-200 hover:text-pink-500'
+                              }`}
+                            >
+                              <FolderOpen size={13} />
+                            </button>
+                            <button
+                              onClick={() => openEditBuild(build)}
+                              title="Editar"
+                              className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500"
+                            >
+                              <Edit size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBuild(build)}
+                              title="Excluir"
+                              className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
 
           {selectedBuild && (
             <>
+              <p className="text-xs text-slate-400 px-1">
+                Materiais utilizados — <span className="font-semibold text-slate-600">{selectedBuild.clientName} · Nº {selectedBuild.serialNumber}</span>
+              </p>
               <BomMaterialsTable
                 items={clientBom}
                 loading={clientBomLoading}
@@ -377,7 +555,6 @@ export default function ProductionModelPage() {
                 onImported={() => loadClientBom(selectedBuildId)}
                 exportFilename={`bom_cliente_${selectedBuild.clientName}.xlsx`}
               />
-              <EvaporatorAddressingSection buildId={selectedBuild.id} />
             </>
           )}
         </div>
@@ -386,16 +563,16 @@ export default function ProductionModelPage() {
       {activeTab === 'divergences' && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Comparar com o pedido</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Comparar com a unidade</label>
             <select
               value={divergenceBuildId || ''}
               onChange={(event) => setDivergenceBuildId(event.target.value || null)}
               className="w-full sm:w-80 border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
             >
-              <option value="">Selecione um Modelo Criado ao Cliente</option>
+              <option value="">Selecione uma unidade (Modelo Criado ao Cliente)</option>
               {builds.map((build) => (
                 <option key={build.id} value={build.id}>
-                  {build.clientName}{build.orderReference ? ` · ${build.orderReference}` : ''}
+                  {build.clientName} · Nº {build.serialNumber}{build.orderReference ? ` · ${build.orderReference}` : ''}
                 </option>
               ))}
             </select>
@@ -408,13 +585,13 @@ export default function ProductionModelPage() {
                   <Loader2 size={20} className="animate-spin text-slate-300" />
                 </div>
               ) : divergences.length === 0 ? (
-                <div className="py-10 text-center text-sm text-slate-400">Nenhuma divergencia — o BOM deste pedido e igual ao padrao.</div>
+                <div className="py-10 text-center text-sm text-slate-400">Nenhuma divergência — o BOM desta unidade é igual ao padrão.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100">
-                        {['Cod. Interno', 'Material', 'UN', 'Qtd. Padrao', 'Qtd. Cliente', 'Diferenca', 'Alteracoes de Cadastro', 'Status'].map((label) => (
+                        {['Cód. Interno', 'Material', 'UN', 'Qtd. Padrão', 'Qtd. Cliente', 'Diferença', 'Alterações de Cadastro', 'Status'].map((label) => (
                           <th key={label} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</th>
                         ))}
                       </tr>
@@ -455,10 +632,12 @@ export default function ProductionModelPage() {
         </div>
       )}
 
-      {newBuildOpen && (
-        <NewBuildModal
-          onClose={() => setNewBuildOpen(false)}
-          onSave={handleCreateBuild}
+      {buildModalOpen && (
+        <BuildModal
+          initialForm={editingBuild ? buildToForm(editingBuild) : emptyBuildForm()}
+          isEdit={Boolean(editingBuild)}
+          onClose={() => { setBuildModalOpen(false); setEditingBuild(null) }}
+          onSave={handleSaveBuild}
           saving={savingBuild}
           saveError={buildSaveError}
         />

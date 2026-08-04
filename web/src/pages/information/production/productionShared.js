@@ -1,10 +1,10 @@
 export const UNIT_OPTIONS = ['pç', 'cm', 'm', 'm²', 'lt', 'kg', 'cj', 'ct']
 
-export const SERIAL_STATUSES = ['Em Andamento', 'Concluido', 'Parado']
+export const BUILD_STATUSES = ['Em Andamento', 'Concluído', 'Parado']
 
-export const SERIAL_STATUS_TONES = {
+export const BUILD_STATUS_TONES = {
   'Em Andamento': 'bg-amber-50 text-amber-600 border-amber-100',
-  Concluido: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+  'Concluído': 'bg-emerald-50 text-emerald-600 border-emerald-100',
   Parado: 'bg-rose-50 text-rose-600 border-rose-100',
 }
 
@@ -12,10 +12,15 @@ export function emptyBomLine() {
   return { partId: '', partName: '', unitOfMeasure: 'pç', internalCode: '', supplier: '', quantity: '' }
 }
 
-export function emptySerialForm() {
+// Um "Modelo Criado ao Cliente" é uma unidade física específica: cliente (ou
+// estoque) de destino, pedido/referência, número de série, se tem
+// ventiladores (e, nesse caso, o endereçamento desses evaporadores) e o
+// status de produção da unidade.
+export function emptyBuildForm() {
   return {
+    clientName: '',
+    orderReference: '',
     serialNumber: '',
-    clientDestination: '',
     hasEvaporatorAddressing: false,
     evaporatorAddresses: [],
     status: 'Em Andamento',
@@ -23,10 +28,11 @@ export function emptySerialForm() {
   }
 }
 
-export function serialToForm(item) {
+export function buildToForm(item) {
   return {
+    clientName: item.clientName || '',
+    orderReference: item.orderReference || '',
     serialNumber: item.serialNumber || '',
-    clientDestination: item.clientDestination || '',
     hasEvaporatorAddressing: !!item.hasEvaporatorAddressing,
     evaporatorAddresses: item.evaporatorAddresses || [],
     status: item.status || 'Em Andamento',
@@ -34,10 +40,11 @@ export function serialToForm(item) {
   }
 }
 
-export function serialToPayload(form) {
+export function buildToPayload(form) {
   return {
-    serialNumber: form.serialNumber,
-    clientDestination: form.clientDestination,
+    clientName: form.clientName.trim(),
+    orderReference: form.orderReference.trim(),
+    serialNumber: form.serialNumber.trim(),
     hasEvaporatorAddressing: !!form.hasEvaporatorAddressing,
     evaporatorAddresses: form.hasEvaporatorAddressing ? (form.evaporatorAddresses || []) : [],
     status: form.status || 'Em Andamento',

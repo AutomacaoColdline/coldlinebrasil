@@ -10,7 +10,7 @@ import './information-theme.css'
 const navItems = [
   { to: '/departamento-informacao', icon: LayoutDashboard, label: 'Departamento', end: true },
   { to: '/departamento-informacao/organograma', icon: Workflow, label: 'Organograma', end: false },
-  { to: '/departamento-informacao/producao', icon: Factory, label: 'Producao', end: false },
+  { to: '/departamento-informacao/producao', icon: Factory, label: 'Produção', end: false },
 ]
 
 export default function InformationLayout() {

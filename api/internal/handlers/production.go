@@ -15,26 +15,23 @@ import (
 
 // ProductionHandler cobre o módulo Produção do Departamento de Informação:
 // os 4 modelos de equipamento, suas listas de materiais (padrão e por
-// pedido de cliente), os números de série produzidos por pedido e o
-// dashboard de divergências entre o BOM padrão e o BOM efetivamente
-// montado para cada cliente.
+// unidade de cliente) e o dashboard de divergências entre o BOM padrão e o
+// BOM efetivamente montado para cada cliente.
 type ProductionHandler struct {
-	db         *gorm.DB
-	modelRepo  *repositories.Repository[models.ProductionModel]
-	bomRepo    *repositories.Repository[models.ProductionBomItem]
-	buildRepo  *repositories.Repository[models.ProductionClientBuild]
-	serialRepo *repositories.Repository[models.ProductionSerialNumber]
-	partRepo   *repositories.Repository[models.Part]
+	db        *gorm.DB
+	modelRepo *repositories.Repository[models.ProductionModel]
+	bomRepo   *repositories.Repository[models.ProductionBomItem]
+	buildRepo *repositories.Repository[models.ProductionClientBuild]
+	partRepo  *repositories.Repository[models.Part]
 }
 
 func NewProductionHandler(db *gorm.DB) *ProductionHandler {
 	return &ProductionHandler{
-		db:         db,
-		modelRepo:  repositories.New[models.ProductionModel](db, "production_models"),
-		bomRepo:    repositories.New[models.ProductionBomItem](db, "production_bom_items"),
-		buildRepo:  repositories.New[models.ProductionClientBuild](db, "production_client_builds"),
-		serialRepo: repositories.New[models.ProductionSerialNumber](db, "production_serial_numbers"),
-		partRepo:   repositories.New[models.Part](db, "parts"),
+		db:        db,
+		modelRepo: repositories.New[models.ProductionModel](db, "production_models"),
+		bomRepo:   repositories.New[models.ProductionBomItem](db, "production_bom_items"),
+		buildRepo: repositories.New[models.ProductionClientBuild](db, "production_client_builds"),
+		partRepo:  repositories.New[models.Part](db, "parts"),
 	}
 }
 
@@ -218,7 +215,7 @@ func (h *ProductionHandler) DeleteBomItem(c *gin.Context) {
 	deleteSimpleResource(c, h.bomRepo)
 }
 
-// --- Modelo Criado ao Cliente (pedidos) ---
+// --- Modelo Criado ao Cliente (unidades físicas de um pedido) ---
 
 func (h *ProductionHandler) GetBuilds(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -241,8 +238,18 @@ func (h *ProductionHandler) CreateBuild(c *gin.Context) {
 	}
 	item.ProductionModelID = c.Param("modelId")
 	if strings.TrimSpace(item.ClientName) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Nome do cliente é obrigatório"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Cliente ou estoque é obrigatório"})
 		return
+	}
+	if strings.TrimSpace(item.SerialNumber) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Número de série é obrigatório"})
+		return
+	}
+	if strings.TrimSpace(item.Status) == "" {
+		item.Status = "Em Andamento"
+	}
+	if item.EvaporatorAddresses == nil {
+		item.EvaporatorAddresses = []models.EvaporatorAddressEntry{}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -259,7 +266,7 @@ func (h *ProductionHandler) GetBuildByID(c *gin.Context) {
 	defer cancel()
 	item, err := h.buildRepo.FindByID(ctx, c.Param("buildId"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "Pedido não encontrado"})
+		c.JSON(http.StatusNotFound, gin.H{"message": "Unidade não encontrada"})
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -273,6 +280,22 @@ func (h *ProductionHandler) UpdateBuild(c *gin.Context) {
 	}
 	delete(payload, "id")
 	delete(payload, "productionModelId")
+
+	if status, ok := payload["status"].(string); ok {
+		status = strings.TrimSpace(status)
+		valid := false
+		for _, s := range models.ProductionBuildStatuses {
+			if s == status {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "status inválido"})
+			return
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := h.buildRepo.MergeUpdate(ctx, c.Param("buildId"), payload); err != nil {
@@ -290,94 +313,12 @@ func (h *ProductionHandler) DeleteBuild(c *gin.Context) {
 		if err := tx.Table("production_bom_items").Where("client_build_id = ?", buildID).Delete(&models.ProductionBomItem{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Table("production_serial_numbers").Where("client_build_id = ?", buildID).Delete(&models.ProductionSerialNumber{}).Error; err != nil {
-			return err
-		}
 		return tx.Table("production_client_builds").Where("id = ?", buildID).Delete(&models.ProductionClientBuild{}).Error
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deletado"})
-}
-
-// --- Números de série / endereçamento de evaporadores ---
-
-func (h *ProductionHandler) GetSerials(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	var items []models.ProductionSerialNumber
-	if err := h.serialRepo.Q(ctx).
-		Where("client_build_id = ?", c.Param("buildId")).
-		Order("created_at ASC").Find(&items).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
-}
-
-func (h *ProductionHandler) CreateSerial(c *gin.Context) {
-	var item models.ProductionSerialNumber
-	if err := c.ShouldBindJSON(&item); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-	item.ClientBuildID = c.Param("buildId")
-	if strings.TrimSpace(item.SerialNumber) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Número de série é obrigatório"})
-		return
-	}
-	if strings.TrimSpace(item.Status) == "" {
-		item.Status = "Em Andamento"
-	}
-	if item.EvaporatorAddresses == nil {
-		item.EvaporatorAddresses = []models.EvaporatorAddressEntry{}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := h.serialRepo.Create(ctx, &item); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusCreated, item)
-}
-
-func (h *ProductionHandler) UpdateSerial(c *gin.Context) {
-	var payload map[string]interface{}
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-	delete(payload, "id")
-	delete(payload, "clientBuildId")
-
-	if status, ok := payload["status"].(string); ok {
-		status = strings.TrimSpace(status)
-		valid := false
-		for _, s := range models.ProductionSerialStatuses {
-			if s == status {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "status inválido"})
-			return
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := h.serialRepo.MergeUpdate(ctx, c.Param("id"), payload); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Atualizado"})
-}
-
-func (h *ProductionHandler) DeleteSerial(c *gin.Context) {
-	deleteSimpleResource(c, h.serialRepo)
 }
 
 // --- Dashboard de divergências ---

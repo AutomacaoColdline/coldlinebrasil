@@ -63,11 +63,11 @@ export default function ProductionPage() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-pink-400 font-semibold">Departamento de Informacao</p>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">Producao</h1>
+            <p className="text-xs uppercase tracking-[0.2em] text-pink-400 font-semibold">Departamento de Informação</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">Produção</h1>
             <p className="text-sm text-slate-500 mt-2 max-w-3xl">
-              Listas de materiais dos modelos Coldline, comparativo entre o padrao e o que foi montado
-              para cada cliente, e endereçamento de evaporadores por numero de serie.
+              Listas de materiais dos modelos Coldline, comparativo entre o padrão e o que foi montado
+              para cada cliente, e endereçamento de evaporadores por número de série.
             </p>
           </div>
           <button
@@ -81,7 +81,7 @@ export default function ProductionPage() {
       </div>
 
       <div>
-        <h2 className="text-lg font-bold text-slate-900 mb-3">Dashboard de Divergencias</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-3">Dashboard de Divergências</h2>
         {dashboardLoading ? (
           <div className="py-16 flex items-center justify-center">
             <Loader2 size={22} className="animate-spin text-slate-300" />
@@ -90,23 +90,23 @@ export default function ProductionPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <DashboardCard
-                title="Materiais Fora do Padrao"
+                title="Materiais Fora do Padrão"
                 value={formatNumber(dashboard.totalDivergentMaterials)}
-                helper="Materiais distintos com divergencia em algum pedido."
+                helper="Materiais distintos com divergência em alguma unidade."
                 icon={Boxes}
                 tone="pink"
               />
               <DashboardCard
-                title="Pedidos com Divergencia"
+                title="Unidades com Divergência"
                 value={formatNumber(dashboard.totalBuildsWithDivergence)}
-                helper="Modelos criados ao cliente com BOM diferente do padrao."
+                helper="Modelos criados ao cliente com BOM diferente do padrão."
                 icon={AlertTriangle}
                 tone="amber"
               />
               <DashboardCard
-                title="Quantidade Fora do Padrao"
+                title="Quantidade Fora do Padrão"
                 value={formatNumber(dashboard.totalQuantityOutOfStandard)}
-                helper="Soma das diferencas de quantidade (padrao x cliente)."
+                helper="Soma das diferenças de quantidade (padrão x cliente)."
                 icon={AlertTriangle}
                 tone="rose"
               />
@@ -114,13 +114,13 @@ export default function ProductionPage() {
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               {(dashboard.items || []).length === 0 ? (
-                <div className="py-10 text-center text-sm text-slate-400">Nenhuma divergencia encontrada.</div>
+                <div className="py-10 text-center text-sm text-slate-400">Nenhuma divergência encontrada.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100">
-                        {['Cod. Interno', 'Material', 'Fornecedor/Fabricante', 'UN', 'Ocorrencias', 'Qtd. Fora do Padrao'].map((label) => (
+                        {['Cód. Interno', 'Material', 'Fornecedor/Fabricante', 'UN', 'Ocorrências', 'Qtd. Fora do Padrão'].map((label) => (
                           <th key={label} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</th>
                         ))}
                       </tr>
@@ -160,7 +160,7 @@ export default function ProductionPage() {
                 </div>
                 <div>
                   <p className="text-base font-bold text-slate-900">{model.name}</p>
-                  <p className="text-xs text-slate-400 mt-1">Modelo padrao, pedidos de cliente e numeros de serie.</p>
+                  <p className="text-xs text-slate-400 mt-1">Modelo padrão, unidades de cliente e números de série.</p>
                 </div>
                 <button
                   onClick={() => navigate(`/departamento-informacao/producao/${model.id}`)}

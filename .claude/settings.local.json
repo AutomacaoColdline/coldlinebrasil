@@ -50,7 +50,8 @@
       "Bash(find / -maxdepth 6 -iname \"go1*\")",
       "Bash(find / -maxdepth 6 -iname \"*golang*\" -type d)",
       "Read(//usr/local/**)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(timeout 300 docker build -t coldline-api-test2 .)"
     ]
   }
 }

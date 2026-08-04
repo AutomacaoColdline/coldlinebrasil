@@ -17,12 +17,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// Import/export de BOM em planilha Excel (.xlsx) para o BOM padrao de um
+// Import/export de BOM em planilha Excel (.xlsx) para o BOM padrão de um
 // modelo e para o BOM de um "Modelo Criado ao Cliente". Mesmo layout de
 // colunas nos dois casos, para que o arquivo exportado sirva de modelo para
 // reimportacao (edita no Excel e reenvia).
 
-var bomExcelHeaders = []string{"Cod. Interno", "Material", "UN", "Quantidade", "Fornecedor/Fabricante"}
+var bomExcelHeaders = []string{"Cód. Interno", "Material", "UN", "Quantidade", "Fornecedor/Fabricante"}
 
 const bomExcelSheet = "BOM"
 
@@ -221,7 +221,7 @@ func readBomWorkbook(c *gin.Context) ([]bomImportRow, error) {
 		}
 		rows = append(rows, bomImportRow{
 			RowNumber:     rowNumber,
-			InternalCode:  get(raw, "cod. interno"),
+			InternalCode:  get(raw, "cód. interno"),
 			PartName:      partName,
 			UnitOfMeasure: get(raw, "un"),
 			Quantity:      qty,
@@ -234,9 +234,9 @@ func readBomWorkbook(c *gin.Context) ([]bomImportRow, error) {
 	return rows, nil
 }
 
-// findOrCreatePart casa a linha importada com uma peça existente por codigo
-// interno e, na falta dele, pelo nome — para não duplicar o catalogo a cada
-// reimportacao. Cria uma peça nova só quando nenhum dos dois casar.
+// findOrCreatePart casa a linha importada com uma peça existente por código
+// interno e, na falta dele, pelo nome — para não duplicar o catálogo a cada
+// reimportação. Cria uma peça nova só quando nenhum dos dois casar.
 func (h *ProductionHandler) findOrCreatePart(ctx context.Context, row bomImportRow) (string, bool, error) {
 	if row.InternalCode != "" {
 		if existing, err := h.partRepo.FindOne(ctx, "internal_code = ?", row.InternalCode); err == nil && existing != nil {

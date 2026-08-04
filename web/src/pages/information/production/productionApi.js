@@ -53,11 +53,6 @@ export const productionApi = {
   updateBomItem: (id, data) => http.put(`${base}/bom/${id}`, data),
   deleteBomItem: (id) => http.delete(`${base}/bom/${id}`),
 
-  getSerials: (buildId) => http.get(`${base}/builds/${buildId}/serials`),
-  createSerial: (buildId, data) => http.post(`${base}/builds/${buildId}/serials`, data),
-  updateSerial: (id, data) => http.put(`${base}/serials/${id}`, data),
-  deleteSerial: (id) => http.delete(`${base}/serials/${id}`),
-
   getDashboard: () => http.get(`${base}/dashboard`),
 
   searchParts: (q) => http.get(`${base}/parts/search`, { params: { q } }),

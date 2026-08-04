@@ -105,7 +105,7 @@ function AddMaterialRow({ onAdd, onCancel, searchParts, saving }) {
               type="button"
               onClick={clearSelection}
               className="absolute right-2 top-7 text-slate-400 hover:text-rose-500"
-              title="Limpar selecao"
+              title="Limpar seleção"
             >
               <X size={14} />
             </button>
@@ -129,7 +129,7 @@ function AddMaterialRow({ onAdd, onCancel, searchParts, saving }) {
                 </button>
               ))}
               {!searching && suggestions.length === 0 && (
-                <div className="px-3 py-2 text-xs text-slate-400">Nenhum material encontrado — sera criado um novo.</div>
+                <div className="px-3 py-2 text-xs text-slate-400">Nenhum material encontrado — será criado um novo.</div>
               )}
             </div>
           )}
@@ -158,7 +158,7 @@ function AddMaterialRow({ onAdd, onCancel, searchParts, saving }) {
         </div>
 
         <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Cod. Interno</label>
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Cód. Interno</label>
           <input
             value={internalCode}
             onChange={(event) => setInternalCode(event.target.value)}
@@ -290,7 +290,7 @@ export default function BomMaterialsTable({
             {UNIT_OPTIONS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
           </select>
           <FilterInput value={filters.partName} onChange={(v) => setFilters((c) => ({ ...c, partName: v }))} placeholder="Filtrar material" />
-          <FilterInput value={filters.internalCode} onChange={(v) => setFilters((c) => ({ ...c, internalCode: v }))} placeholder="Filtrar cod. interno" />
+          <FilterInput value={filters.internalCode} onChange={(v) => setFilters((c) => ({ ...c, internalCode: v }))} placeholder="Filtrar cód. interno" />
           <FilterInput value={filters.supplier} onChange={(v) => setFilters((c) => ({ ...c, supplier: v }))} placeholder="Filtrar fornecedor" />
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -356,7 +356,7 @@ export default function BomMaterialsTable({
           <table className="min-w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                {['Quantidade', 'UN', 'Materiais Utilizados', 'Cod. Interno', 'Fornecedor/Fabricante', 'Acoes'].map((label) => (
+                {['Quantidade', 'UN', 'Materiais Utilizados', 'Cód. Interno', 'Fornecedor/Fabricante', 'Ações'].map((label) => (
                   <th key={label} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</th>
                 ))}
               </tr>
