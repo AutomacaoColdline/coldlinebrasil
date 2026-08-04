@@ -209,37 +209,63 @@ export default function ProductionModelPage() {
     await loadBuilds()
   }
 
+  // Materiais sao pareados pelo nome (normalizado), nao pelo partId: dois
+  // materiais com o mesmo nome mas cadastrados como pecas diferentes (codigo,
+  // UN ou fornecedor divergentes) sao a mesma linha de BOM na pratica, e é
+  // esse desalinhamento de cadastro que essa aba tambem precisa apontar —
+  // nao so a diferenca de quantidade.
   const divergences = useMemo(() => {
     if (!divergenceBuildId) return []
-    const standardByPart = new Map(standardBom.map((item) => [item.partId, item]))
-    const clientByPart = new Map(divergenceBom.map((item) => [item.partId, item]))
-    const partIds = new Set([...standardByPart.keys(), ...clientByPart.keys()])
+    const normalizeName = (name) => (name || '').trim().toLowerCase()
+    const standardByName = new Map(standardBom.map((item) => [normalizeName(item.partName), item]))
+    const clientByName = new Map(divergenceBom.map((item) => [normalizeName(item.partName), item]))
+    const names = new Set([...standardByName.keys(), ...clientByName.keys()])
 
     const rows = []
-    partIds.forEach((partId) => {
-      const std = standardByPart.get(partId)
-      const cli = clientByPart.get(partId)
+    names.forEach((name) => {
+      const std = standardByName.get(name)
+      const cli = clientByName.get(name)
       const stdQty = std?.quantity || 0
       const cliQty = cli?.quantity || 0
-      if (stdQty === cliQty) return
+      const quantityChanged = Boolean(std) && Boolean(cli) && stdQty !== cliQty
 
-      let status = 'Alterado'
-      if (!std) status = 'Adicionado'
-      else if (!cli) status = 'Removido'
+      const changes = []
+      if (std && cli) {
+        if ((std.internalCode || '') !== (cli.internalCode || '')) {
+          changes.push({ label: 'Cod. Interno', from: std.internalCode || '-', to: cli.internalCode || '-' })
+        }
+        if ((std.unitOfMeasure || '') !== (cli.unitOfMeasure || '')) {
+          changes.push({ label: 'UN', from: std.unitOfMeasure || '-', to: cli.unitOfMeasure || '-' })
+        }
+        if ((std.supplier || '') !== (cli.supplier || '')) {
+          changes.push({ label: 'Fornecedor/Fabricante', from: std.supplier || '-', to: cli.supplier || '-' })
+        }
+      }
+
+      if (std && cli && !quantityChanged && changes.length === 0) return
+
+      const statusParts = []
+      if (!std) statusParts.push('Adicionado')
+      else if (!cli) statusParts.push('Removido')
+      else {
+        if (quantityChanged) statusParts.push('Quantidade')
+        if (changes.length > 0) statusParts.push('Cadastro')
+      }
 
       const ref = cli || std
       rows.push({
-        partId,
+        key: name || ref.partId,
         internalCode: ref.internalCode,
         partName: ref.partName,
         unitOfMeasure: ref.unitOfMeasure,
         standardQuantity: stdQty,
         clientQuantity: cliQty,
         diff: cliQty - stdQty,
-        status,
+        status: statusParts.join(' + '),
+        changes,
       })
     })
-    return rows.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+    return rows.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff) || b.changes.length - a.changes.length)
   }, [divergenceBuildId, standardBom, divergenceBom])
 
   const selectedBuild = builds.find((b) => b.id === selectedBuildId) || null
@@ -388,21 +414,34 @@ export default function ProductionModelPage() {
                   <table className="min-w-full">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100">
-                        {['Cod. Interno', 'Material', 'UN', 'Qtd. Padrao', 'Qtd. Cliente', 'Diferenca', 'Status'].map((label) => (
+                        {['Cod. Interno', 'Material', 'UN', 'Qtd. Padrao', 'Qtd. Cliente', 'Diferenca', 'Alteracoes de Cadastro', 'Status'].map((label) => (
                           <th key={label} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {divergences.map((row) => (
-                        <tr key={row.partId} className="border-b border-slate-100 last:border-b-0">
+                        <tr key={row.key} className="border-b border-slate-100 last:border-b-0">
                           <td className="px-4 py-2.5 text-sm text-slate-700">{row.internalCode || '-'}</td>
                           <td className="px-4 py-2.5 text-sm text-slate-800 font-medium">{row.partName || '-'}</td>
                           <td className="px-4 py-2.5 text-sm text-slate-600">{row.unitOfMeasure || '-'}</td>
                           <td className="px-4 py-2.5 text-sm text-slate-600">{formatNumber(row.standardQuantity)}</td>
                           <td className="px-4 py-2.5 text-sm text-slate-600">{formatNumber(row.clientQuantity)}</td>
-                          <td className={`px-4 py-2.5 text-sm font-semibold ${row.diff > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {row.diff > 0 ? '+' : ''}{formatNumber(row.diff)}
+                          <td className={`px-4 py-2.5 text-sm font-semibold ${row.diff === 0 ? 'text-slate-400' : row.diff > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {row.diff === 0 ? '-' : `${row.diff > 0 ? '+' : ''}${formatNumber(row.diff)}`}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-slate-600">
+                            {row.changes.length === 0 ? (
+                              <span className="text-slate-300">-</span>
+                            ) : (
+                              <div className="flex flex-col gap-0.5">
+                                {row.changes.map((change) => (
+                                  <span key={change.label}>
+                                    <span className="font-semibold text-slate-500">{change.label}:</span> {change.from} → {change.to}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-sm text-slate-600">{row.status}</td>
                         </tr>
