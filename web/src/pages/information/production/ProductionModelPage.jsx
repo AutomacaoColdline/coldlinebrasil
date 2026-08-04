@@ -325,7 +325,7 @@ export default function ProductionModelPage() {
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
             <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-              <h3 className="text-sm font-bold text-slate-900">Pedidos de Cliente</h3>
+              <h3 className="text-sm font-bold text-slate-900">Nº de série/Lote</h3>
               <button
                 onClick={() => { setBuildSaveError(null); setNewBuildOpen(true) }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300"

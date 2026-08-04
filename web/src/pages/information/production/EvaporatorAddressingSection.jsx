@@ -91,14 +91,14 @@ function SerialModal({ initialForm, onClose, onSave, saving, saveError }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Endereçamento de Evaporadores</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Tem Ventiladores?</label>
             <select
               value={form.hasEvaporatorAddressing ? 'sim' : 'nao'}
               onChange={(event) => setForm((c) => ({ ...c, hasEvaporatorAddressing: event.target.value === 'sim' }))}
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm"
             >
-              <option value="nao">Sem endereçamento</option>
-              <option value="sim">Com endereçamento</option>
+              <option value="nao">Não tem ventiladores (sem endereçamento)</option>
+              <option value="sim">Tem ventiladores (com endereçamento)</option>
             </select>
           </div>
 
@@ -237,8 +237,8 @@ export default function EvaporatorAddressingSection({ buildId }) {
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Endereçamento de Evaporadores</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Numeros de serie desta unidade, cliente destino e status de producao.</p>
+          <h3 className="text-sm font-bold text-slate-900">Números de Série</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Numeros de serie desta unidade, cliente destino e status de producao. Ventiladores/endereçamento sao definidos no cadastro do numero de serie.</p>
         </div>
         <button
           onClick={openNew}
@@ -260,7 +260,7 @@ export default function EvaporatorAddressingSection({ buildId }) {
           <table className="min-w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                {['Nº Serie', 'Cliente Destino', 'Endereçamento', 'Status', 'Acoes'].map((label) => (
+                {['Nº Serie', 'Cliente Destino', 'Ventiladores', 'Status', 'Acoes'].map((label) => (
                   <th key={label} className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</th>
                 ))}
               </tr>
