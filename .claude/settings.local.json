@@ -53,7 +53,10 @@
       "Bash(env)",
       "Bash(timeout 300 docker build -t coldline-api-test2 .)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(timeout 300 docker build -t coldline-api-test3 .)",
+      "Bash(docker rmi *)",
+      "Bash(timeout 300 docker build -t coldline-api-test4 .)"
     ]
   }
 }

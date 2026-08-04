@@ -32,6 +32,7 @@ func seed(db *gorm.DB) {
 	})
 
 	seedProductionModels(db)
+	backfillProductionBomItemFields(db)
 
 	seedAdminUser(db)
 	seedMasterAdmin(db)
@@ -140,6 +141,30 @@ func backfillPartUnitOfMeasure(db *gorm.DB) {
 		Update("unit_of_measure", "pç")
 	if res.RowsAffected > 0 {
 		log.Printf("🌱 parts: %d peça(s) tiveram unidade de medida preenchida com 'pç'", res.RowsAffected)
+	}
+}
+
+// backfillProductionBomItemFields preenche InternalCode/UnitOfMeasure/Supplier
+// nas linhas de BOM criadas antes desses campos existirem por linha (campo
+// introduzido depois que o módulo Produção já estava em uso — até então esses
+// dados só existiam na Part referenciada). Copia o valor atual da Part uma
+// única vez; a partir daí a linha vira dona do próprio registro. Idempotente
+// (só afeta linhas ainda com unit_of_measure vazio), roda em todo boot.
+func backfillProductionBomItemFields(db *gorm.DB) {
+	res := db.Exec(`
+		UPDATE production_bom_items b
+		SET internal_code = p.internal_code,
+		    unit_of_measure = COALESCE(NULLIF(p.unit_of_measure, ''), 'pç'),
+		    supplier = p.supplier
+		FROM parts p
+		WHERE b.part_id = p.id AND (b.unit_of_measure IS NULL OR b.unit_of_measure = '')
+	`)
+	if res.Error != nil {
+		log.Printf("⚠️ falha ao preencher cadastro das linhas de BOM antigas: %v", res.Error)
+		return
+	}
+	if res.RowsAffected > 0 {
+		log.Printf("🌱 production_bom_items: %d linha(s) tiveram cód. interno/UN/fornecedor preenchidos a partir da peça", res.RowsAffected)
 	}
 }
 

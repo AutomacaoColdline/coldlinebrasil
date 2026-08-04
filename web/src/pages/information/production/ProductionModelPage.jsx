@@ -251,36 +251,44 @@ export default function ProductionModelPage() {
       .finally(() => setDivergenceLoading(false))
   }, [divergenceBuildId])
 
-  const applyPartEdits = async (line) => {
-    let partId = line.selectedPart?.id
-    if (partId) {
-      const part = line.selectedPart
-      const patch = {}
-      if (line.unitOfMeasure !== (part.unitOfMeasure || '')) patch.unitOfMeasure = line.unitOfMeasure
-      if (line.internalCode !== (part.internalCode || '')) patch.internalCode = line.internalCode
-      if (line.supplier !== (part.supplier || '')) patch.supplier = line.supplier
-      if (Object.keys(patch).length > 0) await productionApi.updatePart(partId, patch)
-    } else {
-      const response = await productionApi.createPart({
-        name: line.name,
-        unitOfMeasure: line.unitOfMeasure,
-        internalCode: line.internalCode,
-        supplier: line.supplier,
-      })
-      partId = response.data.id
-    }
-    return partId
+  // Só resolve o partId (acha a peça no catálogo ou cria uma nova) — nunca
+  // atualiza os campos de uma peça já existente aqui. Cód. interno/UN/
+  // fornecedor digitados na linha vão para a linha de BOM (denormalizados),
+  // não para a Part: a mesma peça costuma ser usada tanto no padrão quanto
+  // no cliente, e mexer na Part mudaria as duas ao mesmo tempo, escondendo
+  // qualquer divergência de cadastro entre elas.
+  const resolvePartId = async (line) => {
+    if (line.selectedPart?.id) return line.selectedPart.id
+    const response = await productionApi.createPart({
+      name: line.name,
+      unitOfMeasure: line.unitOfMeasure,
+      internalCode: line.internalCode,
+      supplier: line.supplier,
+    })
+    return response.data.id
   }
 
   const handleAddStandardLine = async (line) => {
-    const partId = await applyPartEdits(line)
-    await productionApi.createModelBomItem(modelId, { partId, quantity: line.quantity })
+    const partId = await resolvePartId(line)
+    await productionApi.createModelBomItem(modelId, {
+      partId,
+      quantity: line.quantity,
+      unitOfMeasure: line.unitOfMeasure,
+      internalCode: line.internalCode,
+      supplier: line.supplier,
+    })
     await loadStandardBom()
   }
 
   const handleAddClientLine = async (line) => {
-    const partId = await applyPartEdits(line)
-    await productionApi.createBuildBomItem(selectedBuildId, { partId, quantity: line.quantity })
+    const partId = await resolvePartId(line)
+    await productionApi.createBuildBomItem(selectedBuildId, {
+      partId,
+      quantity: line.quantity,
+      unitOfMeasure: line.unitOfMeasure,
+      internalCode: line.internalCode,
+      supplier: line.supplier,
+    })
     await loadClientBom(selectedBuildId)
   }
 
@@ -290,7 +298,7 @@ export default function ProductionModelPage() {
   }
 
   const handleUpdatePartField = (reload) => async (item, field, value) => {
-    await productionApi.updatePart(item.partId, { [field]: value })
+    await productionApi.updateBomItem(item.id, { [field]: value })
     await reload()
   }
 

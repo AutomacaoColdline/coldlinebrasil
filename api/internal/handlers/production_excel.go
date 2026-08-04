@@ -289,7 +289,20 @@ func (h *ProductionHandler) importBomRows(ctx context.Context, modelID, variant 
 		err = query.First(&existing).Error
 		switch {
 		case err == nil:
-			if err := h.bomRepo.MergeUpdate(ctx, existing.ID, map[string]interface{}{"quantity": row.Quantity}); err != nil {
+			// Cód. interno/UN/fornecedor só entram no patch se a planilha
+			// trouxer algo naquela célula — uma reimportação com colunas
+			// em branco não deve apagar um cadastro por linha já feito.
+			patch := map[string]interface{}{"quantity": row.Quantity}
+			if row.InternalCode != "" {
+				patch["internalCode"] = row.InternalCode
+			}
+			if row.UnitOfMeasure != "" {
+				patch["unitOfMeasure"] = row.UnitOfMeasure
+			}
+			if row.Supplier != "" {
+				patch["supplier"] = row.Supplier
+			}
+			if err := h.bomRepo.MergeUpdate(ctx, existing.ID, patch); err != nil {
 				return nil, fmt.Errorf("linha %d: %w", row.RowNumber, err)
 			}
 			result.Updated++
@@ -300,7 +313,11 @@ func (h *ProductionHandler) importBomRows(ctx context.Context, modelID, variant 
 				ClientBuildID:     buildID,
 				PartID:            partID,
 				Quantity:          row.Quantity,
+				InternalCode:      row.InternalCode,
+				UnitOfMeasure:     row.UnitOfMeasure,
+				Supplier:          row.Supplier,
 			}
+			h.fillBomItemRegistration(ctx, &item)
 			if err := h.bomRepo.Create(ctx, &item); err != nil {
 				return nil, fmt.Errorf("linha %d: %w", row.RowNumber, err)
 			}

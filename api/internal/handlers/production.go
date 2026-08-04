@@ -62,16 +62,16 @@ func (h *ProductionHandler) GetModelByID(c *gin.Context) {
 // --- Lista de materiais (BOM) ---
 
 type bomItemDTO struct {
-	ID                 string  `json:"id"`
-	ProductionModelID  string  `json:"productionModelId"`
-	Variant            string  `json:"variant"`
-	ClientBuildID      *string `json:"clientBuildId"`
-	PartID             string  `json:"partId"`
-	Quantity           float64 `json:"quantity"`
-	PartName           string  `json:"partName"`
-	UnitOfMeasure      string  `json:"unitOfMeasure"`
-	InternalCode       string  `json:"internalCode"`
-	Supplier           string  `json:"supplier"`
+	ID                string  `json:"id"`
+	ProductionModelID string  `json:"productionModelId"`
+	Variant           string  `json:"variant"`
+	ClientBuildID     *string `json:"clientBuildId"`
+	PartID            string  `json:"partId"`
+	Quantity          float64 `json:"quantity"`
+	PartName          string  `json:"partName"`
+	UnitOfMeasure     string  `json:"unitOfMeasure"`
+	InternalCode      string  `json:"internalCode"`
+	Supplier          string  `json:"supplier"`
 }
 
 func (h *ProductionHandler) enrichBomItems(ctx context.Context, items []models.ProductionBomItem) []bomItemDTO {
@@ -94,9 +94,26 @@ func (h *ProductionHandler) enrichBomItems(ctx context.Context, items []models.P
 		}
 	}
 
+	// Cód. interno/UN/fornecedor/nome vêm da própria linha de BOM (cada linha
+	// tem seu próprio registro, editável independente do catálogo); Part só
+	// entra como fallback para linhas antigas que o backfill ainda não
+	// alcançou. PartName sempre vem da Part — o nome é o que identifica o
+	// material para fins de comparação entre padrão e cliente.
 	dtos := make([]bomItemDTO, 0, len(items))
 	for _, item := range items {
 		part := partByID[item.PartID]
+		unitOfMeasure := item.UnitOfMeasure
+		if unitOfMeasure == "" {
+			unitOfMeasure = part.UnitOfMeasure
+		}
+		internalCode := item.InternalCode
+		if internalCode == "" {
+			internalCode = part.InternalCode
+		}
+		supplier := item.Supplier
+		if supplier == "" {
+			supplier = part.Supplier
+		}
 		dtos = append(dtos, bomItemDTO{
 			ID:                item.ID,
 			ProductionModelID: item.ProductionModelID,
@@ -105,12 +122,34 @@ func (h *ProductionHandler) enrichBomItems(ctx context.Context, items []models.P
 			PartID:            item.PartID,
 			Quantity:          item.Quantity,
 			PartName:          part.Name,
-			UnitOfMeasure:     part.UnitOfMeasure,
-			InternalCode:      part.InternalCode,
-			Supplier:          part.Supplier,
+			UnitOfMeasure:     unitOfMeasure,
+			InternalCode:      internalCode,
+			Supplier:          supplier,
 		})
 	}
 	return dtos
+}
+
+// fillBomItemRegistration completa UnitOfMeasure/InternalCode/Supplier de uma
+// linha nova a partir da Part referenciada, para os campos que o cliente não
+// mandou explicitamente no payload de criação.
+func (h *ProductionHandler) fillBomItemRegistration(ctx context.Context, item *models.ProductionBomItem) {
+	if item.UnitOfMeasure == "" || item.InternalCode == "" || item.Supplier == "" {
+		if part, err := h.partRepo.FindByID(ctx, item.PartID); err == nil && part != nil {
+			if item.UnitOfMeasure == "" {
+				item.UnitOfMeasure = part.UnitOfMeasure
+			}
+			if item.InternalCode == "" {
+				item.InternalCode = part.InternalCode
+			}
+			if item.Supplier == "" {
+				item.Supplier = part.Supplier
+			}
+		}
+	}
+	if item.UnitOfMeasure == "" {
+		item.UnitOfMeasure = "pç"
+	}
 }
 
 func (h *ProductionHandler) GetModelBom(c *gin.Context) {
@@ -128,8 +167,11 @@ func (h *ProductionHandler) GetModelBom(c *gin.Context) {
 
 func (h *ProductionHandler) CreateModelBomItem(c *gin.Context) {
 	var payload struct {
-		PartID   string  `json:"partId"`
-		Quantity float64 `json:"quantity"`
+		PartID        string  `json:"partId"`
+		Quantity      float64 `json:"quantity"`
+		UnitOfMeasure string  `json:"unitOfMeasure"`
+		InternalCode  string  `json:"internalCode"`
+		Supplier      string  `json:"supplier"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -140,15 +182,20 @@ func (h *ProductionHandler) CreateModelBomItem(c *gin.Context) {
 		return
 	}
 
-	item := models.ProductionBomItem{
-		ProductionModelID: c.Param("modelId"),
-		Variant:            "standard",
-		PartID:              payload.PartID,
-		Quantity:            payload.Quantity,
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	item := models.ProductionBomItem{
+		ProductionModelID: c.Param("modelId"),
+		Variant:           "standard",
+		PartID:            payload.PartID,
+		Quantity:          payload.Quantity,
+		UnitOfMeasure:     strings.TrimSpace(payload.UnitOfMeasure),
+		InternalCode:      strings.TrimSpace(payload.InternalCode),
+		Supplier:          strings.TrimSpace(payload.Supplier),
+	}
+	h.fillBomItemRegistration(ctx, &item)
+
 	if err := h.bomRepo.Create(ctx, &item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -171,8 +218,11 @@ func (h *ProductionHandler) GetBuildBom(c *gin.Context) {
 
 func (h *ProductionHandler) CreateBuildBomItem(c *gin.Context) {
 	var payload struct {
-		PartID   string  `json:"partId"`
-		Quantity float64 `json:"quantity"`
+		PartID        string  `json:"partId"`
+		Quantity      float64 `json:"quantity"`
+		UnitOfMeasure string  `json:"unitOfMeasure"`
+		InternalCode  string  `json:"internalCode"`
+		Supplier      string  `json:"supplier"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -195,11 +245,16 @@ func (h *ProductionHandler) CreateBuildBomItem(c *gin.Context) {
 
 	item := models.ProductionBomItem{
 		ProductionModelID: build.ProductionModelID,
-		Variant:            "client",
-		ClientBuildID:       &buildID,
-		PartID:              payload.PartID,
-		Quantity:            payload.Quantity,
+		Variant:           "client",
+		ClientBuildID:     &buildID,
+		PartID:            payload.PartID,
+		Quantity:          payload.Quantity,
+		UnitOfMeasure:     strings.TrimSpace(payload.UnitOfMeasure),
+		InternalCode:      strings.TrimSpace(payload.InternalCode),
+		Supplier:          strings.TrimSpace(payload.Supplier),
 	}
+	h.fillBomItemRegistration(ctx, &item)
+
 	if err := h.bomRepo.Create(ctx, &item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return

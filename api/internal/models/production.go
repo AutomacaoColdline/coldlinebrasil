@@ -18,6 +18,16 @@ func (ProductionModel) TableName() string { return "production_models" }
 // ProductionBomItem é uma linha de lista de materiais. Variant distingue o
 // BOM padrão do modelo ("standard") do BOM de um pedido específico de cliente
 // ("client"), nesse segundo caso ClientBuildID identifica o pedido.
+//
+// InternalCode/UnitOfMeasure/Supplier são copiados da Part no momento em que
+// a linha é criada, e daí em diante são editáveis por linha, independentes
+// do catálogo (Part). Isso é proposital: o mesmo material (mesmo PartID) é
+// normalmente reaproveitado tanto no BOM padrão quanto no de um cliente, e
+// se esses três campos vivessem só na Part, editar o código/UN/fornecedor
+// numa linha do cliente mudaria silenciosamente o que aparece também na
+// linha do padrão (mesma Part) — nenhuma divergência de cadastro seria
+// detectável. Denormalizados por linha, cada BOM guarda seu próprio registro
+// e a aba "Divergências Comparativas" consegue comparar um contra o outro.
 type ProductionBomItem struct {
 	ID                string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
 	CreatedAt         time.Time `json:"createdAt"`
@@ -27,6 +37,9 @@ type ProductionBomItem struct {
 	ClientBuildID     *string   `gorm:"column:client_build_id" json:"clientBuildId"`
 	PartID            string    `gorm:"column:part_id" json:"partId"`
 	Quantity          float64   `json:"quantity"`
+	InternalCode      string    `gorm:"column:internal_code" json:"internalCode"`
+	UnitOfMeasure     string    `gorm:"column:unit_of_measure" json:"unitOfMeasure"`
+	Supplier          string    `json:"supplier"`
 }
 
 func (ProductionBomItem) TableName() string { return "production_bom_items" }
