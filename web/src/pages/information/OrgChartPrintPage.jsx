@@ -10,20 +10,22 @@ const TAB_INFO = {
   departmentChart: { title: 'Organograma por Departamento', backTab: 'departmentChart' },
 }
 
-// Área útil de uma folha A4 RETRATO (a orientação padrão de qualquer caixa
-// de impressão/PDF, com ou sem o @page abaixo — nem todo navegador/driver
-// respeita o "size: landscape" do CSS). Calcular a escala pro retrato
-// garante que o conteúdo nunca ultrapasse a largura disponível, mesmo que
-// a impressão real acabe saindo em retrato em vez de paisagem; se o
-// usuário escolher paisagem na caixa de impressão, sobra só um pouco mais
-// de margem lateral, sem nunca cortar.
-// Importante: a medição cobre a folha inteira (cabeçalho + título +
-// conteúdo), não só a árvore/lista, senão a soma de tudo estoura a
-// página mesmo com o conteúdo "cabendo" sozinho.
 const PAGE_MARGIN_MM = 12
 const MM_TO_PX = 96 / 25.4
-const PRINTABLE_WIDTH_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
-const PRINTABLE_HEIGHT_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
+
+// Modo "Documento completo": a página do PDF é criada sob medida pro
+// tamanho do organograma (largura/altura reais + margem), então nada
+// precisa ser encolhido e nada pode ficar de fora. Adiciona uma folga
+// extra (em mm) pra absorver pequenas diferenças de arredondamento entre
+// o que a tela mede e o que a impressão realmente renderiza.
+const CUSTOM_PAGE_BUFFER_MM = 6
+
+// Modo "Ajustar em A4": encolhe pra caber numa folha padrão. Usa as
+// medidas do RETRATO (a orientação padrão de qualquer caixa de
+// impressão/PDF — nem todo navegador respeita "size: landscape" do CSS),
+// garantindo que o conteúdo nunca ultrapasse a largura disponível.
+const A4_PRINTABLE_WIDTH_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
+const A4_PRINTABLE_HEIGHT_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
 
 function PrintOrgNode({ node, childrenMap, departmentsById, visited }) {
   if (visited.has(node.id)) return null
@@ -57,10 +59,14 @@ export default function OrgChartPrintPage() {
   const [positions, setPositions] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [fitToPage, setFitToPage] = useState(true)
+  // 'full'  = página do PDF no tamanho exato do organograma (nada é cortado)
+  // 'a4'    = encolhe pra caber numa folha A4 comum
+  const [mode, setMode] = useState('full')
   const [scale, setScale] = useState(1)
+  const [pageSizeMM, setPageSizeMM] = useState({ width: 210, height: 297 })
   const sheetRef = useRef(null)
   const pageRef = useRef(null)
+  const pageStyleRef = useRef(null)
 
   useEffect(() => {
     Promise.all([informationApi.getPositions(), informationApi.getOrgDepartments()])
@@ -82,42 +88,50 @@ export default function OrgChartPrintPage() {
     [],
   )
 
+  const isFull = mode === 'full'
+
   // Mede o tamanho natural da folha inteira (cabeçalho + título + conteúdo)
-  // e calcula a escala pra caber tudo numa página A4 paisagem, em vez de
-  // ser cortada nas bordas. Uma margem de segurança de 3% absorve pequenas
-  // diferenças de arredondamento entre o que o navegador mede na tela e o
-  // que ele realmente imprime.
+  // e recalcula em três momentos: assim que os dados carregam, quando a
+  // fonte (Inter, via Google Fonts com display=swap) termina de trocar —
+  // ela muda a largura real do texto depois da primeira medição — e de
+  // novo no "beforeprint", como rede de segurança bem em cima da hora de
+  // imprimir. As mudanças são aplicadas direto no DOM (síncrono), porque
+  // não dá pra confiar que o re-render do React termine a tempo do
+  // navegador capturar a página pra impressão.
   useLayoutEffect(() => {
-    if (!fitToPage || loading) return
+    if (loading) return
     const el = sheetRef.current
     if (!el) return
     const recalc = () => {
       const naturalWidth = el.scrollWidth
       const naturalHeight = el.scrollHeight
       if (!naturalWidth || !naturalHeight) return
-      const next = Math.min(PRINTABLE_WIDTH_PX / naturalWidth, PRINTABLE_HEIGHT_PX / naturalHeight, 1) * 0.97
-      // Aplica direto no DOM (síncrono) além de guardar no state — o evento
-      // "beforeprint" pode disparar bem em cima da hora, e não dá pra
-      // confiar que o re-render do React termine antes do navegador
-      // capturar a página pra impressão.
-      el.style.transform = `scale(${next})`
-      if (pageRef.current) pageRef.current.style.height = `${naturalHeight * next}px`
-      setScale(next)
+
+      if (isFull) {
+        const widthMM = naturalWidth / MM_TO_PX + PAGE_MARGIN_MM * 2 + CUSTOM_PAGE_BUFFER_MM
+        const heightMM = naturalHeight / MM_TO_PX + PAGE_MARGIN_MM * 2 + CUSTOM_PAGE_BUFFER_MM
+        if (pageStyleRef.current) {
+          pageStyleRef.current.textContent = `@media print { @page { size: ${widthMM}mm ${heightMM}mm; margin: ${PAGE_MARGIN_MM}mm; } }`
+        }
+        setPageSizeMM({ width: widthMM, height: heightMM })
+      } else {
+        const next = Math.min(A4_PRINTABLE_WIDTH_PX / naturalWidth, A4_PRINTABLE_HEIGHT_PX / naturalHeight, 1) * 0.97
+        el.style.transform = `scale(${next})`
+        if (pageRef.current) pageRef.current.style.height = `${naturalHeight * next}px`
+        setScale(next)
+      }
     }
     recalc()
     window.addEventListener('resize', recalc)
     window.addEventListener('beforeprint', recalc)
-    // A fonte (Inter, via Google Fonts com display=swap) pode trocar depois
-    // da primeira medição, mudando a largura real do texto — recalcula a
-    // escala assim que ela termina de carregar.
     document.fonts?.ready?.then(recalc)
     return () => {
       window.removeEventListener('resize', recalc)
       window.removeEventListener('beforeprint', recalc)
     }
-  }, [fitToPage, loading, tab, positions, departments])
+  }, [isFull, loading, tab, positions, departments])
 
-  const pageHeight = fitToPage && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
+  const pageHeight = !isFull && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
@@ -132,20 +146,20 @@ export default function OrgChartPrintPage() {
         <div className="flex items-center gap-2 ml-auto">
           <div className="flex items-center bg-slate-100 rounded-xl p-1">
             <button
-              onClick={() => setFitToPage(true)}
+              onClick={() => setMode('full')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                fitToPage ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                isFull ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Shrink size={13} /> Ajustar em 1 página
+              <Maximize size={13} /> Documento completo
             </button>
             <button
-              onClick={() => setFitToPage(false)}
+              onClick={() => setMode('a4')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                !fitToPage ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                !isFull ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Maximize size={13} /> Tamanho real
+              <Shrink size={13} /> Ajustar em A4
             </button>
           </div>
           <button
@@ -158,13 +172,13 @@ export default function OrgChartPrintPage() {
         </div>
       </div>
 
-      {!fitToPage ? (
+      {isFull ? (
         <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
-          Tamanho real pode ocupar várias páginas ao imprimir — escolha a orientação (retrato/paisagem) na caixa de impressão do navegador.
+          O PDF sai numa única página no tamanho exato do organograma — nada fica de fora. Ideal pra depois imprimir grande (gráfica/plotter) ou reduzir na hora de imprimir.
         </p>
       ) : (
         <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
-          O conteúdo é ajustado pro modo retrato (cabe em qualquer impressora). Se quiser mais espaço, escolha Paisagem na caixa de impressão.
+          Encolhe pra caber numa folha A4 comum — pode ficar pequeno em organogramas grandes. Escolha retrato ou paisagem na caixa de impressão como preferir.
         </p>
       )}
 
@@ -172,7 +186,7 @@ export default function OrgChartPrintPage() {
         <div
           ref={sheetRef}
           className="org-print-sheet bg-white shadow-lg print:shadow-none"
-          style={fitToPage ? { transform: `scale(${scale})` } : undefined}
+          style={!isFull ? { transform: `scale(${scale})` } : undefined}
         >
           <header className="org-print-header">
             <img src={coldlineLogo} alt="Cold Line Brasil" className="org-print-logo" />
@@ -470,6 +484,15 @@ export default function OrgChartPrintPage() {
           }
         }
       `}</style>
+
+      {/* Regra @page dinâmica do modo "Documento completo" — num <style>
+          separado, depois do bloco estático (pra ter prioridade no CSS
+          cascade), e atualizada de forma imperativa (ver recalc acima) pra
+          garantir que o valor esteja certo mesmo se o "beforeprint" disparar
+          antes do React re-renderizar. */}
+      <style ref={pageStyleRef}>{
+        isFull ? `@media print { @page { size: ${pageSizeMM.width}mm ${pageSizeMM.height}mm; margin: ${PAGE_MARGIN_MM}mm; } }` : ''
+      }</style>
     </div>
   )
 }
