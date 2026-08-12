@@ -10,12 +10,16 @@ const TAB_INFO = {
   departmentChart: { title: 'Organograma por Departamento', backTab: 'departmentChart' },
 }
 
-// Área útil de uma folha A4 paisagem com 10mm de margem de cada lado,
-// convertida de mm para px (96dpi), usada para calcular a escala do modo
-// "Ajustar em 1 página".
+// Área útil de uma folha A4 paisagem, descontando a mesma margem usada no
+// @page abaixo, convertida de mm para px (96dpi) — usada para calcular a
+// escala do modo "Ajustar em 1 página". Importante: a medição do modo
+// "ajustar" cobre a folha inteira (cabeçalho + título + conteúdo), não só
+// a árvore/lista, senão a soma de tudo estoura a página mesmo com o
+// conteúdo "cabendo" sozinho.
+const PAGE_MARGIN_MM = 12
 const MM_TO_PX = 96 / 25.4
-const PRINTABLE_WIDTH_PX = (297 - 20) * MM_TO_PX
-const PRINTABLE_HEIGHT_PX = (210 - 20) * MM_TO_PX
+const PRINTABLE_WIDTH_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
+const PRINTABLE_HEIGHT_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
 
 function PrintOrgNode({ node, childrenMap, departmentsById, visited }) {
   if (visited.has(node.id)) return null
@@ -51,7 +55,7 @@ export default function OrgChartPrintPage() {
   const [loading, setLoading] = useState(true)
   const [fitToPage, setFitToPage] = useState(true)
   const [scale, setScale] = useState(1)
-  const contentRef = useRef(null)
+  const sheetRef = useRef(null)
 
   useEffect(() => {
     Promise.all([informationApi.getPositions(), informationApi.getOrgDepartments()])
@@ -73,11 +77,12 @@ export default function OrgChartPrintPage() {
     [],
   )
 
-  // Mede o tamanho natural do conteúdo e calcula a escala pra caber inteiro
-  // numa folha A4 paisagem, em vez de ser cortado nas bordas da página.
+  // Mede o tamanho natural da folha inteira (cabeçalho + título + conteúdo)
+  // e calcula a escala pra caber tudo numa página A4 paisagem, em vez de
+  // ser cortada nas bordas.
   useLayoutEffect(() => {
     if (!fitToPage || loading) return
-    const el = contentRef.current
+    const el = sheetRef.current
     if (!el) return
     const recalc = () => {
       const naturalWidth = el.scrollWidth
@@ -91,7 +96,7 @@ export default function OrgChartPrintPage() {
     return () => window.removeEventListener('resize', recalc)
   }, [fitToPage, loading, tab, positions, departments])
 
-  const scaledHeight = contentRef.current ? contentRef.current.scrollHeight * scale : undefined
+  const pageHeight = fitToPage && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
@@ -138,87 +143,86 @@ export default function OrgChartPrintPage() {
         </p>
       )}
 
-      <div className="org-print-sheet mx-auto bg-white shadow-lg print:shadow-none">
-        <header className="org-print-header">
-          <img src={coldlineLogo} alt="Cold Line Brasil" className="org-print-logo" />
-          <span className="org-print-header-date">{generatedAt}</span>
-        </header>
+      <div className="org-print-page" style={pageHeight ? { height: pageHeight } : undefined}>
+        <div
+          ref={sheetRef}
+          className="org-print-sheet bg-white shadow-lg print:shadow-none"
+          style={fitToPage ? { transform: `scale(${scale})` } : undefined}
+        >
+          <header className="org-print-header">
+            <img src={coldlineLogo} alt="Cold Line Brasil" className="org-print-logo" />
+            <span className="org-print-header-date">{generatedAt}</span>
+          </header>
 
-        <div className="org-print-body">
-          <h1 className="org-print-title">{info.title}</h1>
+          <div className="org-print-body">
+            <h1 className="org-print-title">{info.title}</h1>
 
-          {loading ? (
-            <div className="py-24 flex items-center justify-center">
-              <Loader2 size={24} className="animate-spin text-blue-300" />
-            </div>
-          ) : (
-            <div
-              className="org-print-scale-wrap"
-              style={fitToPage && scaledHeight ? { height: scaledHeight } : undefined}
-            >
-              <div
-                ref={contentRef}
-                className="org-print-scale-inner"
-                style={fitToPage ? { transform: `scale(${scale})` } : undefined}
-              >
-                {tab === 'departmentChart' ? (
-                  <div className="org-print-department-list">
-                    {sortedDepartments.map((department) => {
-                      const linked = positionsByDepartment.get(department.id) || []
-                      return (
-                        <div key={department.id} className="org-print-department-card">
-                          <h3>{department.name}</h3>
-                          <div className="org-print-chips">
-                            {linked.length === 0 ? (
-                              <span className="org-print-empty">Nenhum cargo vinculado.</span>
-                            ) : (
-                              linked.map((p) => (
-                                <span key={p.id} className="org-print-chip">{p.name}</span>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {unassigned.length > 0 && (
-                      <div className="org-print-department-card is-muted">
-                        <h3>Sem Departamento</h3>
-                        <div className="org-print-chips">
-                          {unassigned.map((p) => (
-                            <span key={p.id} className="org-print-chip is-muted">{p.name}</span>
-                          ))}
-                        </div>
+            {loading ? (
+              <div className="py-24 flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-blue-300" />
+              </div>
+            ) : tab === 'departmentChart' ? (
+              <div className="org-print-department-list">
+                {sortedDepartments.map((department) => {
+                  const linked = positionsByDepartment.get(department.id) || []
+                  return (
+                    <div key={department.id} className="org-print-department-card">
+                      <h3>{department.name}</h3>
+                      <div className="org-print-chips">
+                        {linked.length === 0 ? (
+                          <span className="org-print-empty">Nenhum cargo vinculado.</span>
+                        ) : (
+                          linked.map((p) => (
+                            <span key={p.id} className="org-print-chip">{p.name}</span>
+                          ))
+                        )}
                       </div>
-                    )}
-                    {sortedDepartments.length === 0 && unassigned.length === 0 && (
-                      <p className="org-print-empty">Nenhum cargo ou departamento cadastrado.</p>
-                    )}
-                  </div>
-                ) : roots.length === 0 ? (
-                  <p className="org-print-empty">Nenhum cargo cadastrado.</p>
-                ) : (
-                  <div className="org-print-tree">
-                    <ul>
-                      {roots.map((root) => (
-                        <PrintOrgNode key={root.id} node={root} childrenMap={childrenMap} departmentsById={departmentsById} visited={new Set()} />
+                    </div>
+                  )
+                })}
+                {unassigned.length > 0 && (
+                  <div className="org-print-department-card is-muted">
+                    <h3>Sem Departamento</h3>
+                    <div className="org-print-chips">
+                      {unassigned.map((p) => (
+                        <span key={p.id} className="org-print-chip is-muted">{p.name}</span>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
+                {sortedDepartments.length === 0 && unassigned.length === 0 && (
+                  <p className="org-print-empty">Nenhum cargo ou departamento cadastrado.</p>
+                )}
               </div>
-            </div>
-          )}
+            ) : roots.length === 0 ? (
+              <p className="org-print-empty">Nenhum cargo cadastrado.</p>
+            ) : (
+              <div className="org-print-tree">
+                <ul>
+                  {roots.map((root) => (
+                    <PrintOrgNode key={root.id} node={root} childrenMap={childrenMap} departmentsById={departmentsById} visited={new Set()} />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <style>{`
+        .org-print-page {
+          text-align: center;
+          padding: 16px 16px 32px;
+          overflow: hidden;
+        }
+
         .org-print-sheet {
-          width: 100%;
-          max-width: 1400px;
-          margin-top: 16px;
-          margin-bottom: 16px;
+          display: inline-block;
+          text-align: left;
+          min-width: 640px;
           border-radius: 20px;
           overflow: hidden;
+          transform-origin: top center;
         }
 
         .org-print-header {
@@ -254,16 +258,6 @@ export default function OrgChartPrintPage() {
           letter-spacing: -0.01em;
           text-align: center;
           margin-bottom: 28px;
-        }
-
-        .org-print-scale-wrap {
-          text-align: center;
-          overflow: hidden;
-        }
-
-        .org-print-scale-inner {
-          display: inline-block;
-          transform-origin: top center;
         }
 
         .org-print-empty {
@@ -424,7 +418,7 @@ export default function OrgChartPrintPage() {
 
         @media print {
           @page {
-            margin: 12mm;
+            margin: ${PAGE_MARGIN_MM}mm;
             ${fitToPage ? 'size: A4 landscape;' : ''}
           }
 
@@ -432,10 +426,12 @@ export default function OrgChartPrintPage() {
             background: #fff;
           }
 
+          .org-print-page {
+            padding: 0;
+          }
+
           .org-print-sheet {
-            margin: 0;
             border-radius: 0;
-            max-width: none;
           }
 
           .org-print-header {
