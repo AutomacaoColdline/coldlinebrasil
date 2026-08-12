@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Building2, ChevronDown, ChevronUp, ClipboardList, Edit, LayoutGrid,
-  Loader2, Network, Plus, Printer, Trash2, Workflow,
+  Loader2, Maximize2, Network, Plus, Trash2, Workflow,
 } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
+import { buildPositionTree, groupPositionsByDepartment, sortByName, sortDepartments } from './orgChartUtils'
 
 const TABS = [
   { id: 'positions', label: 'Cargos', icon: ClipboardList },
@@ -36,10 +37,6 @@ function ConfirmModal({ title, description, onCancel, onConfirm, loading }) {
   )
 }
 
-function sortByName(list) {
-  return [...list].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-}
-
 function emptyPositionForm() {
   return { name: '', parentId: '', departmentId: '' }
 }
@@ -55,10 +52,7 @@ function PositionsTab({ positions, departments, loading, reload }) {
   const positionsById = useMemo(() => new Map(positions.map((p) => [p.id, p])), [positions])
   const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
   const sortedPositions = useMemo(() => sortByName(positions), [positions])
-  const sortedDepartments = useMemo(
-    () => [...departments].sort((a, b) => a.orderIndex - b.orderIndex),
-    [departments],
-  )
+  const sortedDepartments = useMemo(() => sortDepartments(departments), [departments])
 
   const openNew = () => {
     setEditing(null)
@@ -217,21 +211,8 @@ function DepartmentsTab({ departments, positions, loading, reload }) {
   const [form, setForm] = useState(emptyDepartmentForm)
   const [reordering, setReordering] = useState(false)
 
-  const sortedDepartments = useMemo(
-    () => [...departments].sort((a, b) => a.orderIndex - b.orderIndex),
-    [departments],
-  )
-
-  const positionsByDepartment = useMemo(() => {
-    const map = new Map()
-    positions.forEach((p) => {
-      if (!p.departmentId) return
-      if (!map.has(p.departmentId)) map.set(p.departmentId, [])
-      map.get(p.departmentId).push(p)
-    })
-    map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
-    return map
-  }, [positions])
+  const sortedDepartments = useMemo(() => sortDepartments(departments), [departments])
+  const positionsByDepartment = useMemo(() => groupPositionsByDepartment(positions), [positions])
 
   const openNew = () => {
     setEditing(null)
@@ -414,22 +395,7 @@ function OrgChartNode({ node, childrenMap, departmentsById, visited }) {
 
 function ChartTab({ positions, departments, loading }) {
   const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
-  const { roots, childrenMap } = useMemo(() => {
-    const byId = new Map(positions.map((p) => [p.id, p]))
-    const map = new Map()
-    const rootNodes = []
-    positions.forEach((p) => {
-      if (p.parentId && p.parentId !== p.id && byId.has(p.parentId)) {
-        if (!map.has(p.parentId)) map.set(p.parentId, [])
-        map.get(p.parentId).push(p)
-      } else {
-        rootNodes.push(p)
-      }
-    })
-    map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
-    rootNodes.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-    return { roots: rootNodes, childrenMap: map }
-  }, [positions])
+  const { roots, childrenMap } = useMemo(() => buildPositionTree(positions), [positions])
 
   return (
     <div className="space-y-6">
@@ -439,21 +405,19 @@ function ChartTab({ positions, departments, loading }) {
           <p className="text-sm text-slate-500 mt-1">Visualizacao completa da hierarquia de cargos cadastrada.</p>
         </div>
         {roots.length > 0 && (
-          <button
-            onClick={() => window.print()}
-            className="print:hidden inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
+          <Link
+            to="/departamento-informacao/organograma/visualizar?tab=chart"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
           >
-            <Printer size={14} />
-            Gerar PDF
-          </button>
+            <Maximize2 size={14} />
+            Visualizar / Gerar PDF
+          </Link>
         )}
       </div>
 
-      <div className="hidden print:block text-center mb-2">
-        <p className="text-lg font-bold text-slate-900">Organograma Unificado</p>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto print:border-0 print:shadow-none">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto">
         {loading ? (
           <div className="py-20 flex items-center justify-center">
             <Loader2 size={24} className="animate-spin text-slate-300" />
@@ -478,21 +442,8 @@ function ChartTab({ positions, departments, loading }) {
 }
 
 function DepartmentChartTab({ positions, departments, loading }) {
-  const sortedDepartments = useMemo(
-    () => [...departments].sort((a, b) => a.orderIndex - b.orderIndex),
-    [departments],
-  )
-
-  const positionsByDepartment = useMemo(() => {
-    const map = new Map()
-    positions.forEach((p) => {
-      if (!p.departmentId) return
-      if (!map.has(p.departmentId)) map.set(p.departmentId, [])
-      map.get(p.departmentId).push(p)
-    })
-    map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
-    return map
-  }, [positions])
+  const sortedDepartments = useMemo(() => sortDepartments(departments), [departments])
+  const positionsByDepartment = useMemo(() => groupPositionsByDepartment(positions), [positions])
 
   const unassigned = useMemo(
     () => sortByName(positions.filter((p) => !p.departmentId)),
@@ -509,18 +460,16 @@ function DepartmentChartTab({ positions, departments, loading }) {
           <p className="text-sm text-slate-500 mt-1">Cargos agrupados por departamento, na ordem definida na aba Departamentos.</p>
         </div>
         {hasContent && (
-          <button
-            onClick={() => window.print()}
-            className="print:hidden inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
+          <Link
+            to="/departamento-informacao/organograma/visualizar?tab=departmentChart"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
           >
-            <Printer size={14} />
-            Gerar PDF
-          </button>
+            <Maximize2 size={14} />
+            Visualizar / Gerar PDF
+          </Link>
         )}
-      </div>
-
-      <div className="hidden print:block text-center mb-2">
-        <p className="text-lg font-bold text-slate-900">Organograma por Departamento</p>
       </div>
 
       {loading ? (
@@ -610,8 +559,8 @@ export default function OrgChartPage() {
   }, [loadPositions, loadDepartments])
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 print:p-0 print:max-w-none">
-      <div className="print:hidden bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <p className="text-xs uppercase tracking-[0.2em] text-pink-400 font-semibold">Setor Interno</p>
         <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">Organograma</h1>
         <p className="text-sm text-slate-500 mt-2 max-w-3xl">
@@ -619,7 +568,7 @@ export default function OrgChartPage() {
         </p>
       </div>
 
-      <div className="print:hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-2 overflow-x-auto">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2 overflow-x-auto">
         <div className="flex items-center gap-2 min-w-max">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id

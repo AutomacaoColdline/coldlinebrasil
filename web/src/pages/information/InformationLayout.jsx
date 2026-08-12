@@ -118,8 +118,8 @@ export default function InformationLayout() {
   )
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden print:h-auto print:overflow-visible print:block">
-      <aside className={`print:hidden hidden md:flex flex-col bg-[#0f172a] text-white transition-all duration-300 shrink-0 overflow-hidden ${sidebarHidden ? 'w-0' : 'w-64'}`}>
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      <aside className={`hidden md:flex flex-col bg-[#0f172a] text-white transition-all duration-300 shrink-0 overflow-hidden ${sidebarHidden ? 'w-0' : 'w-64'}`}>
         <div className="w-64 h-full flex flex-col">
           <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
             <div className="w-8 h-8 bg-pink-400 rounded-lg flex items-center justify-center shrink-0">
@@ -196,7 +196,7 @@ export default function InformationLayout() {
       {sidebarHidden && (
         <button
           onClick={() => setSidebarHidden(false)}
-          className="print:hidden hidden md:flex fixed top-4 left-3 z-30 items-center justify-center w-9 h-9 rounded-xl bg-[#0f172a] text-white/70 hover:text-white shadow-lg border border-white/10 transition-all"
+          className="hidden md:flex fixed top-4 left-3 z-30 items-center justify-center w-9 h-9 rounded-xl bg-[#0f172a] text-white/70 hover:text-white shadow-lg border border-white/10 transition-all"
           aria-label="Mostrar menu"
           title="Mostrar menu"
         >
@@ -211,8 +211,8 @@ export default function InformationLayout() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto min-w-0 print:overflow-visible">
-        <div className="print:hidden md:hidden sticky top-0 z-30 bg-[#0f172a] border-b border-white/10 px-4 py-2 flex items-center gap-3">
+      <main className="flex-1 overflow-y-auto min-w-0">
+        <div className="md:hidden sticky top-0 z-30 bg-[#0f172a] border-b border-white/10 px-4 py-2 flex items-center gap-3">
           <button
             onClick={() => setMobileOpen(true)}
             className="text-white/70 hover:text-white p-1"

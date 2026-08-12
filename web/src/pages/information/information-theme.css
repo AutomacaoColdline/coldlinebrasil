@@ -142,37 +142,3 @@
 .info-dark .org-card-name {
   color: #f8fafc;
 }
-
-@media print {
-  @page {
-    size: A4 landscape;
-    margin: 12mm;
-  }
-
-  body {
-    background: #fff;
-  }
-
-  .info-dark {
-    background-color: #fff;
-    color-scheme: light;
-  }
-
-  .info-dark .bg-white,
-  .info-dark .bg-slate-50,
-  .info-dark .bg-slate-100 {
-    background-color: #fff;
-  }
-
-  .info-dark .text-slate-900,
-  .info-dark .text-slate-800,
-  .info-dark .text-slate-700,
-  .info-dark .text-slate-600,
-  .info-dark .text-slate-500 {
-    color: #1e293b;
-  }
-
-  .org-tree {
-    justify-content: flex-start;
-  }
-}

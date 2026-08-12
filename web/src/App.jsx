@@ -34,6 +34,7 @@ import AutomationAtendimentoReports from './pages/automation/AutomationAtendimen
 import InformationLayout from './pages/information/InformationLayout'
 import InformationPage from './pages/information/InformationPage'
 import OrgChartPage from './pages/information/OrgChartPage'
+import OrgChartPrintPage from './pages/information/OrgChartPrintPage'
 import ProductionPage from './pages/information/production/ProductionPage'
 import ProductionModelPage from './pages/information/production/ProductionModelPage'
 
@@ -144,6 +145,10 @@ export default function App() {
           <Route path="sitrad" element={<AutomationColdvisio productKey="sitrad" />} />
           <Route path="acessos" element={<SuperAdminOnly><AccessControlPage /></SuperAdminOnly>} />
         </Route>
+
+        <Route path="/departamento-informacao/organograma/visualizar" element={
+          <Auth><OrgChartPrintPage /></Auth>
+        } />
 
         <Route path="/departamento-informacao" element={
           <Auth><ModuleGuard module="departamento"><InformationLayout /></ModuleGuard></Auth>
