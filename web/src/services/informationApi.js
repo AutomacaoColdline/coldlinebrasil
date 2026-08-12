@@ -76,16 +76,22 @@ export const informationApi = {
   deleteChecklistItem: (id) => http.delete(`${base}/checklist/items/${id}`),
   updateChecklistEntry: (id, data) => http.put(`${base}/checklist/entries/${id}`, data),
 
-  getPositions: () => http.get(`${base}/positions`),
+  getPositions: (orgChartId) => http.get(`${base}/positions`, { params: { orgChartId } }),
   createPosition: (data) => http.post(`${base}/positions`, data),
   updatePosition: (id, data) => http.put(`${base}/positions/${id}`, data),
   deletePosition: (id) => http.delete(`${base}/positions/${id}`),
 
-  getOrgDepartments: () => http.get(`${base}/org-departments`),
+  getOrgDepartments: (orgChartId) => http.get(`${base}/org-departments`, { params: { orgChartId } }),
   createOrgDepartment: (data) => http.post(`${base}/org-departments`, data),
   updateOrgDepartment: (id, data) => http.put(`${base}/org-departments/${id}`, data),
   deleteOrgDepartment: (id) => http.delete(`${base}/org-departments/${id}`),
   reorderOrgDepartments: (order) => http.post(`${base}/org-departments/reorder`, { order }),
+
+  getOrgCharts: () => http.get(`${base}/org-charts`),
+  getOrgChartById: (id) => http.get(`${base}/org-charts/${id}`),
+  createOrgChart: (data) => http.post(`${base}/org-charts`, data),
+  updateOrgChart: (id, data) => http.put(`${base}/org-charts/${id}`, data),
+  deleteOrgChart: (id) => http.delete(`${base}/org-charts/${id}`),
 }
 
 export default informationApi

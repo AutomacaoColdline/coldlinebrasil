@@ -41,6 +41,7 @@ type InformationHandler struct {
 	checklistEntryRepo    *repositories.Repository[models.InformationDailyChecklist]
 	positionRepo          *repositories.Repository[models.InformationPosition]
 	orgDepartmentRepo     *repositories.Repository[models.InformationOrgDepartment]
+	orgChartRepo          *repositories.Repository[models.InformationOrgChart]
 }
 
 func NewInformationHandler(db *gorm.DB) *InformationHandler {
@@ -57,6 +58,7 @@ func NewInformationHandler(db *gorm.DB) *InformationHandler {
 		checklistEntryRepo:    repositories.New[models.InformationDailyChecklist](db, "information_daily_checklist"),
 		positionRepo:          repositories.New[models.InformationPosition](db, "information_positions"),
 		orgDepartmentRepo:     repositories.New[models.InformationOrgDepartment](db, "information_org_departments"),
+		orgChartRepo:          repositories.New[models.InformationOrgChart](db, "information_org_charts"),
 	}
 }
 
@@ -833,7 +835,11 @@ func (h *InformationHandler) GetPositions(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var items []models.InformationPosition
-	if err := h.positionRepo.Q(ctx).Order("name ASC").Find(&items).Error; err != nil {
+	q := h.positionRepo.Q(ctx).Order("name ASC")
+	if orgChartID := strings.TrimSpace(c.Query("orgChartId")); orgChartID != "" {
+		q = q.Where("org_chart_id = ?", orgChartID)
+	}
+	if err := q.Find(&items).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
@@ -848,6 +854,10 @@ func (h *InformationHandler) CreatePosition(c *gin.Context) {
 	var item models.InformationPosition
 	if err := c.ShouldBindJSON(&item); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	if item.OrgChartID == nil || strings.TrimSpace(*item.OrgChartID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Organograma obrigatorio"})
 		return
 	}
 	if item.ParentID != nil && strings.TrimSpace(*item.ParentID) == "" {
@@ -872,6 +882,8 @@ func (h *InformationHandler) UpdatePosition(c *gin.Context) {
 		return
 	}
 	delete(payload, "id")
+	// Cargo nao pode trocar de organograma por essa rota generica.
+	delete(payload, "orgChartId")
 	id := c.Param("id")
 	if parentID, ok := payload["parentId"]; ok {
 		if parentStr, isString := parentID.(string); isString {
@@ -916,7 +928,11 @@ func (h *InformationHandler) GetOrgDepartments(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var items []models.InformationOrgDepartment
-	if err := h.orgDepartmentRepo.Q(ctx).Order("order_index ASC, name ASC").Find(&items).Error; err != nil {
+	q := h.orgDepartmentRepo.Q(ctx).Order("order_index ASC, name ASC")
+	if orgChartID := strings.TrimSpace(c.Query("orgChartId")); orgChartID != "" {
+		q = q.Where("org_chart_id = ?", orgChartID)
+	}
+	if err := q.Find(&items).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
@@ -933,10 +949,14 @@ func (h *InformationHandler) CreateOrgDepartment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
+	if item.OrgChartID == nil || strings.TrimSpace(*item.OrgChartID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Organograma obrigatorio"})
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var count int64
-	if err := h.orgDepartmentRepo.Q(ctx).Count(&count).Error; err != nil {
+	if err := h.orgDepartmentRepo.Q(ctx).Where("org_chart_id = ?", *item.OrgChartID).Count(&count).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
@@ -984,6 +1004,72 @@ func (h *InformationHandler) ReorderOrgDepartments(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Reordenado"})
+}
+
+func (h *InformationHandler) GetOrgCharts(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var items []models.InformationOrgChart
+	if err := h.orgChartRepo.Q(ctx).Order("order_index ASC, name ASC").Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *InformationHandler) GetOrgChartByID(c *gin.Context) {
+	getSimpleByID(c, h.orgChartRepo, "Organograma nao encontrado")
+}
+
+func (h *InformationHandler) CreateOrgChart(c *gin.Context) {
+	var item models.InformationOrgChart
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	if strings.TrimSpace(item.Name) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Nome obrigatorio"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var count int64
+	if err := h.orgChartRepo.Q(ctx).Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	item.OrderIndex = int(count)
+	if err := h.orgChartRepo.Create(ctx, &item); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
+
+func (h *InformationHandler) UpdateOrgChart(c *gin.Context) {
+	updateSimpleResource(c, h.orgChartRepo)
+}
+
+// DeleteOrgChart apaga o organograma e, em cascata, todos os cargos e areas
+// vinculados a ele (senao ficariam orfaos, apontando pra um org_chart_id
+// inexistente).
+func (h *InformationHandler) DeleteOrgChart(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	id := c.Param("id")
+	if err := h.positionRepo.Q(ctx).Where("org_chart_id = ?", id).Delete(&models.InformationPosition{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	if err := h.orgDepartmentRepo.Q(ctx).Where("org_chart_id = ?", id).Delete(&models.InformationOrgDepartment{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	if err := h.orgChartRepo.Delete(ctx, id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Deletado"})
 }
 
 func (h *InformationHandler) GetChecklist(c *gin.Context) {

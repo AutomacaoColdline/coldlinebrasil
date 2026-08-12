@@ -135,11 +135,25 @@ type InformationDailyChecklist struct {
 
 func (InformationDailyChecklist) TableName() string { return "information_daily_checklist" }
 
+// InformationOrgChart representa um organograma independente (ex: um por
+// CNPJ/empresa do grupo). Cargos e áreas (InformationOrgDepartment) ficam
+// vinculados a um organograma via OrgChartID.
+type InformationOrgChart struct {
+	ID         string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	Name       string    `json:"name"`
+	OrderIndex int       `gorm:"column:order_index" json:"orderIndex"`
+}
+
+func (InformationOrgChart) TableName() string { return "information_org_charts" }
+
 type InformationPosition struct {
 	ID           string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 	Name         string    `json:"name"`
+	OrgChartID   *string   `gorm:"column:org_chart_id" json:"orgChartId"`
 	ParentID     *string   `gorm:"column:parent_id" json:"parentId"`
 	DepartmentID *string   `gorm:"column:department_id" json:"departmentId"`
 }
@@ -151,6 +165,7 @@ type InformationOrgDepartment struct {
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 	Name       string    `json:"name"`
+	OrgChartID *string   `gorm:"column:org_chart_id" json:"orgChartId"`
 	OrderIndex int       `gorm:"column:order_index" json:"orderIndex"`
 }
 

@@ -295,6 +295,11 @@ func main() {
 		info.PUT("/org-departments/:id", informationHandler.UpdateOrgDepartment)
 		info.DELETE("/org-departments/:id", informationHandler.DeleteOrgDepartment)
 		info.POST("/org-departments/reorder", informationHandler.ReorderOrgDepartments)
+		info.GET("/org-charts", informationHandler.GetOrgCharts)
+		info.GET("/org-charts/:id", informationHandler.GetOrgChartByID)
+		info.POST("/org-charts", informationHandler.CreateOrgChart)
+		info.PUT("/org-charts/:id", informationHandler.UpdateOrgChart)
+		info.DELETE("/org-charts/:id", informationHandler.DeleteOrgChart)
 
 		prod := api.Group("/departamento-informacao/producao", auth, departamentoAccess)
 		prod.GET("/models", productionHandler.GetModels)

@@ -33,6 +33,7 @@ func seed(db *gorm.DB) {
 
 	seedProductionModels(db)
 	backfillProductionBomItemFields(db)
+	backfillOrgChartAssignment(db)
 
 	seedAdminUser(db)
 	seedMasterAdmin(db)
@@ -165,6 +166,49 @@ func backfillProductionBomItemFields(db *gorm.DB) {
 	}
 	if res.RowsAffected > 0 {
 		log.Printf("🌱 production_bom_items: %d linha(s) tiveram cód. interno/UN/fornecedor preenchidos a partir da peça", res.RowsAffected)
+	}
+}
+
+// backfillOrgChartAssignment cobre a migração do organograma único (campo
+// OrgChartID introduzido depois que cargos/áreas já existiam) pro modelo de
+// múltiplos organogramas (um por empresa/CNPJ). Se existir algum cargo ou
+// área sem org_chart_id, cria (uma única vez) um organograma padrão
+// "Organograma Principal" e vincula tudo que estava solto a ele, pra não
+// perder nada que já tinha sido cadastrado. Idempotente, roda em todo boot.
+func backfillOrgChartAssignment(db *gorm.DB) {
+	var positionsWithoutChart, departmentsWithoutChart int64
+	db.Table("information_positions").Where("org_chart_id IS NULL").Count(&positionsWithoutChart)
+	db.Table("information_org_departments").Where("org_chart_id IS NULL").Count(&departmentsWithoutChart)
+	if positionsWithoutChart == 0 && departmentsWithoutChart == 0 {
+		return
+	}
+
+	var defaultChart models.InformationOrgChart
+	err := db.Where("name = ?", "Organograma Principal").First(&defaultChart).Error
+	if err != nil {
+		defaultChart = models.InformationOrgChart{Name: "Organograma Principal", OrderIndex: 0}
+		if err := db.Create(&defaultChart).Error; err != nil {
+			log.Printf("⚠️ falha ao criar organograma padrão pro backfill: %v", err)
+			return
+		}
+		log.Printf("🌱 information_org_charts: criado organograma padrão \"Organograma Principal\" pra receber cargos/áreas existentes")
+	}
+
+	if positionsWithoutChart > 0 {
+		res := db.Table("information_positions").Where("org_chart_id IS NULL").Update("org_chart_id", defaultChart.ID)
+		if res.Error != nil {
+			log.Printf("⚠️ falha ao vincular cargos antigos ao organograma padrão: %v", res.Error)
+		} else if res.RowsAffected > 0 {
+			log.Printf("🌱 information_positions: %d cargo(s) vinculados ao organograma \"Organograma Principal\"", res.RowsAffected)
+		}
+	}
+	if departmentsWithoutChart > 0 {
+		res := db.Table("information_org_departments").Where("org_chart_id IS NULL").Update("org_chart_id", defaultChart.ID)
+		if res.Error != nil {
+			log.Printf("⚠️ falha ao vincular áreas antigas ao organograma padrão: %v", res.Error)
+		} else if res.RowsAffected > 0 {
+			log.Printf("🌱 information_org_departments: %d área(s) vinculada(s) ao organograma \"Organograma Principal\"", res.RowsAffected)
+		}
 	}
 }
 

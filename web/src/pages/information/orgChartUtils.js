@@ -1,6 +1,7 @@
-// Funções compartilhadas entre a tela de gestão do organograma (OrgChartPage)
-// e a página de visualização/impressão (OrgChartPrintPage), para não duplicar
-// a lógica de ordenação/agrupamento nos dois lugares.
+// Funções compartilhadas entre as telas de gestão do organograma
+// (OrgChartListPage/OrgChartDetailPage) e a página de visualização/
+// impressão (OrgChartPrintPage), para não duplicar a lógica de
+// ordenação/montagem da árvore nos vários lugares.
 
 export function sortByName(list) {
   return [...list].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
@@ -27,15 +28,4 @@ export function buildPositionTree(positions) {
   childrenMap.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
   roots.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
   return { roots, childrenMap }
-}
-
-export function groupPositionsByDepartment(positions) {
-  const map = new Map()
-  positions.forEach((p) => {
-    if (!p.departmentId) return
-    if (!map.has(p.departmentId)) map.set(p.departmentId, [])
-    map.get(p.departmentId).push(p)
-  })
-  map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
-  return map
 }

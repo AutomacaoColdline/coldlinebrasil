@@ -33,7 +33,8 @@ import AutomationAtendimentoReports from './pages/automation/AutomationAtendimen
 
 import InformationLayout from './pages/information/InformationLayout'
 import InformationPage from './pages/information/InformationPage'
-import OrgChartPage from './pages/information/OrgChartPage'
+import OrgChartListPage from './pages/information/OrgChartListPage'
+import OrgChartDetailPage from './pages/information/OrgChartDetailPage'
 import OrgChartPrintPage from './pages/information/OrgChartPrintPage'
 import ProductionPage from './pages/information/production/ProductionPage'
 import ProductionModelPage from './pages/information/production/ProductionModelPage'
@@ -146,7 +147,7 @@ export default function App() {
           <Route path="acessos" element={<SuperAdminOnly><AccessControlPage /></SuperAdminOnly>} />
         </Route>
 
-        <Route path="/departamento-informacao/organograma/visualizar" element={
+        <Route path="/departamento-informacao/organograma/:orgChartId/visualizar" element={
           <Auth><OrgChartPrintPage /></Auth>
         } />
 
@@ -154,7 +155,8 @@ export default function App() {
           <Auth><ModuleGuard module="departamento"><InformationLayout /></ModuleGuard></Auth>
         }>
           <Route index element={<InformationPage />} />
-          <Route path="organograma" element={<OrgChartPage />} />
+          <Route path="organograma" element={<OrgChartListPage />} />
+          <Route path="organograma/:orgChartId" element={<OrgChartDetailPage />} />
           <Route path="producao" element={<ProductionPage />} />
           <Route path="producao/:modelId" element={<ProductionModelPage />} />
         </Route>

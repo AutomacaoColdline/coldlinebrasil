@@ -1,14 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Loader2, Maximize, Shrink } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
-import { buildPositionTree, groupPositionsByDepartment, sortByName, sortDepartments } from './orgChartUtils'
+import { buildPositionTree } from './orgChartUtils'
 import coldlineLogo from '../../assets/coldline-logo-white.svg'
-
-const TAB_INFO = {
-  chart: { title: 'Organograma Unificado', backTab: 'chart' },
-  departmentChart: { title: 'Organograma por Departamento', backTab: 'departmentChart' },
-}
 
 const PAGE_MARGIN_MM = 12
 const MM_TO_PX = 96 / 25.4
@@ -52,10 +47,9 @@ function PrintOrgNode({ node, childrenMap, departmentsById, visited }) {
 }
 
 export default function OrgChartPrintPage() {
-  const [searchParams] = useSearchParams()
-  const tab = TAB_INFO[searchParams.get('tab')] ? searchParams.get('tab') : 'chart'
-  const info = TAB_INFO[tab]
+  const { orgChartId } = useParams()
 
+  const [orgChart, setOrgChart] = useState(null)
   const [positions, setPositions] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -69,19 +63,21 @@ export default function OrgChartPrintPage() {
   const pageStyleRef = useRef(null)
 
   useEffect(() => {
-    Promise.all([informationApi.getPositions(), informationApi.getOrgDepartments()])
-      .then(([positionsRes, departmentsRes]) => {
+    Promise.all([
+      informationApi.getOrgChartById(orgChartId),
+      informationApi.getPositions(orgChartId),
+      informationApi.getOrgDepartments(orgChartId),
+    ])
+      .then(([chartRes, positionsRes, departmentsRes]) => {
+        setOrgChart(chartRes.data)
         setPositions(positionsRes.data?.items || [])
         setDepartments(departmentsRes.data?.items || [])
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [orgChartId])
 
   const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
   const { roots, childrenMap } = useMemo(() => buildPositionTree(positions), [positions])
-  const sortedDepartments = useMemo(() => sortDepartments(departments), [departments])
-  const positionsByDepartment = useMemo(() => groupPositionsByDepartment(positions), [positions])
-  const unassigned = useMemo(() => sortByName(positions.filter((p) => !p.departmentId)), [positions])
 
   const generatedAt = useMemo(
     () => new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
@@ -89,6 +85,7 @@ export default function OrgChartPrintPage() {
   )
 
   const isFull = mode === 'full'
+  const title = orgChart?.name || 'Organograma'
 
   // Mede o tamanho natural da folha inteira (cabeçalho + título + conteúdo)
   // e recalcula em três momentos: assim que os dados carregam, quando a
@@ -129,7 +126,7 @@ export default function OrgChartPrintPage() {
       window.removeEventListener('resize', recalc)
       window.removeEventListener('beforeprint', recalc)
     }
-  }, [isFull, loading, tab, positions, departments])
+  }, [isFull, loading, positions, departments])
 
   const pageHeight = !isFull && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
 
@@ -137,7 +134,7 @@ export default function OrgChartPrintPage() {
     <div className="min-h-screen bg-slate-100 print:bg-white">
       <div className="print:hidden sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <Link
-          to={`/departamento-informacao/organograma?tab=${info.backTab}`}
+          to={`/departamento-informacao/organograma/${orgChartId}?tab=chart`}
           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft size={16} /> Voltar
@@ -194,44 +191,11 @@ export default function OrgChartPrintPage() {
           </header>
 
           <div className="org-print-body">
-            <h1 className="org-print-title">{info.title}</h1>
+            <h1 className="org-print-title">{title}</h1>
 
             {loading ? (
               <div className="py-24 flex items-center justify-center">
                 <Loader2 size={24} className="animate-spin text-blue-300" />
-              </div>
-            ) : tab === 'departmentChart' ? (
-              <div className="org-print-department-list">
-                {sortedDepartments.map((department) => {
-                  const linked = positionsByDepartment.get(department.id) || []
-                  return (
-                    <div key={department.id} className="org-print-department-card">
-                      <h3>{department.name}</h3>
-                      <div className="org-print-chips">
-                        {linked.length === 0 ? (
-                          <span className="org-print-empty">Nenhum cargo vinculado.</span>
-                        ) : (
-                          linked.map((p) => (
-                            <span key={p.id} className="org-print-chip">{p.name}</span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-                {unassigned.length > 0 && (
-                  <div className="org-print-department-card is-muted">
-                    <h3>Sem Departamento</h3>
-                    <div className="org-print-chips">
-                      {unassigned.map((p) => (
-                        <span key={p.id} className="org-print-chip is-muted">{p.name}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {sortedDepartments.length === 0 && unassigned.length === 0 && (
-                  <p className="org-print-empty">Nenhum cargo ou departamento cadastrado.</p>
-                )}
               </div>
             ) : roots.length === 0 ? (
               <p className="org-print-empty">Nenhum cargo cadastrado.</p>
@@ -306,7 +270,7 @@ export default function OrgChartPrintPage() {
           text-align: center;
         }
 
-        /* Árvore do organograma unificado */
+        /* Árvore do organograma */
         .org-print-tree {
           display: flex;
           justify-content: center;
@@ -403,58 +367,6 @@ export default function OrgChartPrintPage() {
           margin-top: 2px;
         }
 
-        /* Organograma por departamento */
-        .org-print-department-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          padding-bottom: 24px;
-        }
-
-        .org-print-department-card {
-          border: 1px solid #dbeafe;
-          background: #f8fbff;
-          border-radius: 16px;
-          padding: 18px 22px;
-          break-inside: avoid;
-        }
-
-        .org-print-department-card.is-muted {
-          background: #f8fafc;
-          border-color: #e2e8f0;
-        }
-
-        .org-print-department-card h3 {
-          font-size: 0.95rem;
-          font-weight: 800;
-          color: #1b2a6b;
-        }
-
-        .org-print-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          margin-top: 10px;
-        }
-
-        .org-print-chip {
-          display: inline-flex;
-          align-items: center;
-          padding: 5px 14px;
-          border-radius: 999px;
-          background: #dbeafe;
-          color: #1d4ed8;
-          border: 1px solid #bfdbfe;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .org-print-chip.is-muted {
-          background: #f1f5f9;
-          color: #64748b;
-          border-color: #e2e8f0;
-        }
-
         @media print {
           @page {
             margin: ${PAGE_MARGIN_MM}mm;
@@ -477,7 +389,6 @@ export default function OrgChartPrintPage() {
             print-color-adjust: exact;
           }
 
-          .org-print-chip,
           .org-print-card {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
