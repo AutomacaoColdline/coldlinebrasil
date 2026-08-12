@@ -10,16 +10,20 @@ const TAB_INFO = {
   departmentChart: { title: 'Organograma por Departamento', backTab: 'departmentChart' },
 }
 
-// Área útil de uma folha A4 paisagem, descontando a mesma margem usada no
-// @page abaixo, convertida de mm para px (96dpi) — usada para calcular a
-// escala do modo "Ajustar em 1 página". Importante: a medição do modo
-// "ajustar" cobre a folha inteira (cabeçalho + título + conteúdo), não só
-// a árvore/lista, senão a soma de tudo estoura a página mesmo com o
-// conteúdo "cabendo" sozinho.
+// Área útil de uma folha A4 RETRATO (a orientação padrão de qualquer caixa
+// de impressão/PDF, com ou sem o @page abaixo — nem todo navegador/driver
+// respeita o "size: landscape" do CSS). Calcular a escala pro retrato
+// garante que o conteúdo nunca ultrapasse a largura disponível, mesmo que
+// a impressão real acabe saindo em retrato em vez de paisagem; se o
+// usuário escolher paisagem na caixa de impressão, sobra só um pouco mais
+// de margem lateral, sem nunca cortar.
+// Importante: a medição cobre a folha inteira (cabeçalho + título +
+// conteúdo), não só a árvore/lista, senão a soma de tudo estoura a
+// página mesmo com o conteúdo "cabendo" sozinho.
 const PAGE_MARGIN_MM = 12
 const MM_TO_PX = 96 / 25.4
-const PRINTABLE_WIDTH_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
-const PRINTABLE_HEIGHT_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
+const PRINTABLE_WIDTH_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
+const PRINTABLE_HEIGHT_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
 
 function PrintOrgNode({ node, childrenMap, departmentsById, visited }) {
   if (visited.has(node.id)) return null
@@ -154,9 +158,13 @@ export default function OrgChartPrintPage() {
         </div>
       </div>
 
-      {!fitToPage && (
+      {!fitToPage ? (
         <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
           Tamanho real pode ocupar várias páginas ao imprimir — escolha a orientação (retrato/paisagem) na caixa de impressão do navegador.
+        </p>
+      ) : (
+        <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
+          O conteúdo é ajustado pro modo retrato (cabe em qualquer impressora). Se quiser mais espaço, escolha Paisagem na caixa de impressão.
         </p>
       )}
 
@@ -436,7 +444,6 @@ export default function OrgChartPrintPage() {
         @media print {
           @page {
             margin: ${PAGE_MARGIN_MM}mm;
-            ${fitToPage ? 'size: A4 landscape;' : ''}
           }
 
           body {
