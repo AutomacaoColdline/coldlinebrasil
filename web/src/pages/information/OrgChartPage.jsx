@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Building2, ChevronDown, ChevronUp, ClipboardList, Edit, LayoutGrid,
-  Loader2, Network, Plus, Trash2, Workflow,
+  Loader2, Network, Plus, Printer, Trash2, Workflow,
 } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
@@ -433,12 +433,27 @@ function ChartTab({ positions, departments, loading }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">Organograma Unificado</h2>
-        <p className="text-sm text-slate-500 mt-1">Visualizacao completa da hierarquia de cargos cadastrada.</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Organograma Unificado</h2>
+          <p className="text-sm text-slate-500 mt-1">Visualizacao completa da hierarquia de cargos cadastrada.</p>
+        </div>
+        {roots.length > 0 && (
+          <button
+            onClick={() => window.print()}
+            className="print:hidden inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
+          >
+            <Printer size={14} />
+            Gerar PDF
+          </button>
+        )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto">
+      <div className="hidden print:block text-center mb-2">
+        <p className="text-lg font-bold text-slate-900">Organograma Unificado</p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto print:border-0 print:shadow-none">
         {loading ? (
           <div className="py-20 flex items-center justify-center">
             <Loader2 size={24} className="animate-spin text-slate-300" />
@@ -488,9 +503,24 @@ function DepartmentChartTab({ positions, departments, loading }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">Organograma por Departamento</h2>
-        <p className="text-sm text-slate-500 mt-1">Cargos agrupados por departamento, na ordem definida na aba Departamentos.</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Organograma por Departamento</h2>
+          <p className="text-sm text-slate-500 mt-1">Cargos agrupados por departamento, na ordem definida na aba Departamentos.</p>
+        </div>
+        {hasContent && (
+          <button
+            onClick={() => window.print()}
+            className="print:hidden inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
+          >
+            <Printer size={14} />
+            Gerar PDF
+          </button>
+        )}
+      </div>
+
+      <div className="hidden print:block text-center mb-2">
+        <p className="text-lg font-bold text-slate-900">Organograma por Departamento</p>
       </div>
 
       {loading ? (
@@ -580,8 +610,8 @@ export default function OrgChartPage() {
   }, [loadPositions, loadDepartments])
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 print:p-0 print:max-w-none">
+      <div className="print:hidden bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <p className="text-xs uppercase tracking-[0.2em] text-pink-400 font-semibold">Setor Interno</p>
         <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mt-2">Organograma</h1>
         <p className="text-sm text-slate-500 mt-2 max-w-3xl">
@@ -589,7 +619,7 @@ export default function OrgChartPage() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2 overflow-x-auto">
+      <div className="print:hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-2 overflow-x-auto">
         <div className="flex items-center gap-2 min-w-max">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id
