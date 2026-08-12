@@ -56,6 +56,7 @@ export default function OrgChartPrintPage() {
   const [fitToPage, setFitToPage] = useState(true)
   const [scale, setScale] = useState(1)
   const sheetRef = useRef(null)
+  const pageRef = useRef(null)
 
   useEffect(() => {
     Promise.all([informationApi.getPositions(), informationApi.getOrgDepartments()])
@@ -79,7 +80,9 @@ export default function OrgChartPrintPage() {
 
   // Mede o tamanho natural da folha inteira (cabeçalho + título + conteúdo)
   // e calcula a escala pra caber tudo numa página A4 paisagem, em vez de
-  // ser cortada nas bordas.
+  // ser cortada nas bordas. Uma margem de segurança de 3% absorve pequenas
+  // diferenças de arredondamento entre o que o navegador mede na tela e o
+  // que ele realmente imprime.
   useLayoutEffect(() => {
     if (!fitToPage || loading) return
     const el = sheetRef.current
@@ -88,12 +91,26 @@ export default function OrgChartPrintPage() {
       const naturalWidth = el.scrollWidth
       const naturalHeight = el.scrollHeight
       if (!naturalWidth || !naturalHeight) return
-      const next = Math.min(PRINTABLE_WIDTH_PX / naturalWidth, PRINTABLE_HEIGHT_PX / naturalHeight, 1)
+      const next = Math.min(PRINTABLE_WIDTH_PX / naturalWidth, PRINTABLE_HEIGHT_PX / naturalHeight, 1) * 0.97
+      // Aplica direto no DOM (síncrono) além de guardar no state — o evento
+      // "beforeprint" pode disparar bem em cima da hora, e não dá pra
+      // confiar que o re-render do React termine antes do navegador
+      // capturar a página pra impressão.
+      el.style.transform = `scale(${next})`
+      if (pageRef.current) pageRef.current.style.height = `${naturalHeight * next}px`
       setScale(next)
     }
     recalc()
     window.addEventListener('resize', recalc)
-    return () => window.removeEventListener('resize', recalc)
+    window.addEventListener('beforeprint', recalc)
+    // A fonte (Inter, via Google Fonts com display=swap) pode trocar depois
+    // da primeira medição, mudando a largura real do texto — recalcula a
+    // escala assim que ela termina de carregar.
+    document.fonts?.ready?.then(recalc)
+    return () => {
+      window.removeEventListener('resize', recalc)
+      window.removeEventListener('beforeprint', recalc)
+    }
   }, [fitToPage, loading, tab, positions, departments])
 
   const pageHeight = fitToPage && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
@@ -143,7 +160,7 @@ export default function OrgChartPrintPage() {
         </p>
       )}
 
-      <div className="org-print-page" style={pageHeight ? { height: pageHeight } : undefined}>
+      <div ref={pageRef} className="org-print-page" style={pageHeight ? { height: pageHeight } : undefined}>
         <div
           ref={sheetRef}
           className="org-print-sheet bg-white shadow-lg print:shadow-none"
