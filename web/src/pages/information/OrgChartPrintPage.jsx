@@ -530,13 +530,15 @@ export default function OrgChartPrintPage() {
 
         .org-print-blocks-row {
           display: flex;
-          align-items: flex-start;
-          gap: 16px;
+          flex-direction: column;
+          align-items: center;
+          gap: 14px;
         }
 
         .org-print-blocks-block {
-          min-width: 168px;
-          max-width: 220px;
+          min-width: 220px;
+          max-width: 320px;
+          width: 100%;
           border-radius: 12px;
           border: 1px solid #bfdbfe;
           background: #eff6ff;
