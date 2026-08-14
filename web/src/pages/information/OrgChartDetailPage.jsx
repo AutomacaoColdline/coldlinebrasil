@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Edit, Loader2, Maximize2, Network, Plus, Tag, Trash2, Workflow, X,
+  ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Edit, LayoutGrid, Loader2, Maximize2, Network, Plus, Tag, Trash2,
+  Workflow, X,
 } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import { ConfirmModal } from './OrgChartShared'
 import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
+import { OrgChartBlocks } from './OrgChartBlocks'
 import { sortDepartments, sortPositions } from './orgChartUtils'
 
 const TABS = [
   { id: 'structure', label: 'Nomenclatura e Estrutura', icon: ClipboardList },
   { id: 'chart', label: 'Organograma', icon: Workflow },
+  { id: 'blocks', label: 'Organograma por blocos', icon: LayoutGrid },
 ]
 
 function emptyPositionForm() {
@@ -391,6 +394,49 @@ function ChartTab({ orgChartId, positions, departments, loading }) {
   )
 }
 
+function BlocksTab({ orgChartId, positions, departments, loading }) {
+  const hasRoots = positions.length > 0
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Organograma por blocos</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Todos os cargos abaixo da raiz agrupados em blocos — um bloco por cargo da 2ª linha, na ordem de cadastro.
+          </p>
+        </div>
+        {hasRoots && (
+          <Link
+            to={`/departamento-informacao/organograma/${orgChartId}/visualizar?view=blocks`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:border-pink-200 hover:text-pink-500 bg-white"
+          >
+            <Maximize2 size={14} />
+            Visualizar / Gerar PDF
+          </Link>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto">
+        {loading ? (
+          <div className="py-20 flex items-center justify-center">
+            <Loader2 size={24} className="animate-spin text-slate-300" />
+          </div>
+        ) : !hasRoots ? (
+          <div className="py-16 text-center">
+            <LayoutGrid size={24} className="text-slate-200 mx-auto mb-3" />
+            <p className="text-sm text-slate-400">Cadastre cargos na aba Nomenclatura e Estrutura para montar o organograma.</p>
+          </div>
+        ) : (
+          <OrgChartBlocks positions={positions} departments={departments} />
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function OrgChartDetailPage() {
   const { orgChartId } = useParams()
   const navigate = useNavigate()
@@ -523,6 +569,8 @@ export default function OrgChartDetailPage() {
 
       {activeTab === 'chart' ? (
         <ChartTab orgChartId={orgChartId} positions={positions} departments={departments} loading={loadingPositions || loadingDepartments} />
+      ) : activeTab === 'blocks' ? (
+        <BlocksTab orgChartId={orgChartId} positions={positions} departments={departments} loading={loadingPositions || loadingDepartments} />
       ) : (
         <StructureTab
           orgChartId={orgChartId}

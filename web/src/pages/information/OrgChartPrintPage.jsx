@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Download, ImageDown, Loader2, Maximize, Shrink } from 'lucide-react'
 import { toCanvas } from 'html-to-image'
 import { informationApi } from '../../services/informationApi'
 import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
+import { OrgChartBlocks } from './OrgChartBlocks'
 import coldlineLogo from '../../assets/coldline-logo-white.svg'
 
 const PRINT_TREE_CLASS_NAMES = {
@@ -12,6 +13,19 @@ const PRINT_TREE_CLASS_NAMES = {
   cardName: 'org-print-card-name',
   cardArea: 'org-print-card-area',
   links: 'org-print-tree-links',
+}
+
+const PRINT_BLOCKS_CLASS_NAMES = {
+  wrapper: 'org-print-blocks',
+  group: 'org-print-blocks-group',
+  root: 'org-print-blocks-root',
+  row: 'org-print-blocks-row',
+  block: 'org-print-blocks-block',
+  blockHeader: 'org-print-blocks-block-header',
+  item: 'org-print-blocks-item',
+  itemName: 'org-print-blocks-item-name',
+  itemArea: 'org-print-blocks-item-area',
+  empty: 'org-print-blocks-empty',
 }
 
 const PAGE_MARGIN_MM = 12
@@ -47,6 +61,8 @@ const IMAGE_EXPORT_DPI = 200
 
 export default function OrgChartPrintPage() {
   const { orgChartId } = useParams()
+  const [searchParams] = useSearchParams()
+  const isBlocks = searchParams.get('view') === 'blocks'
 
   const [orgChart, setOrgChart] = useState(null)
   const [positions, setPositions] = useState([])
@@ -124,7 +140,7 @@ export default function OrgChartPrintPage() {
       window.removeEventListener('resize', recalc)
       window.removeEventListener('beforeprint', recalc)
     }
-  }, [isFull, mode, loading, positions, departments])
+  }, [isFull, mode, loading, positions, departments, isBlocks])
 
   const pageHeight = !isFull && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
 
@@ -194,7 +210,7 @@ export default function OrgChartPrintPage() {
     <div className="min-h-screen bg-slate-100 print:bg-white">
       <div className="print:hidden sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <Link
-          to={`/departamento-informacao/organograma/${orgChartId}?tab=chart`}
+          to={`/departamento-informacao/organograma/${orgChartId}?tab=${isBlocks ? 'blocks' : 'chart'}`}
           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft size={16} /> Voltar
@@ -272,7 +288,7 @@ export default function OrgChartPrintPage() {
 
           <div className="org-print-body">
             <h1 className="org-print-title">{title}</h1>
-            {!loading && hasExtraSuperiorLinks(positions) && (
+            {!loading && !isBlocks && hasExtraSuperiorLinks(positions) && (
               <p className="org-print-legend">Linha pontilhada com seta = também subordinado ao cargo de origem da seta</p>
             )}
 
@@ -282,6 +298,8 @@ export default function OrgChartPrintPage() {
               </div>
             ) : positions.length === 0 ? (
               <p className="org-print-empty">Nenhum cargo cadastrado.</p>
+            ) : isBlocks ? (
+              <OrgChartBlocks positions={positions} departments={departments} classNames={PRINT_BLOCKS_CLASS_NAMES} />
             ) : (
               <OrgChartTree
                 positions={positions}
@@ -479,6 +497,87 @@ export default function OrgChartPrintPage() {
           word-break: break-word;
         }
 
+        /* Organograma por blocos: raiz no topo + um bloco por cargo da 2ª
+           linha, cada um listando o ramo abaixo dele com indentação por
+           nível — ver OrgChartBlocks.jsx. */
+        .org-print-blocks {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 22px;
+          min-width: max-content;
+          padding-bottom: 24px;
+        }
+
+        .org-print-blocks-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .org-print-blocks-root {
+          display: inline-flex;
+          align-items: center;
+          padding: 10px 24px;
+          border-radius: 10px;
+          background: #1b2a6b;
+          color: #fff;
+          font-size: 0.85rem;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+        }
+
+        .org-print-blocks-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .org-print-blocks-block {
+          min-width: 168px;
+          max-width: 220px;
+          border-radius: 12px;
+          border: 1px solid #bfdbfe;
+          background: #eff6ff;
+          overflow: hidden;
+        }
+
+        .org-print-blocks-block-header {
+          padding: 8px 12px;
+          background: #bfdbfe;
+          color: #1e3a8a;
+          font-size: 0.78rem;
+          font-weight: 700;
+          text-align: center;
+        }
+
+        .org-print-blocks-item {
+          padding: 6px 12px;
+          border-top: 1px solid #bfdbfe;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .org-print-blocks-item-name {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #1e3a8a;
+          word-break: break-word;
+        }
+
+        .org-print-blocks-item-area {
+          font-size: 0.62rem;
+          color: #2563eb;
+          margin-top: 1px;
+          word-break: break-word;
+        }
+
+        .org-print-blocks-empty {
+          font-size: 0.75rem;
+          color: #94a3b8;
+        }
+
         @media print {
           @page {
             margin: ${PAGE_MARGIN_MM}mm;
@@ -502,6 +601,12 @@ export default function OrgChartPrintPage() {
           }
 
           .org-print-card {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .org-print-blocks-root,
+          .org-print-blocks-block-header {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
