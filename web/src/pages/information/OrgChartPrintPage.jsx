@@ -19,12 +19,8 @@ const PRINT_BLOCKS_CLASS_NAMES = {
   wrapper: 'org-print-blocks',
   group: 'org-print-blocks-group',
   root: 'org-print-blocks-root',
-  row: 'org-print-blocks-row',
-  block: 'org-print-blocks-block',
-  blockHeader: 'org-print-blocks-block-header',
-  item: 'org-print-blocks-item',
-  itemName: 'org-print-blocks-item-name',
-  itemArea: 'org-print-blocks-item-area',
+  stackList: 'org-print-blocks-stack-list',
+  stack: 'org-print-blocks-stack',
   empty: 'org-print-blocks-empty',
 }
 
@@ -299,7 +295,12 @@ export default function OrgChartPrintPage() {
             ) : positions.length === 0 ? (
               <p className="org-print-empty">Nenhum cargo cadastrado.</p>
             ) : isBlocks ? (
-              <OrgChartBlocks positions={positions} departments={departments} classNames={PRINT_BLOCKS_CLASS_NAMES} />
+              <OrgChartBlocks
+                positions={positions}
+                departments={departments}
+                classNames={PRINT_BLOCKS_CLASS_NAMES}
+                treeClassNames={PRINT_TREE_CLASS_NAMES}
+              />
             ) : (
               <OrgChartTree
                 positions={positions}
@@ -497,9 +498,10 @@ export default function OrgChartPrintPage() {
           word-break: break-word;
         }
 
-        /* Organograma por blocos: raiz no topo + um bloco por cargo da 2ª
-           linha, cada um listando o ramo abaixo dele com indentação por
-           nível — ver OrgChartBlocks.jsx. */
+        /* Organograma por blocos: raiz como rótulo no topo + uma "pilha"
+           por cargo da 2ª linha — cada pilha é a própria mini-árvore desse
+           ramo (mesmas caixinhas/linhas do .org-print-tree normal),
+           empilhadas na vertical — ver OrgChartBlocks.jsx. */
         .org-print-blocks {
           display: flex;
           flex-direction: column;
@@ -528,51 +530,21 @@ export default function OrgChartPrintPage() {
           letter-spacing: 0.01em;
         }
 
-        .org-print-blocks-row {
+        .org-print-blocks-stack-list {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 14px;
+          gap: 36px;
         }
 
-        .org-print-blocks-block {
-          min-width: 220px;
-          max-width: 320px;
-          width: 100%;
-          border-radius: 12px;
-          border: 1px solid #bfdbfe;
-          background: #eff6ff;
-          overflow: hidden;
+        .org-print-blocks-stack {
+          padding-top: 4px;
+          border-top: 1px dashed #bfdbfe;
         }
 
-        .org-print-blocks-block-header {
-          padding: 8px 12px;
-          background: #bfdbfe;
-          color: #1e3a8a;
-          font-size: 0.78rem;
-          font-weight: 700;
-          text-align: center;
-        }
-
-        .org-print-blocks-item {
-          padding: 6px 12px;
-          border-top: 1px solid #bfdbfe;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .org-print-blocks-item-name {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: #1e3a8a;
-          word-break: break-word;
-        }
-
-        .org-print-blocks-item-area {
-          font-size: 0.62rem;
-          color: #2563eb;
-          margin-top: 1px;
-          word-break: break-word;
+        .org-print-blocks-stack:first-child {
+          border-top: 0 none;
+          padding-top: 0;
         }
 
         .org-print-blocks-empty {
@@ -607,8 +579,7 @@ export default function OrgChartPrintPage() {
             print-color-adjust: exact;
           }
 
-          .org-print-blocks-root,
-          .org-print-blocks-block-header {
+          .org-print-blocks-root {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
