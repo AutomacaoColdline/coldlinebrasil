@@ -174,7 +174,7 @@ export default function OrgChartPrintPage() {
           <div className="org-print-body">
             <h1 className="org-print-title">{title}</h1>
             {!loading && hasExtraSuperiorLinks(positions) && (
-              <p className="org-print-legend">Linha pontilhada = também subordinado a este cargo</p>
+              <p className="org-print-legend">Linha pontilhada com seta = também subordinado ao cargo de origem da seta</p>
             )}
 
             {loading ? (
@@ -336,8 +336,12 @@ export default function OrgChartPrintPage() {
           margin-bottom: 16px;
         }
 
+        .org-print-tree-links {
+          color: #f59e0b;
+        }
+
         .org-print-tree-links line {
-          stroke: #f59e0b;
+          stroke: currentColor;
           stroke-width: 1.5;
           stroke-dasharray: 4 3;
         }

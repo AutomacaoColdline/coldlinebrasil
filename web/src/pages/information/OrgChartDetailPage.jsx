@@ -357,7 +357,7 @@ function ChartTab({ orgChartId, positions, departments, loading }) {
           <h2 className="text-xl font-bold text-slate-900">Visualização</h2>
           <p className="text-sm text-slate-500 mt-1">
             Pré-visualização da hierarquia (na ordem de cadastro). O título usado na impressão é o nome do organograma.
-            {showExtraLinksHint && ' Linhas pontilhadas indicam um 2º/3º superior.'}
+            {showExtraLinksHint && ' Linhas pontilhadas com seta indicam um 2º/3º superior (a seta aponta pro cargo subordinado).'}
           </p>
         </div>
         {hasRoots && (
