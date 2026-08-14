@@ -1,27 +1,42 @@
 import { useMemo } from 'react'
 import { buildPositionBlocks } from './orgChartUtils'
+import { OrgChartTree } from './OrgChartTree'
 
 const DEFAULT_CLASS_NAMES = {
   wrapper: 'org-blocks',
   group: 'org-blocks-group',
   root: 'org-blocks-root',
-  row: 'org-blocks-row',
-  block: 'org-blocks-block',
-  blockHeader: 'org-blocks-block-header',
-  item: 'org-blocks-item',
-  itemName: 'org-blocks-item-name',
-  itemArea: 'org-blocks-item-area',
+  stackList: 'org-blocks-stack-list',
+  stack: 'org-blocks-stack',
   empty: 'org-blocks-empty',
 }
 
-// Visão alternativa à árvore com linhas de conexão (ver OrgChartTree):
-// mostra a raiz (ex: Diretoria Executiva) no topo e, abaixo, um bloco por
-// cargo da 2ª linha — cada bloco lista todo o ramo abaixo dele, com os
-// níveis mais fundos indentados. Reutilizada tanto na pré-visualização
-// quanto na página de impressão/PDF, igual o OrgChartTree.
-export function OrgChartBlocks({ positions, departments, classNames: classNamesProp, emptyMessage }) {
+const DEFAULT_TREE_CLASS_NAMES = {
+  tree: 'org-tree',
+  card: 'org-card',
+  cardName: 'org-card-name',
+  cardArea: 'org-card-area',
+  links: 'org-tree-links',
+}
+
+// Visão alternativa à árvore única (ver OrgChartTree): mostra a raiz (ex:
+// Diretoria Executiva) como um rótulo no topo e, abaixo, uma "pilha" por
+// cargo da 2ª linha — cada pilha é a própria mini-árvore desse ramo
+// (cabeçalho + tudo abaixo dele), com as mesmas caixinhas e linhas de
+// conexão do organograma normal, só que empilhadas verticalmente em vez de
+// uma árvore só espalhada na horizontal. Reutilizada tanto na
+// pré-visualização quanto na página de impressão/PDF, igual o OrgChartTree.
+export function OrgChartBlocks({
+  positions,
+  departments,
+  classNames: classNamesProp,
+  treeClassNames: treeClassNamesProp,
+  emptyMessage,
+}) {
   const classNames = classNamesProp ? { ...DEFAULT_CLASS_NAMES, ...classNamesProp } : DEFAULT_CLASS_NAMES
-  const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
+  const treeClassNames = treeClassNamesProp
+    ? { ...DEFAULT_TREE_CLASS_NAMES, ...treeClassNamesProp }
+    : DEFAULT_TREE_CLASS_NAMES
   const groups = useMemo(() => buildPositionBlocks(positions), [positions])
 
   if (groups.length === 0) {
@@ -34,25 +49,10 @@ export function OrgChartBlocks({ positions, departments, classNames: classNamesP
         <div key={root.id} className={classNames.group}>
           <div className={classNames.root}>{root.name}</div>
           {blocks.length > 0 ? (
-            <div className={classNames.row}>
-              {blocks.map(({ header, items }) => (
-                <div key={header.id} className={classNames.block}>
-                  <div className={classNames.blockHeader}>{header.name}</div>
-                  {items.map(({ position, level }) => {
-                    const departmentName = position.departmentId
-                      ? departmentsById.get(position.departmentId)?.name
-                      : null
-                    return (
-                      <div
-                        key={position.id}
-                        className={classNames.item}
-                        style={{ paddingLeft: `${12 + (level - 1) * 14}px` }}
-                      >
-                        <span className={classNames.itemName}>{position.name}</span>
-                        {departmentName && <span className={classNames.itemArea}>{departmentName}</span>}
-                      </div>
-                    )
-                  })}
+            <div className={classNames.stackList}>
+              {blocks.map(({ header, positions: stackPositions }) => (
+                <div key={header.id} className={classNames.stack}>
+                  <OrgChartTree positions={stackPositions} departments={departments} classNames={treeClassNames} />
                 </div>
               ))}
             </div>

@@ -164,9 +164,11 @@
   color: #f8fafc;
 }
 
-/* Organograma por blocos: raiz (ex: Diretoria Executiva) no topo + um
-   bloco por cargo da 2ª linha, cada um listando o ramo abaixo dele com
-   indentação por nível — ver OrgChartBlocks.jsx. */
+/* Organograma por blocos: raiz (ex: Diretoria Executiva) como rótulo no
+   topo + uma "pilha" por cargo da 2ª linha — cada pilha é a própria
+   mini-árvore desse ramo (mesmas caixinhas/linhas do .org-tree normal),
+   empilhadas na vertical em vez de uma árvore só espalhada na horizontal —
+   ver OrgChartBlocks.jsx. */
 .org-blocks {
   display: flex;
   flex-direction: column;
@@ -196,51 +198,21 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-.org-blocks-row {
+.org-blocks-stack-list {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 36px;
 }
 
-.org-blocks-block {
-  min-width: 220px;
-  max-width: 320px;
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid #fbcfe8;
-  background: #fdf2f8;
-  overflow: hidden;
+.org-blocks-stack {
+  padding-top: 4px;
+  border-top: 1px dashed #fbcfe8;
 }
 
-.org-blocks-block-header {
-  padding: 8px 12px;
-  background: #f9a8d4;
-  color: #831843;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-.org-blocks-item {
-  padding: 6px 12px;
-  border-top: 1px solid #fbcfe8;
-  display: flex;
-  flex-direction: column;
-}
-
-.org-blocks-item-name {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #1e293b;
-  word-break: break-word;
-}
-
-.org-blocks-item-area {
-  font-size: 0.62rem;
-  color: #ec4899;
-  margin-top: 1px;
-  word-break: break-word;
+.org-blocks-stack:first-child {
+  border-top: 0 none;
+  padding-top: 0;
 }
 
 .org-blocks-empty {
@@ -248,20 +220,6 @@
   color: #94a3b8;
 }
 
-.info-dark .org-blocks-block {
-  background: rgba(244, 114, 182, 0.12);
+.info-dark .org-blocks-stack {
   border-color: rgba(244, 114, 182, 0.3);
-}
-
-.info-dark .org-blocks-block-header {
-  background: rgba(244, 114, 182, 0.28);
-  color: #fbcfe8;
-}
-
-.info-dark .org-blocks-item {
-  border-color: rgba(244, 114, 182, 0.3);
-}
-
-.info-dark .org-blocks-item-name {
-  color: #f8fafc;
 }
