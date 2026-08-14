@@ -8,7 +8,6 @@ import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import { ConfirmModal } from './OrgChartShared'
 import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
-import { OrgChartBlocks } from './OrgChartBlocks'
 import { sortDepartments, sortPositions } from './orgChartUtils'
 
 const TABS = [
@@ -16,6 +15,18 @@ const TABS = [
   { id: 'chart', label: 'Organograma', icon: Workflow },
   { id: 'blocks', label: 'Organograma por blocos', icon: LayoutGrid },
 ]
+
+// Mesma árvore da aba "Organograma", só que deitada (raiz na esquerda,
+// crescendo pra direita) — ver .org-htree em information-theme.css. Reusa
+// o próprio OrgChartTree: a única diferença é qual CSS as classes apontam
+// pra (a estrutura de <ul>/<li> que ele monta não muda).
+const HORIZONTAL_TREE_CLASS_NAMES = {
+  tree: 'org-htree',
+  card: 'org-card',
+  cardName: 'org-card-name',
+  cardArea: 'org-card-area',
+  links: 'org-tree-links',
+}
 
 function emptyPositionForm() {
   return { name: '', parentId: '', parentId2: '', parentId3: '', departmentId: '' }
@@ -396,6 +407,7 @@ function ChartTab({ orgChartId, positions, departments, loading }) {
 
 function BlocksTab({ orgChartId, positions, departments, loading }) {
   const hasRoots = positions.length > 0
+  const showExtraLinksHint = hasExtraSuperiorLinks(positions)
 
   return (
     <div className="space-y-6">
@@ -403,7 +415,9 @@ function BlocksTab({ orgChartId, positions, departments, loading }) {
         <div>
           <h2 className="text-xl font-bold text-slate-900">Organograma por blocos</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Todos os cargos abaixo da raiz agrupados em blocos — um bloco por cargo da 2ª linha, na ordem de cadastro.
+            A mesma hierarquia da aba Organograma, só que deitada: a raiz fica à esquerda e uma linha desce por todos
+            os cargos abaixo dela, ramificando pra direita a cada nível.
+            {showExtraLinksHint && ' Linhas pontilhadas com seta indicam um 2º/3º superior (a seta aponta pro cargo subordinado).'}
           </p>
         </div>
         {hasRoots && (
@@ -430,7 +444,7 @@ function BlocksTab({ orgChartId, positions, departments, loading }) {
             <p className="text-sm text-slate-400">Cadastre cargos na aba Nomenclatura e Estrutura para montar o organograma.</p>
           </div>
         ) : (
-          <OrgChartBlocks positions={positions} departments={departments} />
+          <OrgChartTree positions={positions} departments={departments} classNames={HORIZONTAL_TREE_CLASS_NAMES} />
         )}
       </div>
     </div>

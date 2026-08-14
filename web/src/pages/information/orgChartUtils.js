@@ -54,37 +54,3 @@ export function buildPositionTree(positions) {
 
   return { roots, childrenMap, extraLinks }
 }
-
-// Monta a visão "Organograma por blocos": pra cada raiz (ex: Diretoria
-// Executiva, o cargo do qual todos os outros dependem direta ou
-// indiretamente), os filhos diretos dela — a "2ª linha", na mesma ordem de
-// cadastro — viram cada um uma "pilha" separada. Cada pilha carrega a
-// sub-lista de cargos (o cabeçalho + todo o ramo abaixo dele) pronta pra
-// virar uma mini-árvore própria (mesmas caixinhas e linhas de conexão do
-// OrgChartTree), já que o cabeçalho perde o superior original assim que sai
-// da lista completa — o buildPositionTree passa a tratá-lo como raiz dessa
-// sub-lista automaticamente.
-export function buildPositionBlocks(positions) {
-  const { roots, childrenMap } = buildPositionTree(positions)
-  const byId = new Map(positions.map((p) => [p.id, p]))
-
-  const collectSubtree = (nodeId, visited) => {
-    const node = byId.get(nodeId)
-    const result = node ? [node] : []
-    ;(childrenMap.get(nodeId) || []).forEach((child) => {
-      if (visited.has(child.id)) return
-      const nextVisited = new Set(visited)
-      nextVisited.add(child.id)
-      result.push(...collectSubtree(child.id, nextVisited))
-    })
-    return result
-  }
-
-  return roots.map((root) => ({
-    root,
-    blocks: (childrenMap.get(root.id) || []).map((header) => ({
-      header,
-      positions: collectSubtree(header.id, new Set([root.id, header.id])),
-    })),
-  }))
-}

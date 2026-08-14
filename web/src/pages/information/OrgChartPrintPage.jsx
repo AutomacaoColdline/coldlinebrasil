@@ -4,7 +4,6 @@ import { ArrowLeft, Download, ImageDown, Loader2, Maximize, Shrink } from 'lucid
 import { toCanvas } from 'html-to-image'
 import { informationApi } from '../../services/informationApi'
 import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
-import { OrgChartBlocks } from './OrgChartBlocks'
 import coldlineLogo from '../../assets/coldline-logo-white.svg'
 
 const PRINT_TREE_CLASS_NAMES = {
@@ -15,13 +14,14 @@ const PRINT_TREE_CLASS_NAMES = {
   links: 'org-print-tree-links',
 }
 
-const PRINT_BLOCKS_CLASS_NAMES = {
-  wrapper: 'org-print-blocks',
-  group: 'org-print-blocks-group',
-  root: 'org-print-blocks-root',
-  stackList: 'org-print-blocks-stack-list',
-  stack: 'org-print-blocks-stack',
-  empty: 'org-print-blocks-empty',
+// "Organograma por blocos": a mesma árvore, só que deitada — ver
+// .org-print-htree no <style> mais abaixo.
+const PRINT_HORIZONTAL_TREE_CLASS_NAMES = {
+  tree: 'org-print-htree',
+  card: 'org-print-card',
+  cardName: 'org-print-card-name',
+  cardArea: 'org-print-card-area',
+  links: 'org-print-tree-links',
 }
 
 const PAGE_MARGIN_MM = 12
@@ -284,7 +284,7 @@ export default function OrgChartPrintPage() {
 
           <div className="org-print-body">
             <h1 className="org-print-title">{title}</h1>
-            {!loading && !isBlocks && hasExtraSuperiorLinks(positions) && (
+            {!loading && hasExtraSuperiorLinks(positions) && (
               <p className="org-print-legend">Linha pontilhada com seta = também subordinado ao cargo de origem da seta</p>
             )}
 
@@ -294,18 +294,11 @@ export default function OrgChartPrintPage() {
               </div>
             ) : positions.length === 0 ? (
               <p className="org-print-empty">Nenhum cargo cadastrado.</p>
-            ) : isBlocks ? (
-              <OrgChartBlocks
-                positions={positions}
-                departments={departments}
-                classNames={PRINT_BLOCKS_CLASS_NAMES}
-                treeClassNames={PRINT_TREE_CLASS_NAMES}
-              />
             ) : (
               <OrgChartTree
                 positions={positions}
                 departments={departments}
-                classNames={PRINT_TREE_CLASS_NAMES}
+                classNames={isBlocks ? PRINT_HORIZONTAL_TREE_CLASS_NAMES : PRINT_TREE_CLASS_NAMES}
                 scale={isFull ? 1 : scale}
               />
             )}
@@ -498,58 +491,88 @@ export default function OrgChartPrintPage() {
           word-break: break-word;
         }
 
-        /* Organograma por blocos: raiz como rótulo no topo + uma "pilha"
-           por cargo da 2ª linha — cada pilha é a própria mini-árvore desse
-           ramo (mesmas caixinhas/linhas do .org-print-tree normal),
-           empilhadas na vertical — ver OrgChartBlocks.jsx. */
-        .org-print-blocks {
+        /* Organograma por blocos: a mesma árvore da impressão normal
+           (.org-print-tree), só que deitada — raiz na esquerda, uma linha
+           desce por todos os cargos abaixo dela e ramifica pra direita a
+           cada nível. Mesma técnica do .org-print-tree (cada <li> desenha
+           seu próprio "cotovelo" com ::before/::after), só que os eixos
+           trocados: a lista de irmãos empilha na vertical (em vez de lado
+           a lado) e a linha de conexão cresce pra direita (em vez de para
+           baixo). */
+        .org-print-htree {
+          display: flex;
+          align-items: center;
+          padding: 8px 0 24px;
+        }
+
+        .org-print-htree ul {
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 22px;
-          min-width: max-content;
-          padding-bottom: 24px;
+          justify-content: center;
+          padding-left: 28px;
+          position: relative;
+          margin: 0;
         }
 
-        .org-print-blocks-group {
+        .org-print-htree li {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          gap: 20px;
+          list-style-type: none;
+          position: relative;
+          padding: 4px 0 4px 28px;
         }
 
-        .org-print-blocks-root {
-          display: inline-flex;
-          align-items: center;
-          padding: 10px 24px;
-          border-radius: 10px;
-          background: #1b2a6b;
-          color: #fff;
-          font-size: 0.85rem;
-          font-weight: 700;
-          letter-spacing: 0.01em;
+        .org-print-htree li::before,
+        .org-print-htree li::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          width: 28px;
+          border-left: 2px solid #93c5fd;
         }
 
-        .org-print-blocks-stack-list {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 36px;
+        .org-print-htree li::before {
+          top: 0;
+          bottom: 50%;
         }
 
-        .org-print-blocks-stack {
-          padding-top: 4px;
-          border-top: 1px dashed #bfdbfe;
+        .org-print-htree li::after {
+          top: 50%;
+          bottom: 0;
+          border-top: 2px solid #93c5fd;
         }
 
-        .org-print-blocks-stack:first-child {
-          border-top: 0 none;
-          padding-top: 0;
+        .org-print-htree li:only-child::before,
+        .org-print-htree li:only-child::after {
+          display: none;
         }
 
-        .org-print-blocks-empty {
-          font-size: 0.75rem;
-          color: #94a3b8;
+        .org-print-htree li:only-child {
+          padding-left: 0;
+        }
+
+        .org-print-htree li:first-child::before,
+        .org-print-htree li:last-child::after {
+          border: 0 none;
+        }
+
+        .org-print-htree li:last-child::before {
+          border-bottom: 2px solid #93c5fd;
+          border-radius: 0 0 0 6px;
+        }
+
+        .org-print-htree li:first-child::after {
+          border-radius: 6px 0 0 0;
+        }
+
+        .org-print-htree ul ul::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          height: 0;
+          width: 28px;
+          border-top: 2px solid #93c5fd;
         }
 
         @media print {
@@ -575,11 +598,6 @@ export default function OrgChartPrintPage() {
           }
 
           .org-print-card {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-
-          .org-print-blocks-root {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
