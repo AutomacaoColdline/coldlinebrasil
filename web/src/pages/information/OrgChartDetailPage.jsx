@@ -6,8 +6,8 @@ import {
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import { ConfirmModal } from './OrgChartShared'
-import { OrgChartTree } from './OrgChartTree'
-import { hasExtraSuperiorLinks, sortDepartments, sortPositions } from './orgChartUtils'
+import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
+import { sortDepartments, sortPositions } from './orgChartUtils'
 
 const TABS = [
   { id: 'structure', label: 'Nomenclatura e Estrutura', icon: ClipboardList },
@@ -15,7 +15,7 @@ const TABS = [
 ]
 
 function emptyPositionForm() {
-  return { name: '', parentId: '', parentId2: '', parentId3: '', departmentId: '', line: '' }
+  return { name: '', parentId: '', parentId2: '', parentId3: '', departmentId: '' }
 }
 
 function DepartmentTags({ departments, positions, orgChartId, reload }) {
@@ -163,7 +163,6 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
       parentId2: item.parentId2 || '',
       parentId3: item.parentId3 || '',
       departmentId: item.departmentId || '',
-      line: item.line ? String(item.line) : '',
     })
     setSaveError(null)
     setIsModalOpen(true)
@@ -198,13 +197,6 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
       options: parentOptions,
       placeholder: 'Sem 3º superior',
     },
-    {
-      key: 'line',
-      label: 'Linha no organograma (opcional)',
-      type: 'number',
-      min: 1,
-      placeholder: 'Automática (linha do superior + 1)',
-    },
   ]
 
   const handleSave = async () => {
@@ -213,14 +205,12 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
     try {
       // Ignora superiores repetidos (ex: mesmo cargo escolhido em 2 e 3).
       const chosenParentIds = [...new Set([form.parentId, form.parentId2, form.parentId3].filter(Boolean))]
-      const lineValue = Number(form.line)
       const payload = {
         name: form.name,
         parentId: chosenParentIds[0] || null,
         parentId2: chosenParentIds[1] || null,
         parentId3: chosenParentIds[2] || null,
         departmentId: form.departmentId || null,
-        line: form.line !== '' && lineValue > 0 ? lineValue : null,
         orgChartId,
       }
       if (editing?.id) await informationApi.updatePosition(editing.id, payload)
@@ -314,11 +304,6 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
                         return superiorNames.length > 0 ? `Abaixo de: ${superiorNames.join(', ')}` : 'Nivel mais alto'
                       })()}
                     </span>
-                    {item.line > 0 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-medium">
-                        Linha {item.line}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">

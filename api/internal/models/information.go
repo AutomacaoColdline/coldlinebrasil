@@ -171,11 +171,6 @@ type InformationPosition struct {
 	// cadastro (definida em CreatePosition) e pode ser alterada arrastando/
 	// movendo o cargo na lista (ver ReorderPositions).
 	OrderIndex int `gorm:"column:order_index" json:"orderIndex"`
-	// Linha (fileira) onde o cargo aparece no organograma. Quando nil, a
-	// linha e calculada automaticamente (linha do superior principal + 1,
-	// raiz = 1). Preencher manualmente fixa o cargo numa fileira especifica
-	// sem afetar a hierarquia (ver buildPositionRows em orgChartUtils.js).
-	Line *int `gorm:"column:line" json:"line"`
 }
 
 func (InformationPosition) TableName() string { return "information_positions" }

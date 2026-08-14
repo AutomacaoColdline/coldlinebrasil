@@ -31,34 +31,86 @@
   color: #64748b;
 }
 
-/* Árvore do organograma: uma linha (fileira) por vez, empilhadas. As
-   ligações entre cards (superior principal e superior extra) não vêm mais
-   de bordas do <li> — são desenhadas por cima, num overlay SVG (ver
-   OrgChartTree.jsx). */
 .org-tree {
+  display: flex;
+  justify-content: center;
+  min-width: max-content;
+  padding: 0 1rem;
+}
+
+.org-tree ul {
+  display: flex;
+  justify-content: center;
+  padding-top: 24px;
+  position: relative;
+  margin: 0;
+}
+
+.org-tree li {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 40px;
-  min-width: max-content;
-  padding: 24px 1rem 0;
+  list-style-type: none;
+  position: relative;
+  padding: 22px 8px 0 8px;
 }
 
-.org-tree-row {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
+.org-tree li::before,
+.org-tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 22px;
+  border-top: 2px solid #cbd5e1;
 }
 
-.org-tree-link-primary {
-  stroke: #cbd5e1;
-  stroke-width: 2;
+.org-tree li::after {
+  right: auto;
+  left: 50%;
+  border-left: 2px solid #cbd5e1;
 }
 
-.org-tree-link-secondary {
-  stroke: #f59e0b;
+.org-tree li:only-child::before,
+.org-tree li:only-child::after {
+  display: none;
+}
+
+.org-tree li:only-child {
+  padding-top: 0;
+}
+
+.org-tree li:first-child::before,
+.org-tree li:last-child::after {
+  border: 0 none;
+}
+
+.org-tree li:last-child::before {
+  border-right: 2px solid #cbd5e1;
+  border-radius: 0 6px 0 0;
+}
+
+.org-tree li:first-child::after {
+  border-radius: 6px 0 0 0;
+}
+
+.org-tree ul ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 22px;
+  border-left: 2px solid #cbd5e1;
+}
+
+.org-tree-links {
+  color: #f59e0b;
+}
+
+.org-tree-links line {
+  stroke: currentColor;
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -96,8 +148,11 @@
   word-break: break-word;
 }
 
-.info-dark .org-tree-link-primary {
-  stroke: #475569;
+.info-dark .org-tree li::before,
+.info-dark .org-tree li::after,
+.info-dark .org-tree li:last-child::before,
+.info-dark .org-tree ul ul::before {
+  border-color: #475569;
 }
 
 .info-dark .org-card {
