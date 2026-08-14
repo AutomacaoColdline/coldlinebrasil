@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Download, Loader2, Maximize, Shrink } from 'lucide-react'
+import { ArrowLeft, Download, ImageDown, Loader2, Maximize, Shrink } from 'lucide-react'
+import { toCanvas } from 'html-to-image'
 import { informationApi } from '../../services/informationApi'
 import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
 import coldlineLogo from '../../assets/coldline-logo-white.svg'
@@ -38,6 +39,12 @@ const FIT_PAGE_SIZES_MM = {
   a2: { width: 420, height: 594 },
 }
 
+// Resolução do PNG baixado (independente do zoom/escala da tela — a página
+// só usa 96dpi como referência de CSS, aqui é a densidade real do arquivo).
+// 200dpi já fica nítido numa impressão grande de plotter/gráfica sem gerar
+// um arquivo gigante (num A2 dá uma imagem de ~3300 x 4675px).
+const IMAGE_EXPORT_DPI = 200
+
 export default function OrgChartPrintPage() {
   const { orgChartId } = useParams()
 
@@ -52,6 +59,7 @@ export default function OrgChartPrintPage() {
   const [mode, setMode] = useState('full')
   const [scale, setScale] = useState(1)
   const [pageSizeMM, setPageSizeMM] = useState({ width: 210, height: 297 })
+  const [downloadingImage, setDownloadingImage] = useState(false)
   const sheetRef = useRef(null)
   const pageRef = useRef(null)
   const pageStyleRef = useRef(null)
@@ -120,6 +128,68 @@ export default function OrgChartPrintPage() {
 
   const pageHeight = !isFull && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
 
+  // Gera um PNG do organograma encolhido pra caber numa folha A2 (mesma
+  // matemática de "fit" da impressão, só que renderizada num DPI de
+  // verdade em vez de escalada por CSS) e centralizado numa página em
+  // branco A2 — o equivalente em imagem do modo "Ajustar em A2". Ignora o
+  // modo/escala que estiver ativo na tela: sempre recalcula do zero pra
+  // dar o mesmo resultado não importa qual aba estiver selecionada.
+  const handleDownloadImage = async () => {
+    const sheet = sheetRef.current
+    if (!sheet || downloadingImage) return
+    setDownloadingImage(true)
+
+    // Captura sempre em escala natural (sem o transform de zoom da tela,
+    // se houver algum aplicado no momento), pra não capturar em cima de um
+    // encolhimento que já foi feito por CSS.
+    const previousTransform = sheet.style.transform
+    sheet.style.transform = 'none'
+
+    try {
+      const naturalWidth = sheet.scrollWidth
+      const naturalHeight = sheet.scrollHeight
+      const { width: pageWidthMM, height: pageHeightMM } = FIT_PAGE_SIZES_MM.a2
+      const mmToOutPx = IMAGE_EXPORT_DPI / 25.4
+      const pageWidthPx = Math.round(pageWidthMM * mmToOutPx)
+      const pageHeightPx = Math.round(pageHeightMM * mmToOutPx)
+      const marginPx = Math.round(PAGE_MARGIN_MM * mmToOutPx)
+      const printableWidthPx = pageWidthPx - marginPx * 2
+      const printableHeightPx = pageHeightPx - marginPx * 2
+      const contentScale =
+        Math.min(printableWidthPx / naturalWidth, printableHeightPx / naturalHeight) * 0.98
+
+      const sheetCanvas = await toCanvas(sheet, {
+        pixelRatio: contentScale,
+        backgroundColor: '#ffffff',
+      })
+
+      const pageCanvas = document.createElement('canvas')
+      pageCanvas.width = pageWidthPx
+      pageCanvas.height = pageHeightPx
+      const ctx = pageCanvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, pageWidthPx, pageHeightPx)
+      ctx.drawImage(sheetCanvas, Math.round((pageWidthPx - sheetCanvas.width) / 2), marginPx)
+
+      const blob = await new Promise((resolve) => pageCanvas.toBlob(resolve, 'image/png'))
+      const fileSlug = (title || 'organograma').trim().replace(/[^\p{L}\p{N}]+/gu, '-')
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileSlug}-A2.png`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Falha ao gerar imagem do organograma', err)
+      window.alert('Não foi possível gerar a imagem. Tente novamente.')
+    } finally {
+      sheet.style.transform = previousTransform
+      setDownloadingImage(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
       <div className="print:hidden sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -157,6 +227,14 @@ export default function OrgChartPrintPage() {
               <Shrink size={13} /> Ajustar em A2
             </button>
           </div>
+          <button
+            onClick={handleDownloadImage}
+            disabled={loading || downloadingImage}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-60"
+          >
+            {downloadingImage ? <Loader2 size={15} className="animate-spin" /> : <ImageDown size={15} />}
+            Baixar imagem (A2)
+          </button>
           <button
             onClick={() => window.print()}
             disabled={loading}
