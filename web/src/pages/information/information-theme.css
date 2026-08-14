@@ -164,62 +164,92 @@
   color: #f8fafc;
 }
 
-/* Organograma por blocos: raiz (ex: Diretoria Executiva) como rótulo no
-   topo + uma "pilha" por cargo da 2ª linha — cada pilha é a própria
-   mini-árvore desse ramo (mesmas caixinhas/linhas do .org-tree normal),
-   empilhadas na vertical em vez de uma árvore só espalhada na horizontal —
-   ver OrgChartBlocks.jsx. */
-.org-blocks {
+/* Organograma por blocos: a mesma árvore da aba "Organograma" (.org-tree),
+   só que deitada — raiz na esquerda, uma linha desce por todos os cargos
+   abaixo dela e ramifica pra direita a cada nível. Mesma técnica do
+   .org-tree (cada <li> desenha seu próprio "cotovelo" com ::before/::after),
+   só que os eixos trocados: os irmãos empilham na vertical (em vez de lado
+   a lado) e a linha de conexão cresce pra direita (em vez de para baixo). */
+.org-htree {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  min-height: max-content;
+}
+
+.org-htree ul {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  min-width: max-content;
-  padding: 0 1rem;
+  justify-content: center;
+  padding-left: 28px;
+  position: relative;
+  margin: 0;
 }
 
-.org-blocks-group {
+.org-htree li {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 18px;
+  list-style-type: none;
+  position: relative;
+  padding: 4px 0 4px 28px;
 }
 
-.org-blocks-root {
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 24px;
-  border-radius: 12px;
-  background: #ec4899;
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+.org-htree li::before,
+.org-htree li::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 28px;
+  border-left: 2px solid #cbd5e1;
 }
 
-.org-blocks-stack-list {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 36px;
+.org-htree li::before {
+  top: 0;
+  bottom: 50%;
 }
 
-.org-blocks-stack {
-  padding-top: 4px;
-  border-top: 1px dashed #fbcfe8;
+.org-htree li::after {
+  top: 50%;
+  bottom: 0;
+  border-top: 2px solid #cbd5e1;
 }
 
-.org-blocks-stack:first-child {
-  border-top: 0 none;
-  padding-top: 0;
+.org-htree li:only-child::before,
+.org-htree li:only-child::after {
+  display: none;
 }
 
-.org-blocks-empty {
-  font-size: 0.75rem;
-  color: #94a3b8;
+.org-htree li:only-child {
+  padding-left: 0;
 }
 
-.info-dark .org-blocks-stack {
-  border-color: rgba(244, 114, 182, 0.3);
+.org-htree li:first-child::before,
+.org-htree li:last-child::after {
+  border: 0 none;
+}
+
+.org-htree li:last-child::before {
+  border-bottom: 2px solid #cbd5e1;
+  border-radius: 0 0 0 6px;
+}
+
+.org-htree li:first-child::after {
+  border-radius: 6px 0 0 0;
+}
+
+.org-htree ul ul::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 0;
+  width: 28px;
+  border-top: 2px solid #cbd5e1;
+}
+
+.info-dark .org-htree li::before,
+.info-dark .org-htree li::after,
+.info-dark .org-htree li:last-child::before,
+.info-dark .org-htree ul ul::before {
+  border-color: #475569;
 }
