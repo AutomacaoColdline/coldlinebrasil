@@ -835,9 +835,10 @@ func (h *InformationHandler) GetPositions(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var items []models.InformationPosition
-	// Ordem de cadastro (nao alfabetica), pra respeitar a ordem em que os
-	// cargos foram criados ao montar o organograma.
-	q := h.positionRepo.Q(ctx).Order("created_at ASC")
+	// Ordem de exibicao (nao alfabetica): comeca na ordem de cadastro e pode
+	// ser alterada pelo usuario (ReorderPositions). "created_at ASC" e so um
+	// desempate pra cargos antigos que ainda estao todos com order_index 0.
+	q := h.positionRepo.Q(ctx).Order("order_index ASC, created_at ASC")
 	if orgChartID := strings.TrimSpace(c.Query("orgChartId")); orgChartID != "" {
 		q = q.Where("org_chart_id = ?", orgChartID)
 	}
@@ -876,6 +877,12 @@ func (h *InformationHandler) CreatePosition(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	var count int64
+	if err := h.positionRepo.Q(ctx).Where("org_chart_id = ?", *item.OrgChartID).Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	item.OrderIndex = int(count)
 	if err := h.positionRepo.Create(ctx, &item); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -944,6 +951,28 @@ func (h *InformationHandler) DeletePosition(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deletado"})
+}
+
+// ReorderPositions recebe a lista de ids na ordem desejada e grava o indice
+// de cada um como order_index — usado pra "arrastar"/mover cargos na lista e
+// no organograma (que respeita essa ordem, e nao mais a ordem alfabetica).
+func (h *InformationHandler) ReorderPositions(c *gin.Context) {
+	var payload struct {
+		Order []string `json:"order"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for index, id := range payload.Order {
+		if err := h.positionRepo.Q(ctx).Where("id = ?", id).Update("order_index", index).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Reordenado"})
 }
 
 func (h *InformationHandler) GetOrgDepartments(c *gin.Context) {

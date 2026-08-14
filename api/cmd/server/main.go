@@ -289,6 +289,7 @@ func main() {
 		info.POST("/positions", informationHandler.CreatePosition)
 		info.PUT("/positions/:id", informationHandler.UpdatePosition)
 		info.DELETE("/positions/:id", informationHandler.DeletePosition)
+		info.POST("/positions/reorder", informationHandler.ReorderPositions)
 		info.GET("/org-departments", informationHandler.GetOrgDepartments)
 		info.GET("/org-departments/:id", informationHandler.GetOrgDepartmentByID)
 		info.POST("/org-departments", informationHandler.CreateOrgDepartment)

@@ -163,6 +163,10 @@ type InformationPosition struct {
 	ParentID2    *string   `gorm:"column:parent_id_2" json:"parentId2"`
 	ParentID3    *string   `gorm:"column:parent_id_3" json:"parentId3"`
 	DepartmentID *string   `gorm:"column:department_id" json:"departmentId"`
+	// Ordem de exibicao (na lista e no organograma). Comeca na ordem de
+	// cadastro (definida em CreatePosition) e pode ser alterada arrastando/
+	// movendo o cargo na lista (ver ReorderPositions).
+	OrderIndex int `gorm:"column:order_index" json:"orderIndex"`
 }
 
 func (InformationPosition) TableName() string { return "information_positions" }

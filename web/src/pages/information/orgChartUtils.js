@@ -3,12 +3,14 @@
 // impressão (OrgChartPrintPage), para não duplicar a lógica de
 // ordenação/montagem da árvore nos vários lugares.
 
-export function sortByName(list) {
-  return [...list].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-}
-
 export function sortDepartments(departments) {
   return [...departments].sort((a, b) => a.orderIndex - b.orderIndex)
+}
+
+// Cargos aparecem na ordem de cadastro/reordenação manual (orderIndex),
+// nunca alfabética — tanto na lista da aba "Estrutura" quanto no organograma.
+export function sortPositions(positions) {
+  return [...positions].sort((a, b) => a.orderIndex - b.orderIndex)
 }
 
 // Um cargo pode ter até 3 "superiores" (parentId, parentId2, parentId3),

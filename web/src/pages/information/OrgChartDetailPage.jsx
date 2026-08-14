@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  ArrowLeft, ClipboardList, Edit, Loader2, Maximize2, Network, Plus, Tag, Trash2, Workflow, X,
+  ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Edit, Loader2, Maximize2, Network, Plus, Tag, Trash2, Workflow, X,
 } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import { ConfirmModal } from './OrgChartShared'
 import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
-import { sortByName, sortDepartments } from './orgChartUtils'
+import { sortDepartments, sortPositions } from './orgChartUtils'
 
 const TABS = [
   { id: 'structure', label: 'Nomenclatura e Estrutura', icon: ClipboardList },
@@ -126,11 +126,27 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
   const [deleting, setDeleting] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState(emptyPositionForm)
+  const [reorderingId, setReorderingId] = useState(null)
 
   const positionsById = useMemo(() => new Map(positions.map((p) => [p.id, p])), [positions])
   const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
-  const sortedPositions = useMemo(() => sortByName(positions), [positions])
+  const sortedPositions = useMemo(() => sortPositions(positions), [positions])
   const sortedDepartments = useMemo(() => sortDepartments(departments), [departments])
+
+  const moveItem = async (index, direction) => {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= sortedPositions.length) return
+    const reordered = [...sortedPositions]
+    const [moved] = reordered.splice(index, 1)
+    reordered.splice(targetIndex, 0, moved)
+    setReorderingId(moved.id)
+    try {
+      await informationApi.reorderPositions(reordered.map((p) => p.id))
+      await reload()
+    } finally {
+      setReorderingId(null)
+    }
+  }
 
   const openNew = () => {
     setEditing(null)
@@ -252,9 +268,27 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {sortedPositions.map((item) => (
+            {sortedPositions.map((item, index) => (
               <div key={item.id} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors">
-                <div className="min-w-0">
+                <div className="flex flex-col flex-shrink-0">
+                  <button
+                    onClick={() => moveItem(index, -1)}
+                    disabled={index === 0 || !!reorderingId}
+                    title="Mover para cima"
+                    className="w-6 h-5 flex items-center justify-center text-slate-400 hover:text-pink-500 disabled:opacity-30 disabled:hover:text-slate-400"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => moveItem(index, 1)}
+                    disabled={index === sortedPositions.length - 1 || !!reorderingId}
+                    title="Mover para baixo"
+                    className="w-6 h-5 flex items-center justify-center text-slate-400 hover:text-pink-500 disabled:opacity-30 disabled:hover:text-slate-400"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {item.departmentId && departmentsById.get(item.departmentId) && (
