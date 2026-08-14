@@ -52,7 +52,7 @@
   align-items: center;
   list-style-type: none;
   position: relative;
-  padding: 24px 10px 0 10px;
+  padding: 22px 8px 0 8px;
 }
 
 .org-tree li::before,
@@ -62,7 +62,7 @@
   top: 0;
   right: 50%;
   width: 50%;
-  height: 24px;
+  height: 22px;
   border-top: 2px solid #cbd5e1;
 }
 
@@ -101,30 +101,47 @@
   top: 0;
   left: 50%;
   width: 0;
-  height: 24px;
+  height: 22px;
   border-left: 2px solid #cbd5e1;
 }
 
+.org-tree-links line {
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/* Cards compactos: quebram o texto em vez de esticar a largura, pra caber
+   mais colunas lado a lado sem o organograma ficar gigante na horizontal. */
 .org-card {
-  display: inline-block;
-  padding: 10px 16px;
-  border-radius: 14px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 88px;
+  max-width: 132px;
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 1px solid #fbcfe8;
   background: #fdf2f8;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  white-space: nowrap;
 }
 
 .org-card-name {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: #1e293b;
+  line-height: 1.2;
+  text-align: center;
+  word-break: break-word;
 }
 
 .org-card-area {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: #ec4899;
   margin-top: 2px;
+  line-height: 1.15;
+  text-align: center;
+  word-break: break-word;
 }
 
 .info-dark .org-tree li::before,

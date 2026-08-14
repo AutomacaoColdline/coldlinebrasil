@@ -11,21 +11,44 @@ export function sortDepartments(departments) {
   return [...departments].sort((a, b) => a.orderIndex - b.orderIndex)
 }
 
-// Monta a árvore de cargos (raízes + mapa de filhos por id do cargo pai),
-// tratando cargos com parentId inválido/ciclico como raiz.
+// Um cargo pode ter até 3 "superiores" (parentId, parentId2, parentId3),
+// pois na prática um departamento às vezes responde a mais de um "mestre".
+// O primeiro superior válido de cada cargo é o vínculo "principal" — decide
+// onde o card fica posicionado na árvore. Os demais viram "vínculos extras",
+// desenhados como linhas pontilhadas adicionais por cima da árvore (ver
+// OrgChartTree.jsx).
+function parentCandidates(position) {
+  return [position.parentId, position.parentId2, position.parentId3].filter(Boolean)
+}
+
+// Monta a árvore de cargos (raízes + mapa de filhos por id do cargo pai +
+// lista de vínculos extras pra desenhar como linha pontilhada), mantendo a
+// ordem de cadastro (ordem em que os itens chegam em `positions`) em vez de
+// ordenar por nome. Cargos com todos os superiores inválidos/cíclicos viram
+// raiz.
 export function buildPositionTree(positions) {
   const byId = new Map(positions.map((p) => [p.id, p]))
   const childrenMap = new Map()
   const roots = []
-  positions.forEach((p) => {
-    if (p.parentId && p.parentId !== p.id && byId.has(p.parentId)) {
-      if (!childrenMap.has(p.parentId)) childrenMap.set(p.parentId, [])
-      childrenMap.get(p.parentId).push(p)
+  const extraLinks = []
+
+  positions.forEach((position) => {
+    const validParentIds = [...new Set(parentCandidates(position))].filter(
+      (parentId) => parentId !== position.id && byId.has(parentId),
+    )
+    const [primaryParentId, ...secondaryParentIds] = validParentIds
+
+    if (primaryParentId) {
+      if (!childrenMap.has(primaryParentId)) childrenMap.set(primaryParentId, [])
+      childrenMap.get(primaryParentId).push(position)
     } else {
-      roots.push(p)
+      roots.push(position)
     }
+
+    secondaryParentIds.forEach((parentId) => {
+      extraLinks.push({ parentId, childId: position.id })
+    })
   })
-  childrenMap.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
-  roots.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-  return { roots, childrenMap }
+
+  return { roots, childrenMap, extraLinks }
 }

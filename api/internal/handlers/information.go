@@ -835,7 +835,9 @@ func (h *InformationHandler) GetPositions(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var items []models.InformationPosition
-	q := h.positionRepo.Q(ctx).Order("name ASC")
+	// Ordem de cadastro (nao alfabetica), pra respeitar a ordem em que os
+	// cargos foram criados ao montar o organograma.
+	q := h.positionRepo.Q(ctx).Order("created_at ASC")
 	if orgChartID := strings.TrimSpace(c.Query("orgChartId")); orgChartID != "" {
 		q = q.Where("org_chart_id = ?", orgChartID)
 	}
@@ -863,6 +865,12 @@ func (h *InformationHandler) CreatePosition(c *gin.Context) {
 	if item.ParentID != nil && strings.TrimSpace(*item.ParentID) == "" {
 		item.ParentID = nil
 	}
+	if item.ParentID2 != nil && strings.TrimSpace(*item.ParentID2) == "" {
+		item.ParentID2 = nil
+	}
+	if item.ParentID3 != nil && strings.TrimSpace(*item.ParentID3) == "" {
+		item.ParentID3 = nil
+	}
 	if item.DepartmentID != nil && strings.TrimSpace(*item.DepartmentID) == "" {
 		item.DepartmentID = nil
 	}
@@ -885,14 +893,20 @@ func (h *InformationHandler) UpdatePosition(c *gin.Context) {
 	// Cargo nao pode trocar de organograma por essa rota generica.
 	delete(payload, "orgChartId")
 	id := c.Param("id")
-	if parentID, ok := payload["parentId"]; ok {
-		if parentStr, isString := parentID.(string); isString {
-			if strings.TrimSpace(parentStr) == "" {
-				payload["parentId"] = nil
-			} else if parentStr == id {
-				c.JSON(http.StatusBadRequest, gin.H{"message": "Um cargo nao pode ser superior de si mesmo"})
-				return
-			}
+	for _, key := range []string{"parentId", "parentId2", "parentId3"} {
+		value, ok := payload[key]
+		if !ok {
+			continue
+		}
+		valueStr, isString := value.(string)
+		if !isString {
+			continue
+		}
+		if strings.TrimSpace(valueStr) == "" {
+			payload[key] = nil
+		} else if valueStr == id {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Um cargo nao pode ser superior de si mesmo"})
+			return
 		}
 	}
 	if departmentID, ok := payload["departmentId"]; ok {
@@ -914,6 +928,14 @@ func (h *InformationHandler) DeletePosition(c *gin.Context) {
 	defer cancel()
 	id := c.Param("id")
 	if err := h.positionRepo.Q(ctx).Where("parent_id = ?", id).Update("parent_id", nil).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	if err := h.positionRepo.Q(ctx).Where("parent_id_2 = ?", id).Update("parent_id_2", nil).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	if err := h.positionRepo.Q(ctx).Where("parent_id_3 = ?", id).Update("parent_id_3", nil).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}

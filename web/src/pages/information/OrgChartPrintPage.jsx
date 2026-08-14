@@ -2,8 +2,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Loader2, Maximize, Shrink } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
-import { buildPositionTree } from './orgChartUtils'
+import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
 import coldlineLogo from '../../assets/coldline-logo-white.svg'
+
+const PRINT_TREE_CLASS_NAMES = {
+  tree: 'org-print-tree',
+  card: 'org-print-card',
+  cardName: 'org-print-card-name',
+  cardArea: 'org-print-card-area',
+  links: 'org-print-tree-links',
+}
 
 const PAGE_MARGIN_MM = 12
 const MM_TO_PX = 96 / 25.4
@@ -21,30 +29,6 @@ const CUSTOM_PAGE_BUFFER_MM = 6
 // garantindo que o conteúdo nunca ultrapasse a largura disponível.
 const A4_PRINTABLE_WIDTH_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
 const A4_PRINTABLE_HEIGHT_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
-
-function PrintOrgNode({ node, childrenMap, departmentsById, visited }) {
-  if (visited.has(node.id)) return null
-  const nextVisited = new Set(visited)
-  nextVisited.add(node.id)
-  const children = childrenMap.get(node.id) || []
-  const departmentName = node.departmentId ? departmentsById.get(node.departmentId)?.name : null
-
-  return (
-    <li>
-      <div className="org-print-card">
-        <p className="org-print-card-name">{node.name}</p>
-        {departmentName && <p className="org-print-card-area">{departmentName}</p>}
-      </div>
-      {children.length > 0 && (
-        <ul>
-          {children.map((child) => (
-            <PrintOrgNode key={child.id} node={child} childrenMap={childrenMap} departmentsById={departmentsById} visited={nextVisited} />
-          ))}
-        </ul>
-      )}
-    </li>
-  )
-}
 
 export default function OrgChartPrintPage() {
   const { orgChartId } = useParams()
@@ -75,9 +59,6 @@ export default function OrgChartPrintPage() {
       })
       .finally(() => setLoading(false))
   }, [orgChartId])
-
-  const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
-  const { roots, childrenMap } = useMemo(() => buildPositionTree(positions), [positions])
 
   const generatedAt = useMemo(
     () => new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
@@ -192,21 +173,23 @@ export default function OrgChartPrintPage() {
 
           <div className="org-print-body">
             <h1 className="org-print-title">{title}</h1>
+            {!loading && hasExtraSuperiorLinks(positions) && (
+              <p className="org-print-legend">Linha pontilhada = também subordinado a este cargo</p>
+            )}
 
             {loading ? (
               <div className="py-24 flex items-center justify-center">
                 <Loader2 size={24} className="animate-spin text-blue-300" />
               </div>
-            ) : roots.length === 0 ? (
+            ) : positions.length === 0 ? (
               <p className="org-print-empty">Nenhum cargo cadastrado.</p>
             ) : (
-              <div className="org-print-tree">
-                <ul>
-                  {roots.map((root) => (
-                    <PrintOrgNode key={root.id} node={root} childrenMap={childrenMap} departmentsById={departmentsById} visited={new Set()} />
-                  ))}
-                </ul>
-              </div>
+              <OrgChartTree
+                positions={positions}
+                departments={departments}
+                classNames={PRINT_TREE_CLASS_NAMES}
+                scale={isFull ? 1 : scale}
+              />
             )}
           </div>
         </div>
@@ -292,7 +275,7 @@ export default function OrgChartPrintPage() {
           align-items: center;
           list-style-type: none;
           position: relative;
-          padding: 24px 10px 0 10px;
+          padding: 22px 8px 0 8px;
         }
 
         .org-print-tree li::before,
@@ -302,7 +285,7 @@ export default function OrgChartPrintPage() {
           top: 0;
           right: 50%;
           width: 50%;
-          height: 24px;
+          height: 22px;
           border-top: 2px solid #93c5fd;
         }
 
@@ -341,30 +324,56 @@ export default function OrgChartPrintPage() {
           top: 0;
           left: 50%;
           width: 0;
-          height: 24px;
+          height: 22px;
           border-left: 2px solid #93c5fd;
         }
 
+        .org-print-legend {
+          font-size: 0.7rem;
+          color: #64748b;
+          text-align: center;
+          margin-top: -20px;
+          margin-bottom: 16px;
+        }
+
+        .org-print-tree-links line {
+          stroke: #f59e0b;
+          stroke-width: 1.5;
+          stroke-dasharray: 4 3;
+        }
+
+        /* Cards compactos: quebram o texto em vez de esticar a largura,
+           pra caber mais colunas lado a lado sem o organograma ficar
+           gigante na horizontal. */
         .org-print-card {
-          display: inline-block;
-          padding: 10px 18px;
-          border-radius: 14px;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          min-width: 88px;
+          max-width: 132px;
+          padding: 8px 10px;
+          border-radius: 12px;
           border: 1px solid #bfdbfe;
           background: #eff6ff;
           box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-          white-space: nowrap;
         }
 
         .org-print-card-name {
-          font-size: 0.85rem;
+          font-size: 0.78rem;
           font-weight: 700;
           color: #1e3a8a;
+          line-height: 1.2;
+          text-align: center;
+          word-break: break-word;
         }
 
         .org-print-card-area {
-          font-size: 0.7rem;
+          font-size: 0.65rem;
           color: #2563eb;
           margin-top: 2px;
+          line-height: 1.15;
+          text-align: center;
+          word-break: break-word;
         }
 
         @media print {

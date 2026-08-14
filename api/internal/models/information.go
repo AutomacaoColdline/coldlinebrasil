@@ -148,6 +148,11 @@ type InformationOrgChart struct {
 
 func (InformationOrgChart) TableName() string { return "information_org_charts" }
 
+// Um cargo pode ter ate 3 "superiores" (ParentID + ParentID2 + ParentID3),
+// pois na pratica um departamento as vezes responde a mais de um "mestre".
+// ParentID e o vinculo principal — decide onde o card fica posicionado na
+// arvore. ParentID2/ParentID3 sao vinculos extras, desenhados como linhas
+// pontilhadas adicionais no organograma (ver orgChartUtils.js).
 type InformationPosition struct {
 	ID           string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
@@ -155,6 +160,8 @@ type InformationPosition struct {
 	Name         string    `json:"name"`
 	OrgChartID   *string   `gorm:"column:org_chart_id" json:"orgChartId"`
 	ParentID     *string   `gorm:"column:parent_id" json:"parentId"`
+	ParentID2    *string   `gorm:"column:parent_id_2" json:"parentId2"`
+	ParentID3    *string   `gorm:"column:parent_id_3" json:"parentId3"`
 	DepartmentID *string   `gorm:"column:department_id" json:"departmentId"`
 }
 
