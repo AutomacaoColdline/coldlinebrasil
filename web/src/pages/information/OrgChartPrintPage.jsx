@@ -23,12 +23,20 @@ const MM_TO_PX = 96 / 25.4
 // o que a tela mede e o que a impressão realmente renderiza.
 const CUSTOM_PAGE_BUFFER_MM = 6
 
-// Modo "Ajustar em A4": encolhe pra caber numa folha padrão. Usa as
-// medidas do RETRATO (a orientação padrão de qualquer caixa de
-// impressão/PDF — nem todo navegador respeita "size: landscape" do CSS),
+// Modos "Ajustar em A4"/"Ajustar em A2": encolhe pra caber numa folha
+// padrão. Usa as medidas do RETRATO (a orientação padrão de qualquer caixa
+// de impressão/PDF — nem todo navegador respeita "size: landscape" do CSS),
 // garantindo que o conteúdo nunca ultrapasse a largura disponível.
-const A4_PRINTABLE_WIDTH_PX = (210 - PAGE_MARGIN_MM * 2) * MM_TO_PX
-const A4_PRINTABLE_HEIGHT_PX = (297 - PAGE_MARGIN_MM * 2) * MM_TO_PX
+//
+// O A4 fica "solto" (não força @page size), deixando o usuário escolher o
+// papel/orientação na própria caixa de impressão. Já o A2 força o tamanho
+// exato da folha (420 x 594mm) via @page — como não é um papel padrão que
+// toda impressora/driver "Salvar como PDF" oferece na lista, forçar o
+// tamanho é o jeito de garantir que o PDF gerado saia nessas medidas.
+const FIT_PAGE_SIZES_MM = {
+  a4: { width: 210, height: 297 },
+  a2: { width: 420, height: 594 },
+}
 
 export default function OrgChartPrintPage() {
   const { orgChartId } = useParams()
@@ -39,6 +47,8 @@ export default function OrgChartPrintPage() {
   const [loading, setLoading] = useState(true)
   // 'full'  = página do PDF no tamanho exato do organograma (nada é cortado)
   // 'a4'    = encolhe pra caber numa folha A4 comum
+  // 'a2'    = encolhe pra caber numa folha A2 (42 x 59,4cm), forçando esse
+  //           tamanho exato no PDF/impressão
   const [mode, setMode] = useState('full')
   const [scale, setScale] = useState(1)
   const [pageSizeMM, setPageSizeMM] = useState({ width: 210, height: 297 })
@@ -89,7 +99,10 @@ export default function OrgChartPrintPage() {
         }
         setPageSizeMM({ width: widthMM, height: heightMM })
       } else {
-        const next = Math.min(A4_PRINTABLE_WIDTH_PX / naturalWidth, A4_PRINTABLE_HEIGHT_PX / naturalHeight, 1) * 0.97
+        const { width: fitWidthMM, height: fitHeightMM } = FIT_PAGE_SIZES_MM[mode]
+        const printableWidthPx = (fitWidthMM - PAGE_MARGIN_MM * 2) * MM_TO_PX
+        const printableHeightPx = (fitHeightMM - PAGE_MARGIN_MM * 2) * MM_TO_PX
+        const next = Math.min(printableWidthPx / naturalWidth, printableHeightPx / naturalHeight, 1) * 0.97
         el.style.transform = `scale(${next})`
         if (pageRef.current) pageRef.current.style.height = `${naturalHeight * next}px`
         setScale(next)
@@ -103,7 +116,7 @@ export default function OrgChartPrintPage() {
       window.removeEventListener('resize', recalc)
       window.removeEventListener('beforeprint', recalc)
     }
-  }, [isFull, loading, positions, departments])
+  }, [isFull, mode, loading, positions, departments])
 
   const pageHeight = !isFull && sheetRef.current ? sheetRef.current.scrollHeight * scale : undefined
 
@@ -130,10 +143,18 @@ export default function OrgChartPrintPage() {
             <button
               onClick={() => setMode('a4')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                !isFull ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                mode === 'a4' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <Shrink size={13} /> Ajustar em A4
+            </button>
+            <button
+              onClick={() => setMode('a2')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                mode === 'a2' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Shrink size={13} /> Ajustar em A2
             </button>
           </div>
           <button
@@ -149,6 +170,10 @@ export default function OrgChartPrintPage() {
       {isFull ? (
         <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
           O PDF sai numa única página no tamanho exato do organograma — nada fica de fora. Ideal pra depois imprimir grande (gráfica/plotter) ou reduzir na hora de imprimir.
+        </p>
+      ) : mode === 'a2' ? (
+        <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
+          Encolhe pra caber numa folha A2 (42 x 59,4cm) — o PDF já sai com esse tamanho exato de página, com a margem de {PAGE_MARGIN_MM}mm. Escolha "Salvar como PDF" na caixa de impressão.
         </p>
       ) : (
         <p className="print:hidden max-w-4xl mx-auto px-4 pt-3 text-xs text-slate-400 text-center">
@@ -405,13 +430,20 @@ export default function OrgChartPrintPage() {
         }
       `}</style>
 
-      {/* Regra @page dinâmica do modo "Documento completo" — num <style>
-          separado, depois do bloco estático (pra ter prioridade no CSS
-          cascade), e atualizada de forma imperativa (ver recalc acima) pra
-          garantir que o valor esteja certo mesmo se o "beforeprint" disparar
-          antes do React re-renderizar. */}
+      {/* Regra @page dinâmica dos modos "Documento completo" (tamanho
+          calculado do conteúdo, ver recalc acima) e "Ajustar em A2"
+          (tamanho fixo 420x594mm) — num <style> separado, depois do bloco
+          estático (pra ter prioridade no CSS cascade). O tamanho do modo
+          "Documento completo" é aplicado de forma imperativa dentro do
+          recalc além de declarado aqui, pra garantir que o valor esteja
+          certo mesmo se o "beforeprint" disparar antes do React
+          re-renderizar; o do A2 é fixo, não depende de medição. */}
       <style ref={pageStyleRef}>{
-        isFull ? `@media print { @page { size: ${pageSizeMM.width}mm ${pageSizeMM.height}mm; margin: ${PAGE_MARGIN_MM}mm; } }` : ''
+        isFull
+          ? `@media print { @page { size: ${pageSizeMM.width}mm ${pageSizeMM.height}mm; margin: ${PAGE_MARGIN_MM}mm; } }`
+          : mode === 'a2'
+            ? `@media print { @page { size: ${FIT_PAGE_SIZES_MM.a2.width}mm ${FIT_PAGE_SIZES_MM.a2.height}mm; margin: ${PAGE_MARGIN_MM}mm; } }`
+            : ''
       }</style>
     </div>
   )
