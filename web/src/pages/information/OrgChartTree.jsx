@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { buildPositionTree } from './orgChartUtils'
 
 // Ponto onde a reta entre os centros de dois retângulos cruza a borda de
@@ -72,6 +72,10 @@ const DEFAULT_CLASS_NAMES = {
 // coordenadas locais (pré-escala) que o SVG realmente usa.
 export function OrgChartTree({ positions, departments, classNames: classNamesProp, scale = 1, emptyMessage }) {
   const classNames = classNamesProp ? { ...DEFAULT_CLASS_NAMES, ...classNamesProp } : DEFAULT_CLASS_NAMES
+  // Id único da seta (marker) — evita colisão se a árvore renderizar mais de
+  // uma vez na mesma página (ex: sem isso, 2 instâncias disputariam o mesmo
+  // <marker id="...">).
+  const arrowId = `org-tree-arrow-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
   const { roots, childrenMap, extraLinks } = useMemo(() => buildPositionTree(positions), [positions])
 
@@ -140,8 +144,24 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
           height={svgSize.height}
           style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
         >
+          <defs>
+            {/* Seta só pra indicar a direção (do superior extra pro cargo
+                subordinado) — não muda o significado da linha pontilhada. */}
+            <marker
+              id={arrowId}
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              markerUnits="userSpaceOnUse"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L8,4 L0,8 Z" fill="currentColor" />
+            </marker>
+          </defs>
           {linkPaths.map((path) => (
-            <line key={path.key} x1={path.x} y1={path.y} x2={path.x2} y2={path.y2} />
+            <line key={path.key} x1={path.x} y1={path.y} x2={path.x2} y2={path.y2} markerEnd={`url(#${arrowId})`} />
           ))}
         </svg>
       )}

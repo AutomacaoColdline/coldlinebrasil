@@ -105,8 +105,12 @@
   border-left: 2px solid #cbd5e1;
 }
 
+.org-tree-links {
+  color: #f59e0b;
+}
+
 .org-tree-links line {
-  stroke: #f59e0b;
+  stroke: currentColor;
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
