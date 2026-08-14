@@ -405,7 +405,7 @@ export default function OrgChartDetailPage() {
   const [loadingDepartments, setLoadingDepartments] = useState(true)
 
   const [renaming, setRenaming] = useState(false)
-  const [renameForm, setRenameForm] = useState({ name: '' })
+  const [renameForm, setRenameForm] = useState({ name: '', revision: '' })
   const [renameSaving, setRenameSaving] = useState(false)
   const [renameError, setRenameError] = useState(null)
 
@@ -452,7 +452,7 @@ export default function OrgChartDetailPage() {
   }, [loadChart, loadPositions, loadDepartments])
 
   const openRename = () => {
-    setRenameForm({ name: orgChart?.name || '' })
+    setRenameForm({ name: orgChart?.name || '', revision: orgChart?.revision || '' })
     setRenameError(null)
     setRenaming(true)
   }
@@ -461,7 +461,7 @@ export default function OrgChartDetailPage() {
     setRenameSaving(true)
     setRenameError(null)
     try {
-      await informationApi.updateOrgChart(orgChartId, { name: renameForm.name })
+      await informationApi.updateOrgChart(orgChartId, { name: renameForm.name, revision: renameForm.revision })
       setRenaming(false)
       await loadChart()
     } catch (err) {
@@ -483,11 +483,16 @@ export default function OrgChartDetailPage() {
           ) : (
             <>
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">{orgChart?.name}</h1>
+              {orgChart?.revision && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold">
+                  {orgChart.revision}
+                </span>
+              )}
               <button
                 onClick={openRename}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white"
               >
-                <Edit size={12} /> Renomear
+                <Edit size={12} /> Editar
               </button>
             </>
           )}
@@ -530,8 +535,17 @@ export default function OrgChartDetailPage() {
 
       {renaming && (
         <EntityModal
-          title="Renomear Organograma"
-          fields={[{ key: 'name', label: 'Nome do Organograma', type: 'text', fullWidth: true }]}
+          title="Editar Organograma"
+          fields={[
+            { key: 'name', label: 'Nome do Organograma', type: 'text', fullWidth: true },
+            {
+              key: 'revision',
+              label: 'Revisão',
+              type: 'text',
+              fullWidth: true,
+              placeholder: 'Ex: REV01 24/01/2025',
+            },
+          ]}
           form={renameForm}
           onChange={(key, value) => setRenameForm((current) => ({ ...current, [key]: value }))}
           onClose={() => setRenaming(false)}

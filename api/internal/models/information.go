@@ -139,11 +139,15 @@ func (InformationDailyChecklist) TableName() string { return "information_daily_
 // CNPJ/empresa do grupo). Cargos e áreas (InformationOrgDepartment) ficam
 // vinculados a um organograma via OrgChartID.
 type InformationOrgChart struct {
-	ID         string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
-	Name       string    `json:"name"`
-	OrderIndex int       `gorm:"column:order_index" json:"orderIndex"`
+	ID        string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Name      string    `json:"name"`
+	// Revision e um texto livre (ex: "REV01 24/01/2025") que o usuario
+	// preenche manualmente e substitui a data automatica no cabecalho da
+	// impressao/PDF (ver OrgChartPrintPage.jsx).
+	Revision   string `json:"revision"`
+	OrderIndex int    `gorm:"column:order_index" json:"orderIndex"`
 }
 
 func (InformationOrgChart) TableName() string { return "information_org_charts" }
