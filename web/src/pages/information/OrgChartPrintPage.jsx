@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Loader2, Maximize, Shrink } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
@@ -60,13 +60,9 @@ export default function OrgChartPrintPage() {
       .finally(() => setLoading(false))
   }, [orgChartId])
 
-  const generatedAt = useMemo(
-    () => new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
-    [],
-  )
-
   const isFull = mode === 'full'
   const title = orgChart?.name || 'Organograma'
+  const revision = orgChart?.revision?.trim()
 
   // Mede o tamanho natural da folha inteira (cabeçalho + título + conteúdo)
   // e recalcula em três momentos: assim que os dados carregam, quando a
@@ -168,7 +164,7 @@ export default function OrgChartPrintPage() {
         >
           <header className="org-print-header">
             <img src={coldlineLogo} alt="Cold Line Brasil" className="org-print-logo" />
-            <span className="org-print-header-date">{generatedAt}</span>
+            {revision && <span className="org-print-header-date">{revision}</span>}
           </header>
 
           <div className="org-print-body">
