@@ -875,6 +875,9 @@ func (h *InformationHandler) CreatePosition(c *gin.Context) {
 	if item.DepartmentID != nil && strings.TrimSpace(*item.DepartmentID) == "" {
 		item.DepartmentID = nil
 	}
+	if item.Line != nil && *item.Line <= 0 {
+		item.Line = nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var count int64
@@ -919,6 +922,20 @@ func (h *InformationHandler) UpdatePosition(c *gin.Context) {
 	if departmentID, ok := payload["departmentId"]; ok {
 		if departmentStr, isString := departmentID.(string); isString && strings.TrimSpace(departmentStr) == "" {
 			payload["departmentId"] = nil
+		}
+	}
+	if line, ok := payload["line"]; ok {
+		// JSON numbers chegam como float64 no map generico. Linha <= 0 (ou
+		// string vazia, se o front mandar assim) significa "sem linha manual".
+		switch v := line.(type) {
+		case float64:
+			if v <= 0 {
+				payload["line"] = nil
+			}
+		case string:
+			if strings.TrimSpace(v) == "" {
+				payload["line"] = nil
+			}
 		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

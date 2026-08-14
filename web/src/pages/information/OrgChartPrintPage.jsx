@@ -2,15 +2,18 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Loader2, Maximize, Shrink } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
-import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
+import { OrgChartTree } from './OrgChartTree'
+import { hasExtraSuperiorLinks } from './orgChartUtils'
 import coldlineLogo from '../../assets/coldline-logo-white.svg'
 
 const PRINT_TREE_CLASS_NAMES = {
   tree: 'org-print-tree',
+  row: 'org-print-tree-row',
   card: 'org-print-card',
   cardName: 'org-print-card-name',
   cardArea: 'org-print-card-area',
-  links: 'org-print-tree-links',
+  linkPrimary: 'org-print-tree-link-primary',
+  linkSecondary: 'org-print-tree-link-secondary',
 }
 
 const PAGE_MARGIN_MM = 12
@@ -249,79 +252,25 @@ export default function OrgChartPrintPage() {
           text-align: center;
         }
 
-        /* Árvore do organograma */
+        /* Árvore do organograma: uma linha (fileira) por vez, empilhadas.
+           As ligações entre cards (superior principal e superior extra) não
+           vêm mais de bordas do <li> — são desenhadas por cima, num overlay
+           SVG (ver OrgChartTree.jsx). */
         .org-print-tree {
           display: flex;
-          justify-content: center;
+          flex-direction: column;
+          align-items: center;
+          gap: 40px;
           min-width: max-content;
           padding-bottom: 24px;
         }
 
-        .org-print-tree ul {
+        .org-print-tree-row {
           display: flex;
           justify-content: center;
-          padding-top: 24px;
-          position: relative;
-          margin: 0;
-        }
-
-        .org-print-tree li {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          list-style-type: none;
-          position: relative;
-          padding: 22px 8px 0 8px;
-        }
-
-        .org-print-tree li::before,
-        .org-print-tree li::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          right: 50%;
-          width: 50%;
-          height: 22px;
-          border-top: 2px solid #93c5fd;
-        }
-
-        .org-print-tree li::after {
-          right: auto;
-          left: 50%;
-          border-left: 2px solid #93c5fd;
-        }
-
-        .org-print-tree li:only-child::before,
-        .org-print-tree li:only-child::after {
-          display: none;
-        }
-
-        .org-print-tree li:only-child {
-          padding-top: 0;
-        }
-
-        .org-print-tree li:first-child::before,
-        .org-print-tree li:last-child::after {
-          border: 0 none;
-        }
-
-        .org-print-tree li:last-child::before {
-          border-right: 2px solid #93c5fd;
-          border-radius: 0 6px 0 0;
-        }
-
-        .org-print-tree li:first-child::after {
-          border-radius: 6px 0 0 0;
-        }
-
-        .org-print-tree ul ul::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 50%;
-          width: 0;
-          height: 22px;
-          border-left: 2px solid #93c5fd;
+          align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 16px;
         }
 
         .org-print-legend {
@@ -332,12 +281,13 @@ export default function OrgChartPrintPage() {
           margin-bottom: 16px;
         }
 
-        .org-print-tree-links {
-          color: #f59e0b;
+        .org-print-tree-link-primary {
+          stroke: #93c5fd;
+          stroke-width: 2;
         }
 
-        .org-print-tree-links line {
-          stroke: currentColor;
+        .org-print-tree-link-secondary {
+          stroke: #f59e0b;
           stroke-width: 1.5;
           stroke-dasharray: 4 3;
         }

@@ -1,10 +1,10 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { buildPositionTree } from './orgChartUtils'
+import { buildPositionRows } from './orgChartUtils'
 
 // Ponto onde a reta entre os centros de dois retângulos cruza a borda de
 // `rect` (retângulo "de origem"), na direção do centro de `towardRect`.
-// Usado pra fazer a linha pontilhada de superior extra encostar exatamente
-// na borda do card, e não sair/chegar do meio dele.
+// Usado pra fazer a linha de ligação encostar exatamente na borda do card,
+// e não sair/chegar do meio dele.
 function edgePoint(rect, towardRect) {
   const cx = rect.left + rect.width / 2
   const cy = rect.top + rect.height / 2
@@ -19,52 +19,30 @@ function edgePoint(rect, towardRect) {
   return { x: cx + dx * s, y: cy + dy * s }
 }
 
-function OrgNode({ node, childrenMap, departmentsById, visited, registerCard, classNames }) {
-  if (visited.has(node.id)) return null
-  const nextVisited = new Set(visited)
-  nextVisited.add(node.id)
-  const children = childrenMap.get(node.id) || []
-  const departmentName = node.departmentId ? departmentsById.get(node.departmentId)?.name : null
-
-  return (
-    <li>
-      <div className={classNames.card} ref={(el) => registerCard(node.id, el)}>
-        <p className={classNames.cardName}>{node.name}</p>
-        {departmentName && <p className={classNames.cardArea}>{departmentName}</p>}
-      </div>
-      {children.length > 0 && (
-        <ul>
-          {children.map((child) => (
-            <OrgNode
-              key={child.id}
-              node={child}
-              childrenMap={childrenMap}
-              departmentsById={departmentsById}
-              visited={nextVisited}
-              registerCard={registerCard}
-              classNames={classNames}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
-  )
-}
-
 const DEFAULT_CLASS_NAMES = {
   tree: 'org-tree',
+  row: 'org-tree-row',
   card: 'org-card',
   cardName: 'org-card-name',
   cardArea: 'org-card-area',
-  links: 'org-tree-links',
+  linkPrimary: 'org-tree-link-primary',
+  linkSecondary: 'org-tree-link-secondary',
 }
 
 // Árvore de organograma reutilizada tanto na pré-visualização (dentro do
-// app) quanto na página de impressão/PDF. Além da árvore principal (uma
-// hierarquia estrita, em nested <ul>/<li>), desenha por cima um overlay em
-// SVG com uma linha pontilhada pra cada "superior extra" (2º/3º superior)
-// de um cargo — já que um cargo só pode ficar posicionado embaixo de UM
-// superior "principal" na árvore, mas pode responder a até 3.
+// app) quanto na página de impressão/PDF.
+//
+// Diferente da técnica clássica de "lista aninhada" (onde a linha de um
+// card é sempre a profundidade dele na árvore), aqui cada cargo cai numa
+// "linha" (fileira) independente — calculada por padrão a partir do
+// superior principal (linha do superior + 1, raiz = linha 1), mas que pode
+// ser fixada manualmente (campo "Linha" do cargo) pra empurrar um cargo pra
+// uma fileira específica sem mexer na hierarquia (ver buildPositionRows em
+// orgChartUtils.js). Por isso TODAS as ligações — inclusive a do superior
+// principal, que antes vinha "de graça" da lista aninhada — precisam ser
+// desenhadas por cima, num overlay em SVG: uma linha sólida por vínculo
+// principal, e uma linha pontilhada com seta por vínculo extra (2º/3º
+// superior).
 //
 // `scale` deve ser passado quando o container pai tiver algum
 // `transform: scale(...)` aplicado (ex: modo "Ajustar em A4" da impressão),
@@ -73,11 +51,10 @@ const DEFAULT_CLASS_NAMES = {
 export function OrgChartTree({ positions, departments, classNames: classNamesProp, scale = 1, emptyMessage }) {
   const classNames = classNamesProp ? { ...DEFAULT_CLASS_NAMES, ...classNamesProp } : DEFAULT_CLASS_NAMES
   // Id único da seta (marker) — evita colisão se a árvore renderizar mais de
-  // uma vez na mesma página (ex: sem isso, 2 instâncias disputariam o mesmo
-  // <marker id="...">).
+  // uma vez na mesma página.
   const arrowId = `org-tree-arrow-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
-  const { roots, childrenMap, extraLinks } = useMemo(() => buildPositionTree(positions), [positions])
+  const { rows, edges } = useMemo(() => buildPositionRows(positions), [positions])
 
   const containerRef = useRef(null)
   const cardsRef = useRef(new Map())
@@ -96,7 +73,7 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
     const recalc = () => {
       setSvgSize({ width: container.scrollWidth, height: container.scrollHeight })
 
-      if (extraLinks.length === 0) {
+      if (edges.length === 0) {
         setLinkPaths([])
         return
       }
@@ -108,7 +85,7 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
       })
 
       const nextPaths = []
-      extraLinks.forEach(({ parentId, childId }) => {
+      edges.forEach(({ parentId, childId, kind }) => {
         const parentEl = cardsRef.current.get(parentId)
         const childEl = cardsRef.current.get(childId)
         if (!parentEl || !childEl) return
@@ -116,7 +93,7 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
         const childRect = childEl.getBoundingClientRect()
         const start = toLocal(edgePoint(parentRect, childRect))
         const end = toLocal(edgePoint(childRect, parentRect))
-        nextPaths.push({ key: `${parentId}-${childId}`, ...start, x2: end.x, y2: end.y })
+        nextPaths.push({ key: `${parentId}-${childId}-${kind}`, kind, ...start, x2: end.x, y2: end.y })
       })
       setLinkPaths(nextPaths)
     }
@@ -129,9 +106,9 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
       window.clearTimeout(timeoutId)
       window.removeEventListener('resize', recalc)
     }
-  }, [positions, extraLinks, scale])
+  }, [positions, edges, scale])
 
-  if (roots.length === 0) {
+  if (rows.length === 0) {
     return emptyMessage ? <>{emptyMessage}</> : null
   }
 
@@ -139,14 +116,14 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
     <div className={classNames.tree} ref={containerRef} style={{ position: 'relative' }}>
       {linkPaths.length > 0 && (
         <svg
-          className={classNames.links}
           width={svgSize.width}
           height={svgSize.height}
           style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
         >
           <defs>
-            {/* Seta só pra indicar a direção (do superior extra pro cargo
-                subordinado) — não muda o significado da linha pontilhada. */}
+            {/* Seta só pra indicar a direção do vínculo extra (2º/3º
+                superior) — não muda o significado da linha pontilhada. O
+                vínculo principal (linha sólida) não leva seta. */}
             <marker
               id={arrowId}
               viewBox="0 0 8 8"
@@ -157,31 +134,35 @@ export function OrgChartTree({ positions, departments, classNames: classNamesPro
               markerUnits="userSpaceOnUse"
               orient="auto-start-reverse"
             >
-              <path d="M0,0 L8,4 L0,8 Z" fill="currentColor" />
+              <path d="M0,0 L8,4 L0,8 Z" fill="#f59e0b" />
             </marker>
           </defs>
           {linkPaths.map((path) => (
-            <line key={path.key} x1={path.x} y1={path.y} x2={path.x2} y2={path.y2} markerEnd={`url(#${arrowId})`} />
+            <line
+              key={path.key}
+              x1={path.x}
+              y1={path.y}
+              x2={path.x2}
+              y2={path.y2}
+              className={path.kind === 'secondary' ? classNames.linkSecondary : classNames.linkPrimary}
+              markerEnd={path.kind === 'secondary' ? `url(#${arrowId})` : undefined}
+            />
           ))}
         </svg>
       )}
-      <ul>
-        {roots.map((root) => (
-          <OrgNode
-            key={root.id}
-            node={root}
-            childrenMap={childrenMap}
-            departmentsById={departmentsById}
-            visited={new Set()}
-            registerCard={registerCard}
-            classNames={classNames}
-          />
-        ))}
-      </ul>
+      {rows.map(({ line, items }) => (
+        <div key={line} className={classNames.row}>
+          {items.map((position) => {
+            const departmentName = position.departmentId ? departmentsById.get(position.departmentId)?.name : null
+            return (
+              <div key={position.id} className={classNames.card} ref={(el) => registerCard(position.id, el)}>
+                <p className={classNames.cardName}>{position.name}</p>
+                {departmentName && <p className={classNames.cardArea}>{departmentName}</p>}
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
-}
-
-export function hasExtraSuperiorLinks(positions) {
-  return positions.some((p) => p.parentId2 || p.parentId3)
 }

@@ -56,7 +56,23 @@
       "Bash(git push *)",
       "Bash(timeout 300 docker build -t coldline-api-test3 .)",
       "Bash(docker rmi *)",
-      "Bash(timeout 300 docker build -t coldline-api-test4 .)"
+      "Bash(timeout 300 docker build -t coldline-api-test4 .)",
+      "Bash(node *)",
+      "Bash(git checkout *)",
+      "Bash(git commit *)",
+      "Bash(gh pr *)",
+      "Bash(gh auth *)",
+      "Bash(git pull *)",
+      "Bash(git merge --no-ff feature/organograma-gerar-pdf -m ' *)",
+      "Bash(curl -sS -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/122.0 Safari/537.36\" -m 15 -I https://www.coldline.com.br)",
+      "Bash(curl -sS -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/122.0 Safari/537.36\" -m 15 https://coldline.com.br/)",
+      "Bash(curl -sS -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/122.0 Safari/537.36\" -m 20 https://coldline.com.br/ -o /tmp/claude-1001/-home-coldline-coldlinebrasil/bafadea0-c73e-424a-b49c-0c148adbb64c/scratchpad/coldline_home.html)",
+      "Bash(curl -sS -A Mozilla/5.0 -m 15 https://coldline.com.br/wp-content/uploads/2022/10/logo-coldline-bca1.svg -o /tmp/claude-1001/-home-coldline-coldlinebrasil/bafadea0-c73e-424a-b49c-0c148adbb64c/scratchpad/coldline-logo.svg)",
+      "Bash(./node_modules/.bin/esbuild src/main.jsx --bundle --outfile=/tmp/claude-1001/-home-coldline-coldlinebrasil/bafadea0-c73e-424a-b49c-0c148adbb64c/scratchpad/bundle-test.js --loader:.svg=file --loader:.png=file --loader:.css=empty --external:qr-scanner --format=esm)",
+      "Bash(./node_modules/.bin/esbuild src/pages/information/OrgChartPrintPage.jsx --bundle=false --outfile=/dev/null)",
+      "Bash(./node_modules/.bin/esbuild src/main.jsx --bundle --outfile=/tmp/claude-1001/-home-coldline-coldlinebrasil/bafadea0-c73e-424a-b49c-0c148adbb64c/scratchpad/bundle-test4.js --loader:.svg=file --loader:.png=file --loader:.css=empty --external:qr-scanner --format=esm)",
+      "Bash(./node_modules/.bin/esbuild src/main.jsx --bundle --outfile=/tmp/claude-1001/-home-coldline-coldlinebrasil/bafadea0-c73e-424a-b49c-0c148adbb64c/scratchpad/bundle-test5.js --loader:.svg=file --loader:.png=file --loader:.css=empty --external:qr-scanner --format=esm)",
+      "Bash(npx --no-install esbuild --version)"
     ]
   }
 }
