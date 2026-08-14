@@ -54,3 +54,34 @@ export function buildPositionTree(positions) {
 
   return { roots, childrenMap, extraLinks }
 }
+
+// Monta a visão "Organograma por blocos": pra cada raiz (ex: Diretoria
+// Executiva, o cargo do qual todos os outros dependem direta ou
+// indiretamente), os filhos diretos dela — a "2ª linha", na mesma ordem de
+// cadastro — viram o cabeçalho de um bloco. Dentro de cada bloco entra todo
+// o ramo abaixo daquele cabeçalho (níveis mais fundos ficam com `level`
+// maior, pra quem for renderizar indentar visualmente), em vez do desenho
+// de árvore com linhas de conexão.
+export function buildPositionBlocks(positions) {
+  const { roots, childrenMap } = buildPositionTree(positions)
+
+  const flattenBranch = (nodeId, level, visited) => {
+    const items = []
+    ;(childrenMap.get(nodeId) || []).forEach((child) => {
+      if (visited.has(child.id)) return
+      const nextVisited = new Set(visited)
+      nextVisited.add(child.id)
+      items.push({ position: child, level })
+      items.push(...flattenBranch(child.id, level + 1, nextVisited))
+    })
+    return items
+  }
+
+  return roots.map((root) => ({
+    root,
+    blocks: (childrenMap.get(root.id) || []).map((header) => ({
+      header,
+      items: flattenBranch(header.id, 1, new Set([root.id, header.id])),
+    })),
+  }))
+}

@@ -163,3 +163,103 @@
 .info-dark .org-card-name {
   color: #f8fafc;
 }
+
+/* Organograma por blocos: raiz (ex: Diretoria Executiva) no topo + um
+   bloco por cargo da 2ª linha, cada um listando o ramo abaixo dele com
+   indentação por nível — ver OrgChartBlocks.jsx. */
+.org-blocks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  min-width: max-content;
+  padding: 0 1rem;
+}
+
+.org-blocks-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.org-blocks-root {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 24px;
+  border-radius: 12px;
+  background: #ec4899;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.org-blocks-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.org-blocks-block {
+  min-width: 168px;
+  max-width: 220px;
+  border-radius: 14px;
+  border: 1px solid #fbcfe8;
+  background: #fdf2f8;
+  overflow: hidden;
+}
+
+.org-blocks-block-header {
+  padding: 8px 12px;
+  background: #f9a8d4;
+  color: #831843;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.org-blocks-item {
+  padding: 6px 12px;
+  border-top: 1px solid #fbcfe8;
+  display: flex;
+  flex-direction: column;
+}
+
+.org-blocks-item-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.org-blocks-item-area {
+  font-size: 0.62rem;
+  color: #ec4899;
+  margin-top: 1px;
+  word-break: break-word;
+}
+
+.org-blocks-empty {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.info-dark .org-blocks-block {
+  background: rgba(244, 114, 182, 0.12);
+  border-color: rgba(244, 114, 182, 0.3);
+}
+
+.info-dark .org-blocks-block-header {
+  background: rgba(244, 114, 182, 0.28);
+  color: #fbcfe8;
+}
+
+.info-dark .org-blocks-item {
+  border-color: rgba(244, 114, 182, 0.3);
+}
+
+.info-dark .org-blocks-item-name {
+  color: #f8fafc;
+}
