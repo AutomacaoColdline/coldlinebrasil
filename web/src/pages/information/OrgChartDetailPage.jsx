@@ -6,7 +6,8 @@ import {
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import { ConfirmModal } from './OrgChartShared'
-import { buildPositionTree, sortByName, sortDepartments } from './orgChartUtils'
+import { OrgChartTree, hasExtraSuperiorLinks } from './OrgChartTree'
+import { sortByName, sortDepartments } from './orgChartUtils'
 
 const TABS = [
   { id: 'structure', label: 'Nomenclatura e Estrutura', icon: ClipboardList },
@@ -14,7 +15,7 @@ const TABS = [
 ]
 
 function emptyPositionForm() {
-  return { name: '', parentId: '', departmentId: '' }
+  return { name: '', parentId: '', parentId2: '', parentId3: '', departmentId: '' }
 }
 
 function DepartmentTags({ departments, positions, orgChartId, reload }) {
@@ -140,7 +141,13 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
 
   const openEdit = (item) => {
     setEditing(item)
-    setForm({ name: item.name || '', parentId: item.parentId || '', departmentId: item.departmentId || '' })
+    setForm({
+      name: item.name || '',
+      parentId: item.parentId || '',
+      parentId2: item.parentId2 || '',
+      parentId3: item.parentId3 || '',
+      departmentId: item.departmentId || '',
+    })
     setSaveError(null)
     setIsModalOpen(true)
   }
@@ -155,10 +162,24 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
     { key: 'departmentId', label: 'Área', type: 'select', options: departmentOptions, placeholder: 'Sem área' },
     {
       key: 'parentId',
-      label: 'Abaixo de (Cargo Superior)',
+      label: 'Abaixo de (Superior 1)',
       type: 'select',
       options: parentOptions,
       placeholder: 'Nivel mais alto (sem superior)',
+    },
+    {
+      key: 'parentId2',
+      label: 'Também abaixo de (Superior 2, opcional)',
+      type: 'select',
+      options: parentOptions,
+      placeholder: 'Sem 2º superior',
+    },
+    {
+      key: 'parentId3',
+      label: 'Também abaixo de (Superior 3, opcional)',
+      type: 'select',
+      options: parentOptions,
+      placeholder: 'Sem 3º superior',
     },
   ]
 
@@ -166,7 +187,16 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = { name: form.name, parentId: form.parentId || null, departmentId: form.departmentId || null, orgChartId }
+      // Ignora superiores repetidos (ex: mesmo cargo escolhido em 2 e 3).
+      const chosenParentIds = [...new Set([form.parentId, form.parentId2, form.parentId3].filter(Boolean))]
+      const payload = {
+        name: form.name,
+        parentId: chosenParentIds[0] || null,
+        parentId2: chosenParentIds[1] || null,
+        parentId3: chosenParentIds[2] || null,
+        departmentId: form.departmentId || null,
+        orgChartId,
+      }
       if (editing?.id) await informationApi.updatePosition(editing.id, payload)
       else await informationApi.createPosition(payload)
       setIsModalOpen(false)
@@ -233,7 +263,12 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
                       </span>
                     )}
                     <span className="text-xs text-slate-400">
-                      {item.parentId ? `Abaixo de: ${positionsById.get(item.parentId)?.name || 'Cargo removido'}` : 'Nivel mais alto'}
+                      {(() => {
+                        const superiorNames = [item.parentId, item.parentId2, item.parentId3]
+                          .filter(Boolean)
+                          .map((id) => positionsById.get(id)?.name || 'Cargo removido')
+                        return superiorNames.length > 0 ? `Abaixo de: ${superiorNames.join(', ')}` : 'Nivel mais alto'
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -277,42 +312,21 @@ function StructureTab({ orgChartId, positions, departments, loading, reload }) {
   )
 }
 
-function OrgChartNode({ node, childrenMap, departmentsById, visited }) {
-  if (visited.has(node.id)) return null
-  const nextVisited = new Set(visited)
-  nextVisited.add(node.id)
-  const children = childrenMap.get(node.id) || []
-  const departmentName = node.departmentId ? departmentsById.get(node.departmentId)?.name : null
-
-  return (
-    <li>
-      <div className="org-card">
-        <p className="org-card-name">{node.name}</p>
-        {departmentName && <p className="org-card-area">{departmentName}</p>}
-      </div>
-      {children.length > 0 && (
-        <ul>
-          {children.map((child) => (
-            <OrgChartNode key={child.id} node={child} childrenMap={childrenMap} departmentsById={departmentsById} visited={nextVisited} />
-          ))}
-        </ul>
-      )}
-    </li>
-  )
-}
-
 function ChartTab({ orgChartId, positions, departments, loading }) {
-  const departmentsById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
-  const { roots, childrenMap } = useMemo(() => buildPositionTree(positions), [positions])
+  const hasRoots = positions.length > 0
+  const showExtraLinksHint = hasExtraSuperiorLinks(positions)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Visualização</h2>
-          <p className="text-sm text-slate-500 mt-1">Pré-visualização da hierarquia. O título usado na impressão é o nome do organograma.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Pré-visualização da hierarquia (na ordem de cadastro). O título usado na impressão é o nome do organograma.
+            {showExtraLinksHint && ' Linhas pontilhadas indicam um 2º/3º superior.'}
+          </p>
         </div>
-        {roots.length > 0 && (
+        {hasRoots && (
           <Link
             to={`/departamento-informacao/organograma/${orgChartId}/visualizar`}
             target="_blank"
@@ -330,19 +344,13 @@ function ChartTab({ orgChartId, positions, departments, loading }) {
           <div className="py-20 flex items-center justify-center">
             <Loader2 size={24} className="animate-spin text-slate-300" />
           </div>
-        ) : roots.length === 0 ? (
+        ) : !hasRoots ? (
           <div className="py-16 text-center">
             <Network size={24} className="text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-400">Cadastre cargos na aba Nomenclatura e Estrutura para montar o organograma.</p>
           </div>
         ) : (
-          <div className="org-tree">
-            <ul>
-              {roots.map((root) => (
-                <OrgChartNode key={root.id} node={root} childrenMap={childrenMap} departmentsById={departmentsById} visited={new Set()} />
-              ))}
-            </ul>
-          </div>
+          <OrgChartTree positions={positions} departments={departments} />
         )}
       </div>
     </div>
