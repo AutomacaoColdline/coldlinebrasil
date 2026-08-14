@@ -285,7 +285,7 @@ export default function OrgChartPrintPage() {
         .org-print-tree ul {
           display: flex;
           justify-content: center;
-          padding-top: 24px;
+          padding-top: 30px;
           position: relative;
           margin: 0;
         }
@@ -296,7 +296,7 @@ export default function OrgChartPrintPage() {
           align-items: center;
           list-style-type: none;
           position: relative;
-          padding: 22px 8px 0 8px;
+          padding: 28px 4px 0 4px;
         }
 
         .org-print-tree li::before,
@@ -306,7 +306,7 @@ export default function OrgChartPrintPage() {
           top: 0;
           right: 50%;
           width: 50%;
-          height: 22px;
+          height: 28px;
           border-top: 2px solid #93c5fd;
         }
 
@@ -345,7 +345,7 @@ export default function OrgChartPrintPage() {
           top: 0;
           left: 50%;
           width: 0;
-          height: 22px;
+          height: 28px;
           border-left: 2px solid #93c5fd;
         }
 
