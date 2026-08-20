@@ -98,21 +98,25 @@ function NotesModal({ unit, survey, onClose, onSaved }) {
 export default function AutomationPesquisas() {
   useOutletContext()
   const [units, setUnits]     = useState([])   // registros de Monitoramento = clientes
+  const [types, setTypes]     = useState([])   // XWEB / SITRAD / COLDVISIO
   const [surveys, setSurveys] = useState({})   // unitId -> survey record
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [typeFilter, setTypeFilter]     = useState('')
   const [notesModal, setNotesModal]     = useState(null) // unit
   const [updating, setUpdating]         = useState(null) // unitId em atualização
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [monitoringRes, surveysRes] = await Promise.all([
+      const [monitoringRes, typesRes, surveysRes] = await Promise.all([
         automationApi.getAllMonitorings(),
+        automationApi.getMonitoringTypes(),
         automationApi.getSurveys(),
       ])
       setUnits(monitoringRes.data || [])
+      setTypes(typesRes.data || [])
       const map = {}
       for (const s of surveysRes.data || []) map[s.clientId] = s
       setSurveys(map)
@@ -141,10 +145,11 @@ export default function AutomationPesquisas() {
         const st = surveys[u.id]?.status || DEFAULT_STATUS
         if (st !== statusFilter) return false
       }
+      if (typeFilter && u.monitoringType?.id !== typeFilter) return false
       if (!q) return true
       return [u.unidade, u.identificador, u.cidade, u.estado].some(v => String(v || '').toLowerCase().includes(q))
     })
-  }, [units, surveys, search, statusFilter])
+  }, [units, surveys, search, statusFilter, typeFilter])
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(STATUS_ORDER.map(k => [k, 0]))
@@ -181,11 +186,18 @@ export default function AutomationPesquisas() {
         ))}
       </div>
 
-      <div className="relative mb-6 max-w-md">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por unidade, identificador, cidade ou estado..."
-          className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por unidade, identificador, cidade ou estado..."
+            className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
+        </div>
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-w-[160px]">
+          <option value="">Todos os sistemas</option>
+          {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
       </div>
 
       {loading ? (
