@@ -30,6 +30,7 @@ import AutomationAtendimentos from './pages/automation/AutomationAtendimentos'
 import AutomationAtendimentoDetail from './pages/automation/AutomationAtendimentoDetail'
 import AutomationAtendimentoDashboard from './pages/automation/AutomationAtendimentoDashboard'
 import AutomationAtendimentoReports from './pages/automation/AutomationAtendimentoReports'
+import AutomationPesquisas from './pages/automation/AutomationPesquisas'
 
 import InformationLayout from './pages/information/InformationLayout'
 import InformationPage from './pages/information/InformationPage'
@@ -141,6 +142,7 @@ export default function App() {
           <Route path="atendimentos/:id" element={<AutomationAtendimentoDetail />} />
           <Route path="atendimento-dashboard" element={<AutomationAtendimentoDashboard />} />
           <Route path="atendimento-reports" element={<AutomationAtendimentoReports />} />
+          <Route path="pesquisas" element={<AutomationPesquisas />} />
           <Route path="coldvisio" element={<AutomationColdvisio />} />
           <Route path="xweb" element={<AutomationColdvisio productKey="xweb" />} />
           <Route path="sitrad" element={<AutomationColdvisio productKey="sitrad" />} />

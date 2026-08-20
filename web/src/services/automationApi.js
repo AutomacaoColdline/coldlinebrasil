@@ -79,6 +79,14 @@ export const automationApi = {
   updateOccurrence:   (id, d)  => http.put(`/api/Occurrence/${id}`, d),
   deleteOccurrence:   (id)     => http.delete(`/api/Occurrence/${id}`),
   getOccurrenceTypes: ()       => http.get('/api/OccurrenceType'),
+
+  // Clients (pesquisas)
+  getClients:       ()       => http.get('/api/Client'),
+
+  // Pesquisas de satisfação
+  getSurveys:       ()       => http.get('/api/ClientSurvey'),
+  setClientSurvey:  (clientId, data) => http.put(`/api/ClientSurvey/client/${clientId}`, data),
+  deleteSurvey:     (id)     => http.delete(`/api/ClientSurvey/${id}`),
 }
 
 export default automationApi

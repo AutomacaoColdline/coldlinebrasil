@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard, Monitor, Eye, LogOut, Snowflake,
   ChevronLeft, ChevronRight, ArrowLeft, Loader2, UserCircle, Globe2, RadioTower,
-  Headphones, BarChart3, FileText, Menu, X, ShieldCheck, Search,
+  Headphones, BarChart3, FileText, Menu, X, ShieldCheck, Search, ClipboardList,
 } from 'lucide-react'
 
 const adminNavItems = [
@@ -13,6 +13,7 @@ const adminNavItems = [
   { to: '/automation/atendimentos',      icon: Headphones,      label: 'Atendimentos'             },
   { to: '/automation/atendimento-dashboard', icon: BarChart3,    label: 'Indicadores'               },
   { to: '/automation/atendimento-reports',   icon: FileText,     label: 'Relatórios'                },
+  { to: '/automation/pesquisas',         icon: ClipboardList,  label: 'Pesquisas'                 },
   { to: '/automation/coldvisio',         icon: Eye,             label: 'Coldvisio'                 },
   { to: '/automation/xweb',              icon: Globe2,          label: 'XWEB'                      },
   { to: '/automation/sitrad',            icon: RadioTower,      label: 'SITRAD'                    },
@@ -22,6 +23,7 @@ const restrictedNavItems = [
   { to: '/automation',                   icon: LayoutDashboard, label: 'Dashboard',       end: true },
   { to: '/automation/monitoring',        icon: Monitor,         label: 'Monitoramento'            },
   { to: '/automation/atendimentos',      icon: Headphones,      label: 'Atendimentos'             },
+  { to: '/automation/pesquisas',         icon: ClipboardList,  label: 'Pesquisas'                 },
   { to: '/automation/coldvisio',         icon: Eye,             label: 'Coldvisio'                 },
   { to: '/automation/xweb',              icon: Globe2,          label: 'XWEB'                      },
   { to: '/automation/sitrad',            icon: RadioTower,      label: 'SITRAD'                    },

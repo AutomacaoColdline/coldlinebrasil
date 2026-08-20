@@ -80,6 +80,7 @@ func main() {
 	monitoringHandler := handlers.NewMonitoringHandler(db)
 	workOrderHandler := handlers.NewWorkOrderHandler(db)
 	clientHandler := handlers.NewClientHandler(db)
+	surveyHandler := handlers.NewSurveyHandler(db)
 	coldvisioGuideHandler := handlers.NewColdvisioGuideHandler(db)
 	informationHandler := handlers.NewInformationHandler(db)
 	atendimentoHandler := handlers.NewAtendimentoHandler(db)
@@ -224,6 +225,11 @@ func main() {
 		cli.POST("", clientHandler.Create)
 		cli.PUT("/:id", clientHandler.Update)
 		cli.DELETE("/:id", clientHandler.Delete)
+
+		survey := api.Group("/ClientSurvey", auth, automationAccess)
+		survey.GET("", surveyHandler.GetAll)
+		survey.PUT("/client/:clientId", surveyHandler.UpsertByClient)
+		survey.DELETE("/:id", surveyHandler.Delete)
 
 		registerCRUD(api, "/UserType", userTypeHandler, auth)
 		registerCRUD(api, "/Department", departmentHandler, auth)
