@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { automationApi } from '../../services/automationApi'
 import {
-  ClipboardList, Search, Loader2, Phone, Mail, FileText as FileIcon,
+  ClipboardList, Search, Loader2, MapPin, Hash,
   MessageSquare, Check, X, ChevronDown,
 } from 'lucide-react'
 
@@ -53,19 +53,19 @@ function StatusMenu({ value, onChange, disabled }) {
   )
 }
 
-function NotesModal({ client, survey, onClose, onSaved }) {
+function NotesModal({ unit, survey, onClose, onSaved }) {
   const [notes, setNotes] = useState(survey?.notes || '')
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
     setSaving(true)
     try {
-      const { data } = await automationApi.setClientSurvey(client.id, {
+      const { data } = await automationApi.setClientSurvey(unit.id, {
         status: survey?.status || DEFAULT_STATUS,
         notes,
       })
       onSaved(data)
-    } catch {}
+    } catch { /* ignore */ }
     setSaving(false)
   }
 
@@ -73,7 +73,7 @@ function NotesModal({ client, survey, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800 truncate">{client.name}</h3>
+          <h3 className="font-semibold text-slate-800 truncate">{unit.unidade || unit.identificador || 'Cliente'}</h3>
           <button onClick={onClose}><X size={17} className="text-slate-400" /></button>
         </div>
         <div className="px-6 py-4">
@@ -97,22 +97,22 @@ function NotesModal({ client, survey, onClose, onSaved }) {
 
 export default function AutomationPesquisas() {
   useOutletContext()
-  const [clients, setClients] = useState([])
-  const [surveys, setSurveys] = useState({})   // clientId -> survey record
+  const [units, setUnits]     = useState([])   // registros de Monitoramento = clientes
+  const [surveys, setSurveys] = useState({})   // unitId -> survey record
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch]   = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [notesModal, setNotesModal] = useState(null) // client
-  const [updating, setUpdating] = useState(null)     // clientId em atualização
+  const [notesModal, setNotesModal]     = useState(null) // unit
+  const [updating, setUpdating]         = useState(null) // unitId em atualização
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [clientsRes, surveysRes] = await Promise.all([
-        automationApi.getClients(),
+      const [monitoringRes, surveysRes] = await Promise.all([
+        automationApi.getAllMonitorings(),
         automationApi.getSurveys(),
       ])
-      setClients(clientsRes.data || [])
+      setUnits(monitoringRes.data || [])
       const map = {}
       for (const s of surveysRes.data || []) map[s.clientId] = s
       setSurveys(map)
@@ -122,44 +122,44 @@ export default function AutomationPesquisas() {
 
   useEffect(() => { load() }, [load])
 
-  const updateStatus = async (client, status) => {
-    setUpdating(client.id)
+  const updateStatus = async (unit, status) => {
+    setUpdating(unit.id)
     try {
-      const { data } = await automationApi.setClientSurvey(client.id, {
+      const { data } = await automationApi.setClientSurvey(unit.id, {
         status,
-        notes: surveys[client.id]?.notes || '',
+        notes: surveys[unit.id]?.notes || '',
       })
-      setSurveys(prev => ({ ...prev, [client.id]: data }))
+      setSurveys(prev => ({ ...prev, [unit.id]: data }))
     } catch { /* ignore */ }
     setUpdating(null)
   }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return clients.filter(c => {
+    return units.filter(u => {
       if (statusFilter) {
-        const st = surveys[c.id]?.status || DEFAULT_STATUS
+        const st = surveys[u.id]?.status || DEFAULT_STATUS
         if (st !== statusFilter) return false
       }
       if (!q) return true
-      return [c.name, c.document, c.phone, c.email].some(v => String(v || '').toLowerCase().includes(q))
+      return [u.unidade, u.identificador, u.cidade, u.estado].some(v => String(v || '').toLowerCase().includes(q))
     })
-  }, [clients, surveys, search, statusFilter])
+  }, [units, surveys, search, statusFilter])
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(STATUS_ORDER.map(k => [k, 0]))
-    for (const cl of clients) {
-      const st = surveys[cl.id]?.status || DEFAULT_STATUS
+    for (const u of units) {
+      const st = surveys[u.id]?.status || DEFAULT_STATUS
       c[st] = (c[st] || 0) + 1
     }
     return c
-  }, [clients, surveys])
+  }, [units, surveys])
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-900">Pesquisas</h1>
-        <p className="text-sm text-slate-400">{clients.length} clientes</p>
+        <p className="text-sm text-slate-400">{units.length} clientes</p>
       </div>
 
       {/* Resumo por status */}
@@ -168,7 +168,7 @@ export default function AutomationPesquisas() {
           className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
             statusFilter === '' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
           }`}>
-          Todos ({clients.length})
+          Todos ({units.length})
         </button>
         {STATUS_ORDER.map(k => (
           <button key={k} onClick={() => setStatusFilter(k)}
@@ -184,7 +184,7 @@ export default function AutomationPesquisas() {
       <div className="relative mb-6 max-w-md">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por nome, documento, telefone ou e-mail..."
+          placeholder="Buscar por unidade, identificador, cidade ou estado..."
           className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
       </div>
 
@@ -197,17 +197,23 @@ export default function AutomationPesquisas() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
-          {filtered.map(c => {
-            const survey = surveys[c.id]
+          {filtered.map(u => {
+            const survey = surveys[u.id]
             const status = survey?.status || DEFAULT_STATUS
             return (
-              <div key={c.id} className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 px-5 py-4">
+              <div key={u.id} className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 px-5 py-4">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">{u.unidade || u.identificador || 'Sem nome'}</p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-400">
-                    {c.document && <span className="flex items-center gap-1"><FileIcon size={10} /> {c.document}</span>}
-                    {c.phone && <span className="flex items-center gap-1"><Phone size={10} /> {c.phone}</span>}
-                    {c.email && <span className="flex items-center gap-1"><Mail size={10} /> {c.email}</span>}
+                    {u.identificador && <span className="flex items-center gap-1"><Hash size={10} /> {u.identificador}</span>}
+                    {(u.cidade || u.estado) && (
+                      <span className="flex items-center gap-1"><MapPin size={10} /> {[u.cidade, u.estado].filter(Boolean).join(', ')}</span>
+                    )}
+                    {u.monitoringType?.name && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 font-semibold border border-cyan-100">
+                        {u.monitoringType.name}
+                      </span>
+                    )}
                   </div>
                   {survey?.notes && (
                     <p className="mt-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 line-clamp-2">{survey.notes}</p>
@@ -219,11 +225,11 @@ export default function AutomationPesquisas() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => setNotesModal(c)}
+                  <button onClick={() => setNotesModal(u)}
                     className="p-2 text-slate-300 hover:text-cyan-500 hover:bg-cyan-50 rounded-lg transition-colors" title="Observações">
                     <MessageSquare size={15} />
                   </button>
-                  <StatusMenu value={status} disabled={updating === c.id} onChange={(st) => updateStatus(c, st)} />
+                  <StatusMenu value={status} disabled={updating === u.id} onChange={(st) => updateStatus(u, st)} />
                 </div>
               </div>
             )
@@ -233,7 +239,7 @@ export default function AutomationPesquisas() {
 
       {notesModal && (
         <NotesModal
-          client={notesModal}
+          unit={notesModal}
           survey={surveys[notesModal.id]}
           onClose={() => setNotesModal(null)}
           onSaved={(data) => {
