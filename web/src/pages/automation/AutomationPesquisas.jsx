@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { automationApi } from '../../services/automationApi'
 import {
   ClipboardList, Search, Loader2, MapPin, Hash,
-  MessageSquare, Check, X, ChevronDown,
+  MessageSquare, Check, X, ChevronDown, User, Phone, Mail,
 } from 'lucide-react'
 
 const STATUS = {
@@ -54,14 +54,19 @@ function StatusMenu({ value, onChange, disabled }) {
 }
 
 function NotesModal({ unit, survey, onClose, onSaved }) {
-  const [notes, setNotes] = useState(survey?.notes || '')
-  const [saving, setSaving] = useState(false)
+  const [contactName, setContactName]   = useState(survey?.contactName  || '')
+  const [contactPhone, setContactPhone] = useState(survey?.contactPhone || '')
+  const [contactEmail, setContactEmail] = useState(survey?.contactEmail || '')
+  const [notes, setNotes]     = useState(survey?.notes || '')
+  const [saving, setSaving]   = useState(false)
 
   const save = async () => {
     setSaving(true)
     try {
       const { data } = await automationApi.setClientSurvey(unit.id, {
-        status: survey?.status || DEFAULT_STATUS,
+        contactName,
+        contactPhone,
+        contactEmail,
         notes,
       })
       onSaved(data)
@@ -76,11 +81,33 @@ function NotesModal({ unit, survey, onClose, onSaved }) {
           <h3 className="font-semibold text-slate-800 truncate">{unit.unidade || unit.identificador || 'Cliente'}</h3>
           <button onClick={onClose}><X size={17} className="text-slate-400" /></button>
         </div>
-        <div className="px-6 py-4">
-          <label className="block text-xs font-medium text-slate-500 mb-1">Observações</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={5}
-            placeholder="Ex: falei com o financeiro, retornar na sexta..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none" />
+        <div className="px-6 py-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Nome</label>
+              <input value={contactName} onChange={e => setContactName(e.target.value)}
+                placeholder="Nome de quem foi contatado"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Número</label>
+              <input value={contactPhone} onChange={e => setContactPhone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">E-mail</label>
+              <input value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                placeholder="contato@empresa.com"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Observações</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4}
+              placeholder="Ex: falei com o financeiro, retornar na sexta..."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none" />
+          </div>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-100">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500">Cancelar</button>
@@ -129,10 +156,7 @@ export default function AutomationPesquisas() {
   const updateStatus = async (unit, status) => {
     setUpdating(unit.id)
     try {
-      const { data } = await automationApi.setClientSurvey(unit.id, {
-        status,
-        notes: surveys[unit.id]?.notes || '',
-      })
+      const { data } = await automationApi.setClientSurvey(unit.id, { status })
       setSurveys(prev => ({ ...prev, [unit.id]: data }))
     } catch { /* ignore */ }
     setUpdating(null)
@@ -227,6 +251,13 @@ export default function AutomationPesquisas() {
                       </span>
                     )}
                   </div>
+                  {(survey?.contactName || survey?.contactPhone || survey?.contactEmail) && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
+                      {survey.contactName && <span className="flex items-center gap-1"><User size={10} /> {survey.contactName}</span>}
+                      {survey.contactPhone && <span className="flex items-center gap-1"><Phone size={10} /> {survey.contactPhone}</span>}
+                      {survey.contactEmail && <span className="flex items-center gap-1"><Mail size={10} /> {survey.contactEmail}</span>}
+                    </div>
+                  )}
                   {survey?.notes && (
                     <p className="mt-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 line-clamp-2">{survey.notes}</p>
                   )}

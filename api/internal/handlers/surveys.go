@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -40,12 +41,9 @@ func (h *SurveyHandler) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
-type surveyUpsertPayload struct {
-	Status models.ClientSurveyStatus `json:"status"`
-	Notes  string                    `json:"notes"`
-}
-
-// UpsertByClient cria ou atualiza o status de pesquisa de um cliente.
+// UpsertByClient cria ou atualiza (parcialmente) o acompanhamento de pesquisa
+// de um cliente. Aceita status, contactName, contactPhone, contactEmail e
+// notes — campos ausentes do payload preservam o valor já salvo.
 func (h *SurveyHandler) UpsertByClient(c *gin.Context) {
 	clientID := c.Param("clientId")
 	if clientID == "" {
@@ -53,12 +51,12 @@ func (h *SurveyHandler) UpsertByClient(c *gin.Context) {
 		return
 	}
 
-	var payload surveyUpsertPayload
+	var payload map[string]interface{}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
-	if payload.Status != "" && !validSurveyStatuses[payload.Status] {
+	if st, ok := payload["status"].(string); ok && st != "" && !validSurveyStatuses[st] {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Status inválido"})
 		return
 	}
@@ -67,6 +65,9 @@ func (h *SurveyHandler) UpsertByClient(c *gin.Context) {
 	defer cancel()
 
 	uid, uname := ctxUser(c)
+	payload["updatedBy"] = uid
+	payload["updatedByName"] = uname
+	payload["updatedAt"] = time.Now().UTC()
 
 	existing, err := h.repo.FindOne(ctx, "client_id = ?", clientID)
 	if err != nil {
@@ -74,17 +75,17 @@ func (h *SurveyHandler) UpsertByClient(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
-		created := models.ClientSurvey{
-			ClientID:      clientID,
-			Status:        payload.Status,
-			Notes:         payload.Notes,
-			UpdatedBy:     uid,
-			UpdatedByName: uname,
-			UpdatedAt:     time.Now().UTC(),
+		created := models.ClientSurvey{ClientID: clientID, Status: models.SurveyNaoContatado}
+		b, err := json.Marshal(payload)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
-		if created.Status == "" {
-			created.Status = models.SurveyNaoContatado
+		if err := json.Unmarshal(b, &created); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
+		created.ClientID = clientID
 		if err := h.repo.Create(ctx, &created); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
@@ -93,19 +94,16 @@ func (h *SurveyHandler) UpsertByClient(c *gin.Context) {
 		return
 	}
 
-	if payload.Status != "" {
-		existing.Status = payload.Status
-	}
-	existing.Notes = payload.Notes
-	existing.UpdatedBy = uid
-	existing.UpdatedByName = uname
-	existing.UpdatedAt = time.Now().UTC()
-
-	if err := h.repo.Save(ctx, existing); err != nil {
+	if err := h.repo.MergeUpdate(ctx, existing.ID, payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, existing)
+	updated, err := h.repo.FindByID(ctx, existing.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
 }
 
 func (h *SurveyHandler) Delete(c *gin.Context) {

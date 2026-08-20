@@ -20,6 +20,9 @@ type ClientSurvey struct {
 	ID            string             `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id,omitempty"`
 	ClientID      string             `gorm:"column:client_id;uniqueIndex" json:"clientId"`
 	Status        ClientSurveyStatus `json:"status"`
+	ContactName   string             `gorm:"column:contact_name" json:"contactName"`
+	ContactPhone  string             `gorm:"column:contact_phone" json:"contactPhone"`
+	ContactEmail  string             `gorm:"column:contact_email" json:"contactEmail"`
 	Notes         string             `json:"notes"`
 	UpdatedBy     string             `gorm:"column:updated_by" json:"updatedBy"`
 	UpdatedByName string             `gorm:"column:updated_by_name" json:"updatedByName"`
