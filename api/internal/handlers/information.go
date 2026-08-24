@@ -301,6 +301,10 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 	demandBase = applyExactFilter(demandBase, "category", categoryFilter)
 	demandBase = applyExactFilter(demandBase, "priority", priorityFilter)
 	demandBase = applyExactFilter(demandBase, "approval", approvalFilter)
+	// Session isolates this base query so it can be reused for several
+	// independent Count/Select/Scan calls below without one call's extra
+	// WHERE/SELECT clauses leaking into (and corrupting) the next one.
+	demandBase = demandBase.Session(&gorm.Session{})
 
 	countTable := func(base *gorm.DB, where string, args ...interface{}) int64 {
 		query := base
@@ -327,18 +331,23 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 	trainingBase := db.Table("information_trainings")
 	trainingBase = applyDateColumnRange(trainingBase, "date", startDate, endDate)
 	trainingBase = applyExactFilter(trainingBase, "department", demandDepartment)
+	trainingBase = trainingBase.Session(&gorm.Session{})
 	approvalBase := db.Table("information_approvals")
 	approvalBase = applyDateColumnRange(approvalBase, "date", startDate, endDate)
 	approvalBase = applyExactFilter(approvalBase, "department", demandDepartment)
+	approvalBase = approvalBase.Session(&gorm.Session{})
 	meetingsBase := db.Table("information_meetings")
 	meetingsBase = applyDateColumnRange(meetingsBase, "date", startDate, endDate)
 	meetingsBase = applyExactFilter(meetingsBase, "department", demandDepartment)
+	meetingsBase = meetingsBase.Session(&gorm.Session{})
 	processBase := db.Table("information_processes")
 	processBase = applyDateColumnRange(processBase, "date", startDate, endDate)
 	processBase = applyExactFilter(processBase, "department", demandDepartment)
+	processBase = processBase.Session(&gorm.Session{})
 	supportBase := db.Table("information_department_support")
 	supportBase = applyDateColumnRange(supportBase, "date", startDate, endDate)
 	supportBase = applyExactFilter(supportBase, "department", demandDepartment)
+	supportBase = supportBase.Session(&gorm.Session{})
 
 	projectsHours += sumFloat(supportBase, "hours")
 	trainingsHours := sumFloat(trainingBase, "hours")
