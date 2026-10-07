@@ -117,7 +117,14 @@ func applyDateColumnRange(db *gorm.DB, column string, start, end *time.Time) *go
 		db = db.Where(column+" >= ?", start.UTC())
 	}
 	if end != nil {
-		db = db.Where(column+" <= ?", end.UTC())
+		endUTC := end.UTC()
+		// Data final so com o dia ("2026-09-30" vira 00:00): inclui o dia
+		// inteiro, senao tudo que foi criado durante o ultimo dia ficava de fora.
+		if endUTC.Hour() == 0 && endUTC.Minute() == 0 && endUTC.Second() == 0 && endUTC.Nanosecond() == 0 {
+			db = db.Where(column+" < ?", endUTC.AddDate(0, 0, 1))
+		} else {
+			db = db.Where(column+" <= ?", endUTC)
+		}
 	}
 	return db
 }
@@ -429,12 +436,32 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		Category string `json:"category"`
 		Count    int64  `json:"count"`
 	}
+	// Agrupa pela expressao inteira: Group("1") o GORM poe entre aspas e o
+	// Postgres procura uma coluna chamada "1".
+	const categoryExpr = "COALESCE(NULLIF(TRIM(category), ''), 'Sem categoria')"
 	var demandsByCategory []demandByCategory
 	demandBase.
-		Select("COALESCE(NULLIF(TRIM(category), ''), 'Sem categoria') as category, COUNT(*) as count").
-		Group("1").
+		Select(categoryExpr + " as category, COUNT(*) as count").
+		Group(categoryExpr).
 		Order("count DESC").
 		Scan(&demandsByCategory)
+
+	// Todas as demandas do periodo por status, pra fechar a conta de
+	// Recebidas (Concluidas + Em andamento + Abertas + Canceladas...).
+	// Concluida sem data de conclusao aparece a parte: ela nao entra em
+	// "Demandas Concluidas", que exige a data.
+	type demandByStatus struct {
+		Status string `json:"status"`
+		Count  int64  `json:"count"`
+	}
+	const statusExpr = "COALESCE(NULLIF(TRIM(status), ''), 'Sem status')"
+	var demandsByStatus []demandByStatus
+	demandBase.
+		Select(statusExpr + " as status, COUNT(*) as count").
+		Group(statusExpr).
+		Order("count DESC").
+		Scan(&demandsByStatus)
+	demandsCompletedWithoutDate := countTable(demandBase, "status = ? AND completed_date IS NULL", "Concluido")
 
 	collectDepartments("requesting_department", demandBase)
 	collectDepartments("department", trainingBase)
@@ -540,6 +567,8 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		"demandsCompletedByDepartment": demandsCompletedByDepartment,
 		"demandsByPriority":            demandsByPriority,
 		"demandsByCategory":            demandsByCategory,
+		"demandsByStatus":              demandsByStatus,
+		"demandsCompletedWithoutDate":  demandsCompletedWithoutDate,
 		"monthlyTrend":                 monthlyTrend,
 	})
 }

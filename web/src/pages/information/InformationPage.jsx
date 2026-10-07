@@ -870,6 +870,37 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
     { title: 'Treinamentos Realizados', value: formatNumber(data.trainingsPerformed), icon: GraduationCap, tone: 'pink', helper: 'Total de treinamentos do periodo.' },
   ]
 
+  // Um card por status (na ordem do cadastro; status fora da lista entram no
+  // fim), pra mostrar onde estao as demandas que nao sao Concluidas.
+  const STATUS_CARD_STYLE = {
+    Aberto: { icon: ClipboardList, tone: 'blue', helper: 'Ainda nao iniciadas.' },
+    'Em andamento': { icon: Activity, tone: 'amber', helper: 'Em execucao.' },
+    'Aguardando aprovacao': { icon: Hourglass, tone: 'violet', helper: 'Paradas esperando aprovacao.' },
+    Concluido: { icon: CheckCircle2, tone: 'pink', helper: 'Status Concluido (com ou sem data de conclusao).' },
+    Cancelado: { icon: Trash2, tone: 'slate', helper: 'Canceladas.' },
+  }
+  const statusCounts = new Map((data.demandsByStatus || []).map((row) => [row.status, row.count]))
+  const orderedStatuses = [
+    ...DEMAND_STATUSES.filter((status) => statusCounts.has(status)),
+    ...[...statusCounts.keys()].filter((status) => !DEMAND_STATUSES.includes(status)),
+  ]
+  const statusCards = orderedStatuses.map((status) => ({
+    title: status,
+    value: formatNumber(statusCounts.get(status)),
+    icon: STATUS_CARD_STYLE[status]?.icon || ClipboardList,
+    tone: STATUS_CARD_STYLE[status]?.tone || 'rose',
+    helper: STATUS_CARD_STYLE[status]?.helper || 'Status fora da lista padrao - revise essas demandas.',
+  }))
+  if (Number(data.demandsCompletedWithoutDate || 0) > 0) {
+    statusCards.push({
+      title: 'Concluidas sem data',
+      value: formatNumber(data.demandsCompletedWithoutDate),
+      icon: CalendarDays,
+      tone: 'rose',
+      helper: 'Status Concluido mas sem Data de Conclusao - nao entram em "Demandas Concluidas". Preencha a data.',
+    })
+  }
+
   const hasMonthlyTrend = (data.monthlyTrend || []).some((point) => point.received > 0 || point.completed > 0)
   const hasPriorityBreakdown = data.demandsByPriority && data.demandsByPriority.length > 0
 
@@ -961,6 +992,16 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
               {operationalCards.map((card) => <DashboardCard key={card.title} {...card} />)}
             </div>
           </div>
+
+          {statusCards.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">Demandas por Status</h3>
+              <p className="text-xs text-slate-400 mb-3">A soma dos status fecha com o total de Demandas Recebidas no periodo.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                {statusCards.map((card) => <DashboardCard key={card.title} {...card} />)}
+              </div>
+            </div>
+          )}
 
           {hasMonthlyTrend && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
