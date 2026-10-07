@@ -214,3 +214,115 @@ export function demandNormalizeFormChange(next, key) {
   }
   return next
 }
+
+// Treinamentos: formulario compartilhado pela aba Treinamentos e pelo Calendario.
+function splitTrainingParticipants(value) {
+  return String(value || '')
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+export function countTrainingParticipants(value) {
+  return splitTrainingParticipants(value).length
+}
+
+export const trainingFormFields = [
+  { key: 'date', label: 'Data', type: 'date' },
+  { key: 'department', label: 'Departamento', type: 'select', options: INFORMATION_DEPARTMENTS },
+  { key: 'startTime', label: 'Horario de inicio', type: 'time' },
+  { key: 'endTime', label: 'Horario de termino', type: 'time' },
+  { key: 'theme', label: 'Tema', type: 'text', fullWidth: true },
+  {
+    key: 'modulesCovered',
+    label: 'Modulos Abordados',
+    type: 'textarea',
+    fullWidth: true,
+    rows: 4,
+    placeholder: 'Um modulo por linha. Ex.: Cadastro de Clientes, Debito a Prazo, Cadastro de Estoque...',
+  },
+  {
+    key: 'questionsCovered',
+    label: 'Duvidas Repassadas nos Treinamentos',
+    type: 'textarea',
+    fullWidth: true,
+    rows: 4,
+    placeholder: 'Uma duvida/topico por linha. Ex.: Formacao de Carga, Expedicao de Carga...',
+  },
+  {
+    key: 'participantNames',
+    label: 'Participantes',
+    type: 'textarea',
+    fullWidth: true,
+    rows: 5,
+    placeholder: 'Informe os nomes em linhas separadas, ou separados por virgula/;.',
+  },
+  {
+    key: 'trainedCount',
+    label: 'Quantidade Treinadas',
+    type: 'number',
+    min: '0',
+    step: '1',
+    readOnly: true,
+  },
+  {
+    key: 'attachments',
+    label: 'Anexos',
+    type: 'attachments',
+    fullWidth: true,
+    helper: 'Adicione materiais, listas de presenca ou comprovantes do treinamento.',
+  },
+  { key: 'hours', label: 'Horas', type: 'number', min: '0', step: '0.25' },
+]
+
+export function trainingEmptyForm() {
+  return { date: todayDateInput(), department: '', startTime: '', endTime: '', theme: '', modulesCovered: '', questionsCovered: '', participantNames: '', trainedCount: 0, attachments: [], hours: '' }
+}
+
+export function trainingToForm(item) {
+  return {
+    date: toDateInput(item.date),
+    department: item.department || '',
+    startTime: item.startTime || '',
+    endTime: item.endTime || '',
+    theme: item.theme || '',
+    modulesCovered: item.modulesCovered || '',
+    questionsCovered: item.questionsCovered || '',
+    participantNames: item.participantNames || '',
+    trainedCount: item.trainedCount ?? 0,
+    attachments: item.attachments || [],
+    hours: item.hours ?? '',
+  }
+}
+
+export function trainingToPayload(form) {
+  return {
+    date: toIsoDate(form.date),
+    department: form.department,
+    startTime: form.startTime || '',
+    endTime: form.endTime || '',
+    theme: form.theme,
+    modulesCovered: form.modulesCovered,
+    questionsCovered: form.questionsCovered,
+    participantNames: form.participantNames,
+    trainedCount: countTrainingParticipants(form.participantNames),
+    attachments: form.attachments || [],
+    hours: Number(form.hours || 0),
+  }
+}
+
+export function trainingNormalizeFormChange(next, key) {
+  if (key === 'participantNames') {
+    return { ...next, trainedCount: countTrainingParticipants(next.participantNames) }
+  }
+  // Com inicio e fim preenchidos, Horas = duracao (a API recalcula igual).
+  if ((key === 'startTime' || key === 'endTime') && next.startTime && next.endTime) {
+    const toMinutes = (value) => {
+      const [hours, minutes] = value.split(':').map(Number)
+      return hours * 60 + minutes
+    }
+    const duration = toMinutes(next.endTime) - toMinutes(next.startTime)
+    if (duration > 0) return { ...next, hours: Math.round((duration / 60) * 100) / 100 }
+  }
+  return next
+}

@@ -70,6 +70,11 @@ import {
   demandToForm,
   demandToPayload,
   demandNormalizeFormChange,
+  trainingFormFields,
+  trainingEmptyForm,
+  trainingToForm,
+  trainingToPayload,
+  trainingNormalizeFormChange,
 } from './informationShared'
 
 const PROCESS_TYPES = ['Novo', 'Revisao', 'Automacao']
@@ -98,17 +103,6 @@ function formatMinutes(totalMinutes) {
   if (hours === 0) return `${rest} min`
   if (rest === 0) return `${hours}h`
   return `${hours}h ${rest}min`
-}
-
-function splitTrainingParticipants(value) {
-  return String(value || '')
-    .split(/[\n,;]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function countTrainingParticipants(value) {
-  return splitTrainingParticipants(value).length
 }
 
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1', '#14b8a6', '#a855f7', '#eab308', '#64748b', '#0ea5e9']
@@ -1160,95 +1154,11 @@ export default function InformationPage() {
             ),
           },
         ]}
-      formFields={[
-        { key: 'date', label: 'Data', type: 'date' },
-        { key: 'department', label: 'Departamento', type: 'select', options: INFORMATION_DEPARTMENTS },
-        { key: 'startTime', label: 'Horario de inicio', type: 'time' },
-        { key: 'endTime', label: 'Horario de termino', type: 'time' },
-        { key: 'theme', label: 'Tema', type: 'text', fullWidth: true },
-        {
-          key: 'modulesCovered',
-          label: 'Modulos Abordados',
-          type: 'textarea',
-          fullWidth: true,
-          rows: 4,
-          placeholder: 'Um modulo por linha. Ex.: Cadastro de Clientes, Debito a Prazo, Cadastro de Estoque...',
-        },
-        {
-          key: 'questionsCovered',
-          label: 'Duvidas Repassadas nos Treinamentos',
-          type: 'textarea',
-          fullWidth: true,
-          rows: 4,
-          placeholder: 'Uma duvida/topico por linha. Ex.: Formacao de Carga, Expedicao de Carga...',
-        },
-        {
-          key: 'participantNames',
-          label: 'Participantes',
-          type: 'textarea',
-          fullWidth: true,
-          rows: 5,
-          placeholder: 'Informe os nomes em linhas separadas, ou separados por virgula/;.',
-        },
-        {
-          key: 'trainedCount',
-          label: 'Quantidade Treinadas',
-          type: 'number',
-          min: '0',
-          step: '1',
-          readOnly: true,
-        },
-        {
-          key: 'attachments',
-          label: 'Anexos',
-          type: 'attachments',
-          fullWidth: true,
-          helper: 'Adicione materiais, listas de presenca ou comprovantes do treinamento.',
-        },
-        { key: 'hours', label: 'Horas', type: 'number', min: '0', step: '0.25' },
-      ]}
-      emptyForm={() => ({ date: todayDateInput(), department: '', startTime: '', endTime: '', theme: '', modulesCovered: '', questionsCovered: '', participantNames: '', trainedCount: 0, attachments: [], hours: '' })}
-      toForm={(item) => ({
-        date: toDateInput(item.date),
-        department: item.department || '',
-        startTime: item.startTime || '',
-        endTime: item.endTime || '',
-        theme: item.theme || '',
-        modulesCovered: item.modulesCovered || '',
-        questionsCovered: item.questionsCovered || '',
-        participantNames: item.participantNames || '',
-        trainedCount: item.trainedCount ?? 0,
-        attachments: item.attachments || [],
-        hours: item.hours ?? '',
-      })}
-      toPayload={(form) => ({
-        date: toIsoDate(form.date),
-        department: form.department,
-        startTime: form.startTime || '',
-        endTime: form.endTime || '',
-        theme: form.theme,
-        modulesCovered: form.modulesCovered,
-        questionsCovered: form.questionsCovered,
-        participantNames: form.participantNames,
-        trainedCount: countTrainingParticipants(form.participantNames),
-        attachments: form.attachments || [],
-        hours: Number(form.hours || 0),
-      })}
-      normalizeFormChange={(next, key) => {
-        if (key === 'participantNames') {
-          return { ...next, trainedCount: countTrainingParticipants(next.participantNames) }
-        }
-        // Com inicio e fim preenchidos, Horas = duracao (a API recalcula igual).
-        if ((key === 'startTime' || key === 'endTime') && next.startTime && next.endTime) {
-          const toMinutes = (value) => {
-            const [hours, minutes] = value.split(':').map(Number)
-            return hours * 60 + minutes
-          }
-          const duration = toMinutes(next.endTime) - toMinutes(next.startTime)
-          if (duration > 0) return { ...next, hours: Math.round((duration / 60) * 100) / 100 }
-        }
-        return next
-      }}
+      formFields={trainingFormFields}
+      emptyForm={trainingEmptyForm}
+      toForm={trainingToForm}
+      toPayload={trainingToPayload}
+      normalizeFormChange={trainingNormalizeFormChange}
       summaryBuilder={(items) => {
         const departmentSet = new Set(items.map((item) => item.department).filter(Boolean))
         const totalHours = items.reduce((sum, item) => sum + Number(item.hours || 0), 0)
@@ -1406,7 +1316,7 @@ export default function InformationPage() {
   const content = useMemo(() => ({
     dashboard: <DashboardTab filters={dashboardFilters} setFilters={setDashboardFilters} data={dashboardData} loading={dashboardLoading} onRefresh={loadDashboard} />,
     demands: demandTab,
-    calendar: <CalendarTab onChanged={loadDashboard} />,
+    calendar: <CalendarTab onChanged={loadDashboard} onInvite={setInvitingTraining} />,
     trainings: trainingTab,
     processes: processTab,
   }), [dashboardData, dashboardFilters, dashboardLoading, demandTab, loadDashboard, meetingsTab, processTab, routinesTab, setDashboardFilters, trainingTab])

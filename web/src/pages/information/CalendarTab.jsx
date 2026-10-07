@@ -5,7 +5,6 @@ import {
   endOfMonth,
   endOfWeek,
   format,
-  isSameDay,
   isSameMonth,
   isToday,
   startOfMonth,
@@ -13,32 +12,34 @@ import {
   subMonths,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react'
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import {
-  demandEmptyForm,
-  demandFormFields,
-  demandNormalizeFormChange,
-  demandToForm,
-  demandToPayload,
-  formatTime,
   loadAllPages,
   toDateInput,
+  trainingEmptyForm,
+  trainingFormFields,
+  trainingNormalizeFormChange,
+  trainingToForm,
+  trainingToPayload,
 } from './informationShared'
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
 
 const CHIP_TONE = 'bg-pink-50 border-pink-100 text-pink-700 hover:bg-pink-100 hover:border-pink-200'
 
-export default function CalendarTab({ onChanged }) {
+// Calendario dos treinamentos agendados (pela Data + horario de inicio de
+// cada treinamento). Clicar num treinamento abre a edicao; o botao + de cada
+// dia agenda um treinamento novo naquele dia. onInvite abre o envio da agenda.
+export default function CalendarTab({ onChanged, onInvite }) {
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()))
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState(demandEmptyForm)
+  const [form, setForm] = useState(trainingEmptyForm)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -55,7 +56,7 @@ export default function CalendarTab({ onChanged }) {
         startDate: format(gridStart, 'yyyy-MM-dd'),
         endDate: format(gridEnd, 'yyyy-MM-dd'),
       }
-      const data = await loadAllPages(informationApi.getDemands, params)
+      const data = await loadAllPages(informationApi.getTrainings, params)
       setItems(data)
     } finally {
       setLoading(false)
@@ -69,17 +70,18 @@ export default function CalendarTab({ onChanged }) {
 
   const itemsByDay = new Map()
   for (const item of items) {
-    const key = toDateInput(item.createdDate)
+    const key = toDateInput(item.date)
     if (!key) continue
     if (!itemsByDay.has(key)) itemsByDay.set(key, [])
     itemsByDay.get(key).push(item)
   }
+  for (const dayItems of itemsByDay.values()) {
+    dayItems.sort((a, b) => String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99')))
+  }
 
   const openNew = (day) => {
     setEditing(null)
-    const base = demandEmptyForm()
-    const time = base.createdDate.slice(10)
-    setForm({ ...base, createdDate: `${format(day, 'yyyy-MM-dd')}${time}` })
+    setForm({ ...trainingEmptyForm(), date: format(day, 'yyyy-MM-dd') })
     setIsModalOpen(true)
     setSaveError(null)
     setUploadError(null)
@@ -87,7 +89,7 @@ export default function CalendarTab({ onChanged }) {
 
   const openEdit = (item) => {
     setEditing(item)
-    setForm(demandToForm(item))
+    setForm(trainingToForm(item))
     setIsModalOpen(true)
     setSaveError(null)
     setUploadError(null)
@@ -96,7 +98,7 @@ export default function CalendarTab({ onChanged }) {
   const closeModal = () => {
     setEditing(null)
     setIsModalOpen(false)
-    setForm(demandEmptyForm())
+    setForm(trainingEmptyForm())
     setSaveError(null)
     setUploadError(null)
   }
@@ -132,9 +134,9 @@ export default function CalendarTab({ onChanged }) {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = demandToPayload(form)
-      if (editing?.id) await informationApi.updateDemand(editing.id, payload)
-      else await informationApi.createDemand(payload)
+      const payload = trainingToPayload(form)
+      if (editing?.id) await informationApi.updateTraining(editing.id, payload)
+      else await informationApi.createTraining(payload)
       closeModal()
       await load()
       if (onChanged) await onChanged()
@@ -151,14 +153,14 @@ export default function CalendarTab({ onChanged }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Calendario</h2>
-          <p className="text-sm text-slate-500 mt-1">Visualize as demandas por data de criacao e crie novas direto no dia desejado.</p>
+          <p className="text-sm text-slate-500 mt-1">Treinamentos agendados. Clique em um treinamento para editar ou no + do dia para agendar um novo.</p>
         </div>
         <button
           onClick={() => openNew(new Date())}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pink-400 text-white text-sm font-medium hover:bg-pink-300"
         >
           <Plus size={14} />
-          Nova Demanda
+          Novo Treinamento
         </button>
       </div>
 
@@ -227,25 +229,34 @@ export default function CalendarTab({ onChanged }) {
                   <button
                     onClick={() => openNew(day)}
                     className="w-5 h-5 rounded-lg border border-slate-200 text-slate-400 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:border-pink-200 hover:text-pink-500 transition-opacity"
-                    title="Nova demanda neste dia"
+                    title="Agendar treinamento neste dia"
                   >
                     <Plus size={11} />
                   </button>
                 </div>
                 <div className="space-y-1 overflow-hidden">
                   {visible.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => openEdit(item)}
-                      className={`w-full text-left text-[11px] leading-tight px-1.5 py-1 rounded-lg border ${CHIP_TONE}`}
-                      title={item.description}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-semibold">{formatTime(item.createdDate)}</span>
-                        {item.category && <span className="truncate opacity-75">{item.category}</span>}
-                      </div>
-                      <div className="truncate">{item.requester || item.requestingDepartment || 'Demanda'}</div>
-                    </button>
+                    <div key={item.id} className={`w-full text-[11px] leading-tight px-1.5 py-1 rounded-lg border ${CHIP_TONE}`}>
+                      <button onClick={() => openEdit(item)} className="w-full text-left" title={item.modulesCovered || item.theme}>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-semibold">
+                            {item.startTime ? `${item.startTime}${item.endTime ? ` - ${item.endTime}` : ''}` : 'Sem horario'}
+                          </span>
+                          {item.department && <span className="truncate opacity-75">{item.department}</span>}
+                        </div>
+                        <div className="truncate">{item.theme || 'Treinamento'}</div>
+                      </button>
+                      {onInvite && (
+                        <button
+                          onClick={() => onInvite(item)}
+                          className="mt-0.5 inline-flex items-center gap-1 text-[10px] opacity-75 hover:opacity-100"
+                          title={item.inviteSentAt ? 'Reenviar agenda' : 'Enviar agenda'}
+                        >
+                          <CalendarDays size={10} />
+                          {item.inviteSentAt ? 'Agenda enviada' : 'Enviar agenda'}
+                        </button>
+                      )}
+                    </div>
                   ))}
                   {overflow > 0 && (
                     <p className="text-[10px] text-slate-400 px-1.5">+{overflow} mais</p>
@@ -259,10 +270,8 @@ export default function CalendarTab({ onChanged }) {
 
       {isModalOpen && (
         <EntityModal
-          title={editing?.id ? 'Editar Demanda' : 'Nova Demanda'}
-          maxWidth="max-w-5xl"
-          gridCols="md:grid-cols-3"
-          fields={demandFormFields.map((field) => field.type !== 'attachments' ? field : ({
+          title={editing?.id ? 'Editar Treinamento' : 'Novo Treinamento'}
+          fields={trainingFormFields.map((field) => field.type !== 'attachments' ? field : ({
             ...field,
             helper: uploading
               ? 'Enviando arquivos, aguarde...'
@@ -278,10 +287,7 @@ export default function CalendarTab({ onChanged }) {
             })),
           }))}
           form={form}
-          onChange={(key, value) => setForm((current) => {
-            const next = { ...current, [key]: value }
-            return demandNormalizeFormChange(next, key, value)
-          })}
+          onChange={(key, value) => setForm((current) => trainingNormalizeFormChange({ ...current, [key]: value }, key))}
           onClose={closeModal}
           onSave={handleSave}
           saving={saving || uploading}
