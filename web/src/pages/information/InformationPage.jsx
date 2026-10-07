@@ -717,7 +717,39 @@ function ChecklistTab() {
   )
 }
 
+// Trimestre civil -> datas (AAAA-MM-DD) usadas pelo filtro startDate/endDate.
+function quarterRange(year, quarter) {
+  const startMonth = (quarter - 1) * 3 + 1
+  const lastDay = new Date(year, startMonth + 2, 0).getDate()
+  const pad = (value) => String(value).padStart(2, '0')
+  return {
+    startDate: `${year}-${pad(startMonth)}-01`,
+    endDate: `${year}-${pad(startMonth + 2)}-${pad(lastDay)}`,
+  }
+}
+
+// Qual trimestre as datas atuais representam (0 = nenhum / periodo livre).
+function quarterFromFilters(filters) {
+  const year = Number(String(filters.startDate || '').slice(0, 4))
+  if (!year) return { year: null, quarter: 0 }
+  for (let quarter = 1; quarter <= 4; quarter += 1) {
+    const range = quarterRange(year, quarter)
+    if (range.startDate === filters.startDate && range.endDate === filters.endDate) return { year, quarter }
+  }
+  return { year, quarter: 0 }
+}
+
 function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
+  const currentYear = new Date().getFullYear()
+  const quarterYearOptions = Array.from({ length: 5 }, (_, index) => currentYear - index)
+  const detectedQuarter = quarterFromFilters(filters)
+  const [quarterYear, setQuarterYear] = useState(detectedQuarter.year || currentYear)
+  const selectedQuarter = detectedQuarter.quarter
+
+  const applyQuarter = (year, quarter) => {
+    setFilters((current) => ({ ...current, ...quarterRange(year, quarter) }))
+  }
+
   const executiveCards = [
     { title: 'Taxa de Conclusao', value: formatPercent(data.demandsCompleted, data.demandsReceived), icon: CheckCircle2, tone: 'violet', helper: 'Concluidas sobre o total recebido no periodo.' },
     { title: 'Urgentes em Aberto', value: formatNumber(data.demandsUrgentOpen), icon: Activity, tone: 'rose', helper: 'Prioridade Urgente ainda nao concluida/cancelada. Atencao imediata.' },
@@ -766,6 +798,34 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
               <option key={department} value={department}>{department}</option>
             ))}
           </select>
+        <select
+          value={quarterYear}
+          onChange={(event) => {
+            const year = Number(event.target.value)
+            setQuarterYear(year)
+            if (selectedQuarter) applyQuarter(year, selectedQuarter)
+          }}
+          className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+        >
+          {quarterYearOptions.map((year) => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+        <select
+          value={selectedQuarter}
+          onChange={(event) => {
+            const quarter = Number(event.target.value)
+            if (quarter) applyQuarter(quarterYear, quarter)
+            else setFilters((current) => ({ ...current, startDate: '', endDate: '' }))
+          }}
+          className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+        >
+          <option value={0}>{filters.startDate || filters.endDate ? 'Periodo personalizado' : 'Todo o periodo'}</option>
+          {[1, 2, 3, 4].map((quarter) => (
+            <option key={quarter} value={quarter}>{quarter}º Trimestre</option>
+          ))}
+        </select>
+        <span className="text-sm text-slate-400">ou</span>
         <input
           type="date"
           value={filters.startDate}
