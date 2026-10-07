@@ -57,6 +57,13 @@ type InformationTraining struct {
 	TrainedCount     int       `gorm:"column:participants" json:"trainedCount"`
 	Hours            float64   `json:"hours"`
 	Attachments      []InformationAttachment `gorm:"type:jsonb;serializer:json" json:"attachments"`
+	// Campos da planilha "Treinamentos 2026" + agenda (convite de calendario).
+	StartTime        string     `gorm:"column:start_time" json:"startTime"` // "14:30"
+	EndTime          string     `gorm:"column:end_time" json:"endTime"`     // "17:15"
+	QuestionsCovered string     `gorm:"column:questions_covered" json:"questionsCovered"`
+	InviteEmails     string     `gorm:"column:invite_emails" json:"inviteEmails"`
+	InviteSentAt     *time.Time `gorm:"column:invite_sent_at" json:"inviteSentAt"`
+	InviteSequence   int        `gorm:"column:invite_sequence" json:"inviteSequence"`
 }
 
 func (InformationTraining) TableName() string { return "information_trainings" }

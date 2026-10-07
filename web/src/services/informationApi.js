@@ -49,6 +49,8 @@ export const informationApi = {
   createTraining: (data) => http.post(`${base}/trainings`, data),
   updateTraining: (id, data) => http.put(`${base}/trainings/${id}`, data),
   deleteTraining: (id) => http.delete(`${base}/trainings/${id}`),
+  sendTrainingInvite: (id, emails) => http.post(`${base}/trainings/${id}/send-invite`, { emails }),
+  getUsers: () => http.get('/api/User'),
 
   getProcesses: (params) => http.get(`${base}/processes`, { params }),
   createProcess: (data) => http.post(`${base}/processes`, data),

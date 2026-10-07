@@ -43,6 +43,7 @@ import {
 import { informationApi } from '../../services/informationApi'
 import { EntityModal } from './EntityModal'
 import CalendarTab from './CalendarTab'
+import TrainingInviteModal from './TrainingInviteModal'
 import {
   DEMAND_CATEGORIES,
   DEMAND_PRIORITIES,
@@ -149,17 +150,13 @@ function DashboardCard({ title, value, helper, icon: Icon, tone }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">{title}</p>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{value}</p>
-          {helper && <p className="text-xs text-slate-500 mt-2">{helper}</p>}
-        </div>
-        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${tones[tone] || tones.slate}`}>
-          <Icon size={18} />
-        </div>
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 h-full flex flex-col items-center text-center">
+      <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${tones[tone] || tones.slate}`}>
+        <Icon size={18} />
       </div>
+      <p className="text-xs uppercase tracking-wide text-slate-400 mt-3">{title}</p>
+      <p className="text-2xl font-bold text-slate-900 mt-2">{value}</p>
+      {helper && <p className="text-xs text-slate-500 mt-2">{helper}</p>}
     </div>
   )
 }
@@ -932,6 +929,38 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
             </div>
           )}
 
+          {data.demandsByCategory && data.demandsByCategory.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <h3 className="text-base font-semibold text-slate-800 mb-1 text-center">Categoria por Demandas</h3>
+              <p className="text-xs text-slate-400 mb-2 text-center">Todas as demandas recebidas no periodo, por categoria.</p>
+              <ResponsiveContainer width="100%" height={340}>
+                <PieChart>
+                  <Pie
+                    data={data.demandsByCategory}
+                    dataKey="count"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={125}
+                    paddingAngle={1}
+                    labelLine={false}
+                    label={({ percent }) => (percent >= 0.03 ? `${Math.round(percent * 100)}%` : '')}
+                  >
+                    {data.demandsByCategory.map((entry, index) => (
+                      <Cell key={entry.category} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [`${value} demanda(s)`, name]}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
           {data.departmentsAttendedBreakdown && data.departmentsAttendedBreakdown.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <h3 className="text-base font-semibold text-slate-800 mb-4">Departamentos Atendidos</h3>
@@ -959,6 +988,7 @@ export default function InformationPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'dashboard'
   const [dashboardFilters, setDashboardFilters] = useState({ department: '', startDate: '', endDate: '' })
+  const [invitingTraining, setInvitingTraining] = useState(null)
   const [dashboardData, setDashboardData] = useState({})
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -1089,9 +1119,23 @@ export default function InformationPage() {
       ]}
         columns={[
           { key: 'date', label: 'Data', render: (item) => formatDate(item.date) },
+          {
+            key: 'time',
+            label: 'Horario',
+            render: (item) => (item.startTime && item.endTime ? `${item.startTime} as ${item.endTime}` : '-'),
+          },
           { key: 'department', label: 'Departamento' },
           { key: 'theme', label: 'Tema' },
-          { key: 'modulesCovered', label: 'Modulos Abordados', render: (item) => item.modulesCovered || '-' },
+          {
+            key: 'modulesCovered',
+            label: 'Modulos Abordados',
+            render: (item) => <span className="whitespace-pre-line">{item.modulesCovered || '-'}</span>,
+          },
+          {
+            key: 'questionsCovered',
+            label: 'Duvidas Repassadas',
+            render: (item) => <span className="whitespace-pre-line">{item.questionsCovered || '-'}</span>,
+          },
         {
           key: 'participantNames',
           label: 'Participantes',
@@ -1100,18 +1144,47 @@ export default function InformationPage() {
           { key: 'trainedCount', label: 'Quantidade Treinadas', render: (item) => formatNumber(item.trainedCount) },
           { key: 'attachments', label: 'Anexos', render: (item) => formatNumber((item.attachments || []).length) },
           { key: 'hours', label: 'Horas', render: (item) => formatHours(item.hours) },
+          {
+            key: 'invite',
+            label: 'Agenda',
+            render: (item) => (
+              <div className="flex flex-col items-start gap-1">
+                <button
+                  type="button"
+                  onClick={() => setInvitingTraining(item)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-400 text-white text-xs font-medium hover:bg-pink-300 whitespace-nowrap"
+                >
+                  <CalendarDays size={13} />
+                  {item.inviteSentAt ? 'Reenviar agenda' : 'Enviar agenda'}
+                </button>
+                {item.inviteSentAt && (
+                  <span className="text-[11px] text-slate-400 whitespace-nowrap">Enviada {formatDate(item.inviteSentAt)}</span>
+                )}
+              </div>
+            ),
+          },
         ]}
       formFields={[
         { key: 'date', label: 'Data', type: 'date' },
         { key: 'department', label: 'Departamento', type: 'select', options: INFORMATION_DEPARTMENTS },
+        { key: 'startTime', label: 'Horario de inicio', type: 'time' },
+        { key: 'endTime', label: 'Horario de termino', type: 'time' },
         { key: 'theme', label: 'Tema', type: 'text', fullWidth: true },
         {
           key: 'modulesCovered',
           label: 'Modulos Abordados',
           type: 'textarea',
           fullWidth: true,
-          rows: 3,
-          placeholder: 'Descreva os modulos, topicos ou conteudos abordados no treinamento.',
+          rows: 4,
+          placeholder: 'Um modulo por linha. Ex.: Cadastro de Clientes, Debito a Prazo, Cadastro de Estoque...',
+        },
+        {
+          key: 'questionsCovered',
+          label: 'Duvidas Repassadas nos Treinamentos',
+          type: 'textarea',
+          fullWidth: true,
+          rows: 4,
+          placeholder: 'Uma duvida/topico por linha. Ex.: Formacao de Carga, Expedicao de Carga...',
         },
         {
           key: 'participantNames',
@@ -1138,12 +1211,15 @@ export default function InformationPage() {
         },
         { key: 'hours', label: 'Horas', type: 'number', min: '0', step: '0.25' },
       ]}
-      emptyForm={() => ({ date: todayDateInput(), department: '', theme: '', modulesCovered: '', participantNames: '', trainedCount: 0, attachments: [], hours: '' })}
+      emptyForm={() => ({ date: todayDateInput(), department: '', startTime: '', endTime: '', theme: '', modulesCovered: '', questionsCovered: '', participantNames: '', trainedCount: 0, attachments: [], hours: '' })}
       toForm={(item) => ({
         date: toDateInput(item.date),
         department: item.department || '',
+        startTime: item.startTime || '',
+        endTime: item.endTime || '',
         theme: item.theme || '',
         modulesCovered: item.modulesCovered || '',
+        questionsCovered: item.questionsCovered || '',
         participantNames: item.participantNames || '',
         trainedCount: item.trainedCount ?? 0,
         attachments: item.attachments || [],
@@ -1152,8 +1228,11 @@ export default function InformationPage() {
       toPayload={(form) => ({
         date: toIsoDate(form.date),
         department: form.department,
+        startTime: form.startTime || '',
+        endTime: form.endTime || '',
         theme: form.theme,
         modulesCovered: form.modulesCovered,
+        questionsCovered: form.questionsCovered,
         participantNames: form.participantNames,
         trainedCount: countTrainingParticipants(form.participantNames),
         attachments: form.attachments || [],
@@ -1162,6 +1241,15 @@ export default function InformationPage() {
       normalizeFormChange={(next, key) => {
         if (key === 'participantNames') {
           return { ...next, trainedCount: countTrainingParticipants(next.participantNames) }
+        }
+        // Com inicio e fim preenchidos, Horas = duracao (a API recalcula igual).
+        if ((key === 'startTime' || key === 'endTime') && next.startTime && next.endTime) {
+          const toMinutes = (value) => {
+            const [hours, minutes] = value.split(':').map(Number)
+            return hours * 60 + minutes
+          }
+          const duration = toMinutes(next.endTime) - toMinutes(next.startTime)
+          if (duration > 0) return { ...next, hours: Math.round((duration / 60) * 100) / 100 }
         }
         return next
       }}
@@ -1372,6 +1460,10 @@ export default function InformationPage() {
       </div>
 
       {content[activeTab] || content.dashboard}
+
+      {invitingTraining && (
+        <TrainingInviteModal training={invitingTraining} onClose={() => setInvitingTraining(null)} />
+      )}
     </div>
   )
 }

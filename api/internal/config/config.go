@@ -15,6 +15,10 @@ type Config struct {
 	SMTPPass   string
 	EmailFrom  string
 	AppBaseURL string
+
+	// Remetente/organizador dos convites de agenda dos Treinamentos do
+	// Departamento de Informação. O SMTP_USER precisa poder enviar como ele.
+	TrainingInviteFrom string
 }
 
 func Load() *Config {
@@ -33,6 +37,8 @@ func Load() *Config {
 		SMTPPass:   getEnv("SMTP_PASS", ""),
 		EmailFrom:  getEnv("EMAIL_FROM", ""),
 		AppBaseURL: getEnv("APP_BASE_URL", "https://portal.coldline.com.br"),
+
+		TrainingInviteFrom: getEnv("TRAINING_INVITE_FROM", "coldline@coldline.com.br"),
 
 		AllowedOrigins: []string{
 			"https://portal.coldline.com.br",

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"coldline-api/internal/email"
 	"coldline-api/internal/models"
 	"coldline-api/internal/repositories"
 
@@ -42,11 +43,15 @@ type InformationHandler struct {
 	positionRepo          *repositories.Repository[models.InformationPosition]
 	orgDepartmentRepo     *repositories.Repository[models.InformationOrgDepartment]
 	orgChartRepo          *repositories.Repository[models.InformationOrgChart]
+	emailCfg              email.Config
+	trainingInviteFrom    string
 }
 
-func NewInformationHandler(db *gorm.DB) *InformationHandler {
+func NewInformationHandler(db *gorm.DB, emailCfg email.Config, trainingInviteFrom string) *InformationHandler {
 	return &InformationHandler{
 		db:                    db,
+		emailCfg:              emailCfg,
+		trainingInviteFrom:    trainingInviteFrom,
 		demandRepo:            repositories.New[models.InformationDemand](db, "information_demands"),
 		approvalRepo:          repositories.New[models.InformationApproval](db, "information_approvals"),
 		trainingRepo:          repositories.New[models.InformationTraining](db, "information_trainings"),
@@ -213,6 +218,11 @@ func normalizeTraining(input *models.InformationTraining) {
 	}
 	input.ModulesCovered = strings.TrimSpace(input.ModulesCovered)
 	input.ParticipantNames = strings.TrimSpace(input.ParticipantNames)
+	input.QuestionsCovered = strings.TrimSpace(input.QuestionsCovered)
+	// Com horário de início e fim, "Horas" é a duração entre eles.
+	if hours, ok := trainingHoursFromTimes(input.Date, input.StartTime, input.EndTime); ok {
+		input.Hours = hours
+	}
 	if input.Attachments == nil {
 		input.Attachments = []models.InformationAttachment{}
 	}
@@ -325,7 +335,9 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 	demandsReceived := countTable(demandBase, "")
 	demandsCompleted := countTable(demandBase, "status = ? AND completed_date IS NOT NULL", "Concluido")
 	demandsInProgress := countTable(demandBase, "status = ?", "Em andamento")
-	demandsWaitingApproval := countTable(demandBase, "(status = ? OR approval = ?)", "Aguardando aprovacao", "Aguardando")
+	// So demandas ainda abertas: uma demanda Concluida/Cancelada com o campo
+	// Aprovacao esquecido em "Aguardando" nao esta travada esperando ninguem.
+	demandsWaitingApproval := countTable(demandBase, "(status = ? OR approval = ?) AND status NOT IN (?)", "Aguardando aprovacao", "Aguardando", []string{"Concluido", "Cancelado"})
 	projectsHours := sumFloat(demandBase, "hours_spent")
 
 	trainingBase := db.Table("information_trainings")
@@ -383,6 +395,7 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		linkedDemandBase.
 			Where("id IN ?", linkedPendingDemandIDs).
 			Where("NOT (status = ? OR approval = ?)", "Aguardando aprovacao", "Aguardando").
+			Where("status NOT IN (?)", []string{"Concluido", "Cancelado"}).
 			Count(&linkedPendingCount)
 		demandsWaitingApproval += linkedPendingCount
 	}
@@ -409,6 +422,19 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		Group("priority").
 		Order("count DESC").
 		Scan(&demandsByPriority)
+
+	// Todas as demandas do periodo por categoria (grafico de rosca
+	// "Categoria por Demandas"); sem categoria vira "Sem categoria".
+	type demandByCategory struct {
+		Category string `json:"category"`
+		Count    int64  `json:"count"`
+	}
+	var demandsByCategory []demandByCategory
+	demandBase.
+		Select("COALESCE(NULLIF(TRIM(category), ''), 'Sem categoria') as category, COUNT(*) as count").
+		Group("1").
+		Order("count DESC").
+		Scan(&demandsByCategory)
 
 	collectDepartments("requesting_department", demandBase)
 	collectDepartments("department", trainingBase)
@@ -513,6 +539,7 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		"departmentsAttendedBreakdown": departmentsAttendedBreakdown,
 		"demandsCompletedByDepartment": demandsCompletedByDepartment,
 		"demandsByPriority":            demandsByPriority,
+		"demandsByCategory":            demandsByCategory,
 		"monthlyTrend":                 monthlyTrend,
 	})
 }
@@ -786,6 +813,14 @@ func (h *InformationHandler) UpdateTraining(c *gin.Context) {
 				payload["trainedCount"] = 0
 			}
 		}
+	}
+
+	// Com horário de início e fim, "Horas" é a duração entre eles (a data não
+	// muda a duração, por isso vale qualquer dia aqui).
+	startTime, _ := payload["startTime"].(string)
+	endTime, _ := payload["endTime"].(string)
+	if hours, ok := trainingHoursFromTimes(time.Now(), startTime, endTime); ok {
+		payload["hours"] = hours
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
