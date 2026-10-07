@@ -34,6 +34,8 @@ import {
   Legend,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -57,6 +59,9 @@ import {
   formatDateTime,
   formatNumber,
   formatHours,
+  formatPercent,
+  formatDays,
+  formatMonthLabel,
   calculateHoursBetween,
   loadAllPages,
   demandFormFields,
@@ -109,6 +114,8 @@ function countTrainingParticipants(value) {
 }
 
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1', '#14b8a6', '#a855f7', '#eab308', '#64748b', '#0ea5e9']
+
+const PRIORITY_COLORS = { Urgente: '#ef4444', Alta: '#f59e0b', Media: '#3b82f6', Baixa: '#10b981' }
 
 function exportCSV(rows, filename) {
   if (!rows?.length) return
@@ -711,14 +718,26 @@ function ChecklistTab() {
 }
 
 function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
-  const cards = [
+  const executiveCards = [
+    { title: 'Taxa de Conclusao', value: formatPercent(data.demandsCompleted, data.demandsReceived), icon: CheckCircle2, tone: 'violet', helper: 'Concluidas sobre o total recebido no periodo.' },
+    { title: 'Urgentes em Aberto', value: formatNumber(data.demandsUrgentOpen), icon: Activity, tone: 'rose', helper: 'Prioridade Urgente ainda nao concluida/cancelada. Atencao imediata.' },
+    { title: 'Aguardando Aprovacao', value: formatNumber(data.demandsWaitingApproval), icon: Hourglass, tone: 'amber', helper: 'Demandas travadas esperando aprovacao da diretoria/gestao.' },
+    { title: 'Tempo Medio de Resolucao', value: formatDays(data.avgResolutionDays), icon: ClipboardCheck, tone: 'cyan', helper: 'Media entre abertura e conclusao das demandas concluidas.' },
+  ]
+
+  const operationalCards = [
     { title: 'Demandas Recebidas', value: formatNumber(data.demandsReceived), icon: ClipboardList, tone: 'blue', helper: 'Total registrado no periodo selecionado.' },
     { title: 'Demandas Concluidas', value: formatNumber(data.demandsCompleted), icon: CheckCircle2, tone: 'pink', helper: 'Considera status concluido com data de conclusao.' },
     { title: 'Em Andamento', value: formatNumber(data.demandsInProgress), icon: Activity, tone: 'amber', helper: 'Demandas que seguem em execucao.' },
     { title: 'Horas em Treinamentos', value: formatHours(data.trainingHours), icon: BookOpen, tone: 'cyan', helper: 'Horas registradas em treinamentos.' },
+    { title: 'Horas em Projetos/Suporte', value: formatHours(data.projectHours), icon: Activity, tone: 'blue', helper: 'Horas de demandas e suporte prestado a outros departamentos.' },
+    { title: 'Horas em Reunioes', value: formatHours(data.meetingHours), icon: CalendarDays, tone: 'slate', helper: 'Horas registradas em reunioes no periodo.' },
     { title: 'Processos Criados', value: formatNumber(data.processesCreated), icon: ClipboardCheck, tone: 'blue', helper: 'Processos com tipo Novo.' },
     { title: 'Treinamentos Realizados', value: formatNumber(data.trainingsPerformed), icon: GraduationCap, tone: 'pink', helper: 'Total de treinamentos do periodo.' },
   ]
+
+  const hasMonthlyTrend = (data.monthlyTrend || []).some((point) => point.received > 0 || point.completed > 0)
+  const hasPriorityBreakdown = data.demandsByPriority && data.demandsByPriority.length > 0
 
   return (
     <div className="space-y-6">
@@ -767,9 +786,63 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {cards.map((card) => <DashboardCard key={card.title} {...card} />)}
+          <div>
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Indicadores para a Diretoria</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {executiveCards.map((card) => <DashboardCard key={card.title} {...card} />)}
+            </div>
           </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Indicadores Operacionais</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {operationalCards.map((card) => <DashboardCard key={card.title} {...card} />)}
+            </div>
+          </div>
+
+          {hasMonthlyTrend && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <h3 className="text-base font-semibold text-slate-800 mb-4">Evolucao Mensal: Recebidas vs Concluidas</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data.monthlyTrend} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="month" tickFormatter={formatMonthLabel} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <Tooltip
+                    labelFormatter={formatMonthLabel}
+                    formatter={(value, name) => [value, name === 'received' ? 'Recebidas' : 'Concluidas']}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Legend formatter={(value) => (value === 'received' ? 'Recebidas' : 'Concluidas')} />
+                  <Line type="monotone" dataKey="received" name="received" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="completed" name="completed" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {hasPriorityBreakdown && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <h3 className="text-base font-semibold text-slate-800 mb-4">Demandas Abertas por Prioridade</h3>
+              <p className="text-xs text-slate-400 mb-4">Backlog atual (nao concluido/cancelado) — ajuda a priorizar o que precisa de atencao da diretoria.</p>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.demandsByPriority} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="priority" tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <Tooltip
+                    formatter={(value) => [value, 'Quantidade']}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Bar dataKey="count" name="Quantidade" radius={[8, 8, 0, 0]}>
+                    {data.demandsByPriority.map((entry) => (
+                      <Cell key={entry.priority} fill={PRIORITY_COLORS[entry.priority] || '#64748b'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           {data.demandsCompletedByDepartment && data.demandsCompletedByDepartment.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">

@@ -387,6 +387,29 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		demandsWaitingApproval += linkedPendingCount
 	}
 
+	// Metricas de atencao da diretoria: risco (urgentes em aberto) e
+	// velocidade de atendimento (tempo medio de resolucao).
+	demandsUrgentOpen := countTable(demandBase, "priority = ? AND status NOT IN (?)", "Urgente", []string{"Concluido", "Cancelado"})
+
+	var avgResolutionDays float64
+	demandBase.
+		Where("status = ? AND completed_date IS NOT NULL", "Concluido").
+		Select("COALESCE(AVG(EXTRACT(EPOCH FROM (completed_date - created_date)) / 86400.0), 0)").
+		Scan(&avgResolutionDays)
+
+	type demandByPriority struct {
+		Priority string `json:"priority"`
+		Count    int64  `json:"count"`
+	}
+	var demandsByPriority []demandByPriority
+	demandBase.
+		Where("status NOT IN (?)", []string{"Concluido", "Cancelado"}).
+		Where("priority <> ''").
+		Select("priority as priority, COUNT(*) as count").
+		Group("priority").
+		Order("count DESC").
+		Scan(&demandsByPriority)
+
 	collectDepartments("requesting_department", demandBase)
 	collectDepartments("department", trainingBase)
 	collectDepartments("department", processBase)
@@ -417,11 +440,71 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		return departmentsAttendedBreakdown[i].Department < departmentsAttendedBreakdown[j].Department
 	})
 
+	// Evolucao mensal (recebidas vs concluidas) dos ultimos 6 meses, para a
+	// diretoria acompanhar se o backlog esta crescendo ou diminuindo. Usa
+	// uma janela fixa de 6 meses em vez do startDate/endDate do dashboard,
+	// que normalmente filtra um periodo curto e deixaria a tendencia sem
+	// sentido; o filtro de departamento continua valendo.
+	type monthlyTrendPoint struct {
+		Month     string `json:"month"`
+		Received  int64  `json:"received"`
+		Completed int64  `json:"completed"`
+	}
+	const monthsBack = 5
+	nowUTC := time.Now().UTC()
+	trendStart := time.Date(nowUTC.Year(), nowUTC.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -monthsBack, 0)
+	monthOrder := make([]string, 0, monthsBack+1)
+	monthlyTrendByKey := make(map[string]*monthlyTrendPoint, monthsBack+1)
+	for i := monthsBack; i >= 0; i-- {
+		key := nowUTC.AddDate(0, -i, 0).Format("2006-01")
+		monthOrder = append(monthOrder, key)
+		monthlyTrendByKey[key] = &monthlyTrendPoint{Month: key}
+	}
+
+	trendBase := db.Table("information_demands")
+	trendBase = applyExactFilter(trendBase, "requesting_department", demandDepartment)
+	trendBase = trendBase.Session(&gorm.Session{})
+
+	type monthCount struct {
+		Month string
+		Count int64
+	}
+	var receivedByMonth []monthCount
+	trendBase.
+		Where("created_date >= ?", trendStart).
+		Select("to_char(created_date, 'YYYY-MM') as month, COUNT(*) as count").
+		Group("month").
+		Scan(&receivedByMonth)
+	for _, row := range receivedByMonth {
+		if point, ok := monthlyTrendByKey[row.Month]; ok {
+			point.Received = row.Count
+		}
+	}
+
+	var completedByMonth []monthCount
+	trendBase.
+		Where("status = ? AND completed_date IS NOT NULL AND completed_date >= ?", "Concluido", trendStart).
+		Select("to_char(completed_date, 'YYYY-MM') as month, COUNT(*) as count").
+		Group("month").
+		Scan(&completedByMonth)
+	for _, row := range completedByMonth {
+		if point, ok := monthlyTrendByKey[row.Month]; ok {
+			point.Completed = row.Count
+		}
+	}
+
+	monthlyTrend := make([]monthlyTrendPoint, 0, len(monthOrder))
+	for _, key := range monthOrder {
+		monthlyTrend = append(monthlyTrend, *monthlyTrendByKey[key])
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"demandsReceived":              demandsReceived,
 		"demandsCompleted":             demandsCompleted,
 		"demandsInProgress":            demandsInProgress,
 		"demandsWaitingApproval":       demandsWaitingApproval,
+		"demandsUrgentOpen":            demandsUrgentOpen,
+		"avgResolutionDays":            avgResolutionDays,
 		"projectHours":                 projectsHours,
 		"trainingHours":                trainingsHours,
 		"meetingHours":                 meetingsHours,
@@ -429,6 +512,8 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 		"trainingsPerformed":           trainingsPerformed,
 		"departmentsAttendedBreakdown": departmentsAttendedBreakdown,
 		"demandsCompletedByDepartment": demandsCompletedByDepartment,
+		"demandsByPriority":            demandsByPriority,
+		"monthlyTrend":                 monthlyTrend,
 	})
 }
 

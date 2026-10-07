@@ -97,6 +97,27 @@ export function formatHours(value) {
   return `${hours}h ${minutes}min`
 }
 
+export function formatPercent(numerator, denominator) {
+  const total = Number(denominator || 0)
+  if (!Number.isFinite(total) || total <= 0) return '-'
+  const ratio = (Number(numerator || 0) / total) * 100
+  return `${ratio.toFixed(0)}%`
+}
+
+export function formatDays(value) {
+  const days = Number(value || 0)
+  if (!Number.isFinite(days) || days <= 0) return '-'
+  return `${days.toFixed(1)} dias`
+}
+
+export function formatMonthLabel(monthKey) {
+  const [year, month] = String(monthKey || '').split('-')
+  if (!year || !month) return monthKey || '-'
+  const date = new Date(Number(year), Number(month) - 1, 1)
+  const label = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)}/${year.slice(2)}`
+}
+
 export function calculateHoursBetween(startValue, endValue) {
   if (!startValue || !endValue) return 0
   const start = new Date(toIsoDateTime(startValue))
