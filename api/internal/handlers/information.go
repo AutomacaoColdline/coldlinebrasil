@@ -456,7 +456,7 @@ func (h *InformationHandler) GetDashboard(c *gin.Context) {
 	monthOrder := make([]string, 0, monthsBack+1)
 	monthlyTrendByKey := make(map[string]*monthlyTrendPoint, monthsBack+1)
 	for i := monthsBack; i >= 0; i-- {
-		key := nowUTC.AddDate(0, -i, 0).Format("2006-01")
+		key := trendStart.AddDate(0, monthsBack-i, 0).Format("2006-01") // a partir do dia 1o: evita pular mes nos dias 29-31
 		monthOrder = append(monthOrder, key)
 		monthlyTrendByKey[key] = &monthlyTrendPoint{Month: key}
 	}
