@@ -82,9 +82,6 @@ const TABS = [
   { id: 'calendar', label: 'Calendario', icon: Calendar },
   { id: 'trainings', label: 'Treinamentos', icon: GraduationCap },
   { id: 'processes', label: 'Processos', icon: Activity },
-  { id: 'routines', label: 'Rotinas Diarias', icon: Hourglass },
-  { id: 'checklist', label: 'Checklist Diario', icon: CheckSquare },
-  { id: 'meetings', label: 'Reunioes', icon: CalendarDays },
 ]
 
 function formatLiveDateTime(value) {
@@ -760,7 +757,6 @@ function DashboardTab({ filters, setFilters, data, loading, onRefresh }) {
     { title: 'Em Andamento', value: formatNumber(data.demandsInProgress), icon: Activity, tone: 'amber', helper: 'Demandas que seguem em execucao.' },
     { title: 'Horas em Treinamentos', value: formatHours(data.trainingHours), icon: BookOpen, tone: 'cyan', helper: 'Horas registradas em treinamentos.' },
     { title: 'Horas em Projetos/Suporte', value: formatHours(data.projectHours), icon: Activity, tone: 'blue', helper: 'Horas de demandas e suporte prestado a outros departamentos.' },
-    { title: 'Horas em Reunioes', value: formatHours(data.meetingHours), icon: CalendarDays, tone: 'slate', helper: 'Horas registradas em reunioes no periodo.' },
     { title: 'Processos Criados', value: formatNumber(data.processesCreated), icon: ClipboardCheck, tone: 'blue', helper: 'Processos com tipo Novo.' },
     { title: 'Treinamentos Realizados', value: formatNumber(data.trainingsPerformed), icon: GraduationCap, tone: 'pink', helper: 'Total de treinamentos do periodo.' },
   ]
@@ -1413,9 +1409,6 @@ export default function InformationPage() {
     calendar: <CalendarTab onChanged={loadDashboard} />,
     trainings: trainingTab,
     processes: processTab,
-    routines: routinesTab,
-    checklist: <ChecklistTab />,
-    meetings: meetingsTab,
   }), [dashboardData, dashboardFilters, dashboardLoading, demandTab, loadDashboard, meetingsTab, processTab, routinesTab, setDashboardFilters, trainingTab])
 
   return (
