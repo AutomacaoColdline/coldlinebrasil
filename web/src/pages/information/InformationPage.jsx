@@ -224,6 +224,7 @@ function ResourceTab({
   modalMaxWidth,
   modalGridCols,
   extraActions,
+  renderItem,
 }) {
   const [query, setQuery] = useState(defaultFilters)
   const [data, setData] = useState({ items: [], page: 1, pageSize: 10, total: 0, totalPages: 1 })
@@ -406,7 +407,23 @@ function ResourceTab({
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {data.items.map((item) => (
+            {data.items.map((item) => renderItem ? (
+              // Layout em cartao (sem rolagem horizontal) quando a aba fornece renderItem.
+              <div key={item.id} className="flex flex-col md:flex-row md:items-stretch hover:bg-slate-50/50 transition-colors">
+                <div className="flex-1 min-w-0 px-5 py-4">{renderItem(item)}</div>
+                <div className="px-4 py-3 md:border-l border-slate-100 flex md:flex-col items-center justify-center gap-2">
+                  <button onClick={() => openView(item)} title="Visualizar" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-sky-300 hover:text-sky-600 bg-white">
+                    <Eye size={14} />
+                  </button>
+                  <button onClick={() => openEdit(item)} title="Editar" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white">
+                    <Edit size={14} />
+                  </button>
+                  <button onClick={() => setDeleting(item)} title="Excluir" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600 bg-white">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ) : (
               <div key={item.id} className="overflow-x-auto hover:bg-slate-50/50 transition-colors">
                 <div className="flex items-stretch min-w-max">
                   {columns.map((column) => (
@@ -701,6 +718,104 @@ function ChecklistTab() {
           loading={saving}
         />
       )}
+    </div>
+  )
+}
+
+function splitLines(value) {
+  return String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function TrainingListSection({ title, lines, emptyLabel }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">{title}</p>
+      {lines.length === 0 ? (
+        <p className="text-sm text-slate-400">{emptyLabel}</p>
+      ) : (
+        <ul className="space-y-1">
+          {lines.map((line, index) => (
+            <li key={`${line}-${index}`} className="text-sm text-slate-700 flex gap-2">
+              <span className="mt-2 w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
+              <span className="min-w-0 break-words">{line}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// Cartao de um treinamento na lista (no lugar da linha de colunas com
+// rolagem horizontal, que ficava ilegivel com modulos/duvidas longos).
+function TrainingCard({ item, onInvite }) {
+  const participants = String(item.participantNames || '')
+    .split(/[\n,;/]+/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-4">
+      <div className="lg:w-44 shrink-0 flex lg:flex-col gap-3 lg:gap-1.5 items-center lg:items-start flex-wrap">
+        <p className="text-lg font-bold text-slate-900">{formatDate(item.date)}</p>
+        <p className="text-sm text-slate-500">
+          {item.startTime && item.endTime ? `${item.startTime} as ${item.endTime}` : 'Sem horario'}
+        </p>
+        {item.department && (
+          <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-pink-50 text-pink-600 border border-pink-100">
+            {item.department}
+          </span>
+        )}
+        <p className="text-xs text-slate-400">{formatHours(item.hours)}</p>
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <h4 className="text-base font-semibold text-slate-900">{item.theme || 'Treinamento'}</h4>
+          <div className="flex items-center gap-2">
+            {item.inviteSentAt && (
+              <span className="text-[11px] text-slate-400">Agenda enviada {formatDate(item.inviteSentAt)}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => onInvite(item)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-400 text-white text-xs font-medium hover:bg-pink-300 whitespace-nowrap"
+            >
+              <CalendarDays size={13} />
+              {item.inviteSentAt ? 'Reenviar agenda' : 'Enviar agenda'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TrainingListSection title="Modulos abordados" lines={splitLines(item.modulesCovered)} emptyLabel="-" />
+          <TrainingListSection title="Duvidas repassadas" lines={splitLines(item.questionsCovered)} emptyLabel="-" />
+        </div>
+
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
+            Participantes ({participants.length})
+          </p>
+          {participants.length === 0 ? (
+            <p className="text-sm text-slate-400">-</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {participants.map((name, index) => (
+                <span key={`${name}-${index}`} className="text-xs px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+                  {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {(item.attachments || []).length > 0 && (
+          <p className="text-xs text-slate-400">{item.attachments.length} anexo(s)</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -1154,6 +1269,7 @@ export default function InformationPage() {
             ),
           },
         ]}
+      renderItem={(item) => <TrainingCard item={item} onInvite={setInvitingTraining} />}
       formFields={trainingFormFields}
       emptyForm={trainingEmptyForm}
       toForm={trainingToForm}
