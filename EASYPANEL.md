@@ -71,7 +71,12 @@ POSTGRES_USER=coldline
 POSTGRES_PASSWORD=<gerar-uma-senha-forte>
 JWT_SECRET=<gerar-um-secret-forte>
 ENCRYPTION_KEY=<gerar-uma-chave-de-32-chars>
+APP_BASE_URL=https://portal.coldline.com.br
 ```
+
+`APP_BASE_URL` é a URL pública usada nos links enviados por e-mail
+("Esqueci minha senha" → `/redefinir-senha?token=...`). Para rodar local,
+defina `APP_BASE_URL=http://localhost:5173` no seu `.env`.
 
 `DATABASE_URL` e `PORT` são montados sozinhos dentro do `docker-compose.yml`
 a partir dessas variáveis — não precisa declarar. Se as variáveis não forem

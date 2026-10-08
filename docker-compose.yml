@@ -32,7 +32,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
+      APP_BASE_URL: ${APP_BASE_URL:-https://portal.coldline.com.br}
     volumes:
       - uploads:/app/wwwroot/uploads
     depends_on:
