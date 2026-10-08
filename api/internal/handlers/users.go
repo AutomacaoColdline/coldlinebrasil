@@ -150,6 +150,10 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Acesso por serviço só pelo PUT /:id/services (admin master).
+	user.AllowedServices = nil
+	user.ServiceLevels = nil
+
 	if user.Password == "" {
 		user.Password = DefaultNewUserPassword
 	}
@@ -180,6 +184,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 	delete(payload, "id")
+	// Acesso por serviço só muda por PUT /:id/services (restrito ao admin
+	// master); aqui qualquer usuário logado chega, então ignora esses campos.
+	delete(payload, "allowedServices")
+	delete(payload, "serviceLevels")
 
 	if pwd, ok := payload["password"].(string); ok && pwd != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
@@ -204,19 +212,35 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 func (h *UserHandler) UpdateServices(c *gin.Context) {
 	var req struct {
-		Services []string `json:"services"`
+		Services []string          `json:"services"`
+		Levels   map[string]string `json:"levels"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Dados inválidos"})
 		return
 	}
 
+	for service, level := range req.Levels {
+		if !authz.IsValidLevel(level) {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Nível de acesso inválido para " + service})
+			return
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := h.repo.MergeUpdate(ctx, c.Param("id"), map[string]interface{}{
-		"allowedServices": req.Services,
-	}); err != nil {
+	user, err := h.repo.FindByID(ctx, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
+		return
+	}
+	user.AllowedServices = req.Services
+	// Sem "levels" no corpo (cliente antigo): mantém os níveis atuais.
+	if req.Levels != nil {
+		user.ServiceLevels = req.Levels
+	}
+	if err := h.repo.Q(ctx).Model(user).Select("allowed_services", "service_levels").Updates(user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}

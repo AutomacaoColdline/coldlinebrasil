@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../../services/api'
-import { GRANULAR_SERVICES, hasServiceAccess } from '../../context/AuthContext'
+import { ACCESS_LEVELS, GRANULAR_SERVICES, hasServiceAccess } from '../../context/AuthContext'
 import { copyTextToClipboard } from '../../utils/clipboard'
 import {
   Search, Loader2, Users, UserPlus, Save, X, Pencil, Trash2, KeyRound,
@@ -430,25 +430,45 @@ export default function AccessControlPage() {
     return []
   }
 
-  const toggleService = async (u, service) => {
+  // Nível atual de um serviço liberado; liberado sem nível = acesso completo
+  // (mesma regra da API em authz.ServiceLevel).
+  const levelFor = (u, service) => {
+    if (!servicesFor(u).includes(service)) return ''
+    const level = u.serviceLevels?.[service]
+    return ACCESS_LEVELS.some((item) => item.value === level) ? level : 'delete'
+  }
+
+  // level '' = sem acesso. Pesquisa (site externo) continua só liga/desliga.
+  const saveServiceLevel = async (u, service, level) => {
     if (isAdminUser(u)) return
     const current = servicesFor(u)
-    const next = current.includes(service)
-      ? current.filter((s) => s !== service)
-      : [...current, service]
+    const nextServices = level
+      ? Array.from(new Set([...current, service]))
+      : current.filter((s) => s !== service)
+    const nextLevels = {}
+    for (const s of nextServices) {
+      if (!GRANULAR_SERVICES.includes(s)) continue
+      nextLevels[s] = s === service ? level : levelFor(u, s)
+    }
 
     const key = `${u.id}:${service}`
     setSavingKey(key)
     setError('')
     try {
-      await api.updateUserServices(u.id, next)
-      setUsers((prev) => prev.map((it) => (it.id === u.id ? { ...it, allowedServices: next } : it)))
-    } catch {
-      setError('Erro ao atualizar acesso')
+      await api.updateUserServices(u.id, nextServices, nextLevels)
+      setUsers((prev) => prev.map((it) => (
+        it.id === u.id ? { ...it, allowedServices: nextServices, serviceLevels: nextLevels } : it
+      )))
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Erro ao atualizar acesso')
     } finally {
       setSavingKey(null)
     }
   }
+
+  const toggleService = (u, service) => (
+    saveServiceLevel(u, service, servicesFor(u).includes(service) ? '' : 'delete')
+  )
 
   const handleDeleteUser = async (u) => {
     if (!window.confirm(`Tem certeza que deseja excluir "${u.name}"?`)) return
@@ -572,12 +592,26 @@ export default function AccessControlPage() {
                           </div>
 
                           <div className="flex items-center justify-between pl-12">
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 flex-wrap">
                               {ALL_SERVICES.map((service) => (
                                 <div key={service} className="flex items-center gap-1.5">
                                   <span className="text-xs text-slate-500">{SERVICE_LABELS[service]}</span>
                                   {isAdmin ? (
                                     <ShieldCheck size={14} className="text-emerald-500" />
+                                  ) : GRANULAR_SERVICES.includes(service) ? (
+                                    <select
+                                      value={levelFor(u, service)}
+                                      disabled={savingKey === `${u.id}:${service}`}
+                                      onChange={(event) => saveServiceLevel(u, service, event.target.value)}
+                                      className={`text-xs rounded-lg border px-2 py-1 bg-white disabled:opacity-60 ${
+                                        levelFor(u, service) ? 'border-emerald-300 text-emerald-700' : 'border-slate-200 text-slate-400'
+                                      }`}
+                                    >
+                                      <option value="">Sem acesso</option>
+                                      {ACCESS_LEVELS.map((item) => (
+                                        <option key={item.value} value={item.value}>{item.label}</option>
+                                      ))}
+                                    </select>
                                   ) : (
                                     <Toggle
                                       checked={granted.includes(service)}

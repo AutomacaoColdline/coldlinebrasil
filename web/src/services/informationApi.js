@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { showAccessNoticeIfNeeded } from '../utils/accessNotice'
 import { clearStoredAuth, getStoredToken, redirectToLogin } from '../utils/authStorage'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
@@ -14,6 +15,7 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
+    showAccessNoticeIfNeeded(error)
     if (error.response?.status === 401) {
       clearStoredAuth()
       redirectToLogin()

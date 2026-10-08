@@ -100,3 +100,54 @@ func HasServiceAccess(u *models.User, service string) bool {
 	}
 	return DefaultService(u) == service
 }
+
+// Niveis de acesso por servico, do menor pro maior. Cada um inclui o
+// anterior: "edit" tambem visualiza, "delete" tambem visualiza e edita.
+const (
+	LevelView   = "view"   // Somente visualizar
+	LevelEdit   = "edit"   // Visualizar e editar (criar/alterar)
+	LevelDelete = "delete" // Visualizar, editar e excluir
+)
+
+var levelRank = map[string]int{LevelView: 1, LevelEdit: 2, LevelDelete: 3}
+
+// IsValidLevel diz se o valor e um dos tres niveis aceitos.
+func IsValidLevel(level string) bool {
+	_, ok := levelRank[level]
+	return ok
+}
+
+// ServiceLevel devolve o nivel do usuario no servico ("" = sem acesso).
+// Admins sempre tem acesso completo; servico liberado sem nivel definido
+// (usuarios de antes desse controle) tambem continua com acesso completo.
+func ServiceLevel(u *models.User, service string) string {
+	if !HasServiceAccess(u, service) {
+		return ""
+	}
+	if IsAdminUser(u) {
+		return LevelDelete
+	}
+	if level := u.ServiceLevels[service]; IsValidLevel(level) {
+		return level
+	}
+	return LevelDelete
+}
+
+// RequiredLevel traduz o metodo HTTP no nivel minimo exigido: leitura (GET,
+// HEAD, OPTIONS) pede "view", criar/alterar (POST, PUT, PATCH) pede "edit"
+// e excluir (DELETE) pede "delete".
+func RequiredLevel(method string) string {
+	switch strings.ToUpper(method) {
+	case "GET", "HEAD", "OPTIONS":
+		return LevelView
+	case "DELETE":
+		return LevelDelete
+	default:
+		return LevelEdit
+	}
+}
+
+// LevelAllows diz se o nivel do usuario cobre o nivel exigido.
+func LevelAllows(userLevel, required string) bool {
+	return levelRank[userLevel] >= levelRank[required]
+}

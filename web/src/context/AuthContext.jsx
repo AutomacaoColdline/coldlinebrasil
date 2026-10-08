@@ -77,6 +77,22 @@ export function hasServiceAccess(user, service) {
   return resolveModule(user) === service
 }
 
+// Níveis por serviço - espelha api/internal/authz.ServiceLevel. A API é quem
+// bloqueia de verdade (GET = ver, POST/PUT = editar, DELETE = excluir); aqui
+// é só pra tela saber o nível e esconder/avisar.
+export const ACCESS_LEVELS = [
+  { value: 'view', label: 'Somente visualizar' },
+  { value: 'edit', label: 'Visualizar e editar' },
+  { value: 'delete', label: 'Visualizar, editar e excluir' },
+]
+
+export function serviceLevel(user, service) {
+  if (!hasServiceAccess(user, service)) return ''
+  if (resolveModule(user) === 'admin') return 'delete'
+  const level = user?.serviceLevels?.[service]
+  return ACCESS_LEVELS.some((item) => item.value === level) ? level : 'delete'
+}
+
 export function resolveLandingPath(user) {
   if (!user) return '/login'
   return '/home'

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { showAccessNoticeIfNeeded } from '../utils/accessNotice'
 import { clearStoredAuth, getStoredToken, redirectToLogin } from '../utils/authStorage'
 
 // Produção: URL relativa ('') → nginx proxia /api/ → api:4000
@@ -16,6 +17,7 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (res) => res,
   (err) => {
+    showAccessNoticeIfNeeded(err)
     if (err.response?.status === 401) {
       clearStoredAuth()
       redirectToLogin()
@@ -43,7 +45,7 @@ export const api = {
   createUser: (data) => http.post('/api/User', data),
   updateUser: (id, data) => http.put(`/api/User/${id}`, data),
   deleteUser: (id) => http.delete(`/api/User/${id}`),
-  updateUserServices: (id, services) => http.put(`/api/User/${id}/services`, { services }),
+  updateUserServices: (id, services, levels) => http.put(`/api/User/${id}/services`, { services, levels }),
 
   // Processes
   getProcesses: (params) => http.get('/api/Process', { params }),

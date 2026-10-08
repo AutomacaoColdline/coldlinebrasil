@@ -15,6 +15,9 @@ type User struct {
 	UrlPhoto             string           `json:"urlPhoto"`
 	WorkHourCost         string           `gorm:"column:work_hour_cost" json:"workHourCost"`
 	AllowedServices      []string         `gorm:"type:jsonb;serializer:json;column:allowed_services" json:"allowedServices"`
+	// ServiceLevels: nivel por servico liberado ("view", "edit", "delete").
+	// Servico sem nivel definido = acesso completo (comportamento antigo).
+	ServiceLevels        map[string]string `gorm:"type:jsonb;serializer:json;column:service_levels" json:"serviceLevels"`
 	MustChangePassword   bool             `gorm:"column:must_change_password;default:true" json:"mustChangePassword"`
 	// PasswordResetToken/PasswordResetExpiresAt: json:"-" de propósito - nunca
 	// devem aparecer em nenhuma resposta da API (GetAll, GetByID, Login...).

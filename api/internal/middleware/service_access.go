@@ -33,8 +33,20 @@ func RequireService(db *gorm.DB, service string) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		if !authz.HasServiceAccess(user, service) {
+		level := authz.ServiceLevel(user, service)
+		if level == "" {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"message": "Você não tem acesso a este serviço"})
+			return
+		}
+		// Nivel por servico: "Somente visualizar" bloqueia criar/alterar,
+		// "Visualizar e editar" bloqueia excluir. code permite ao front
+		// mostrar um aviso proprio.
+		if required := authz.RequiredLevel(c.Request.Method); !authz.LevelAllows(level, required) {
+			message := "Seu acesso a este módulo é somente para visualização"
+			if required == authz.LevelDelete && level == authz.LevelEdit {
+				message = "Você não tem permissão para excluir neste módulo"
+			}
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"message": message, "code": "access_level"})
 			return
 		}
 		c.Next()
