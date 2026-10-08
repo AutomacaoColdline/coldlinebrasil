@@ -49,3 +49,6 @@ backend/bin/
 backend/.env
 backend/.env.local
 backend/vendor/
+
+# Configuração pessoal do Claude Code (pode conter credenciais)
+.claude/settings.local.json
