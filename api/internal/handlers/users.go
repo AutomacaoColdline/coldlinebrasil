@@ -143,10 +143,40 @@ func (h *UserHandler) TVLogin(c *gin.Context) {
 // They're forced to change it on first login (MustChangePassword).
 const DefaultNewUserPassword = "12345678"
 
+// requestUser carrega quem fez a requisição (userId vem do JWTMiddleware).
+func (h *UserHandler) requestUser(c *gin.Context) (*models.User, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	user, err := h.repo.FindByID(ctx, c.GetString("userId"))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Usuário não encontrado"})
+		return nil, false
+	}
+	return user, true
+}
+
+// selfEditableUserFields: o que um usuário que não é admin pode mudar no
+// próprio cadastro (tela Meu Perfil). Tipo, departamento, identificação e
+// acessos ficam só com administradores.
+var selfEditableUserFields = map[string]bool{"name": true, "email": true, "password": true, "urlPhoto": true}
+
 func (h *UserHandler) Create(c *gin.Context) {
+	requester, ok := h.requestUser(c)
+	if !ok {
+		return
+	}
+	if !authz.IsAdminUser(requester) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Apenas administradores podem criar usuários"})
+		return
+	}
+
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	if user.IdentificationNumber == authz.SuperAdminIdentification && !authz.IsSuperAdmin(requester) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Essa identificação é reservada ao admin master"})
 		return
 	}
 
@@ -188,6 +218,38 @@ func (h *UserHandler) Update(c *gin.Context) {
 	// master); aqui qualquer usuário logado chega, então ignora esses campos.
 	delete(payload, "allowedServices")
 	delete(payload, "serviceLevels")
+
+	requester, ok := h.requestUser(c)
+	if !ok {
+		return
+	}
+	targetID := c.Param("id")
+	if !authz.IsAdminUser(requester) {
+		// Não-admin: só o próprio cadastro, e só os campos do Meu Perfil.
+		if requester.ID != targetID {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Você só pode alterar o seu próprio cadastro"})
+			return
+		}
+		for key := range payload {
+			if !selfEditableUserFields[key] {
+				delete(payload, key)
+			}
+		}
+	} else if !authz.IsSuperAdmin(requester) {
+		// Admin comum não mexe no admin master nem cria outro 7777.
+		ctxTarget, cancelTarget := context.WithTimeout(context.Background(), 5*time.Second)
+		target, err := h.repo.FindByID(ctxTarget, targetID)
+		cancelTarget()
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Usuário não encontrado"})
+			return
+		}
+		newIdentification, _ := payload["identificationNumber"].(string)
+		if target.IdentificationNumber == authz.SuperAdminIdentification || newIdentification == authz.SuperAdminIdentification {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Apenas o admin master pode alterar esse cadastro"})
+			return
+		}
+	}
 
 	if pwd, ok := payload["password"].(string); ok && pwd != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
@@ -248,6 +310,15 @@ func (h *UserHandler) UpdateServices(c *gin.Context) {
 }
 
 func (h *UserHandler) Delete(c *gin.Context) {
+	requester, ok := h.requestUser(c)
+	if !ok {
+		return
+	}
+	if !authz.IsAdminUser(requester) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Apenas administradores podem excluir usuários"})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
