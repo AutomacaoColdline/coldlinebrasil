@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Activity,
@@ -241,6 +241,43 @@ function ResourceTab({
   const [form, setForm] = useState(buildEmptyForm)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
+  // Barra de rolagem horizontal duplicada no topo da tabela (igual ja fazemos
+  // no sistema-comercial), sincronizada com a de baixo - substitui a rolagem
+  // individual que cada linha tinha antes.
+  const scrollTopRef = useRef(null)
+  const scrollBodyRef = useRef(null)
+  const [scrollWidth, setScrollWidth] = useState(0)
+  const [scrollClientWidth, setScrollClientWidth] = useState(0)
+
+  useEffect(() => {
+    const body = scrollBodyRef.current
+    if (!body) return undefined
+
+    const medir = () => {
+      setScrollWidth(body.scrollWidth)
+      setScrollClientWidth(body.clientWidth)
+    }
+
+    medir()
+    const observer = new ResizeObserver(medir)
+    observer.observe(body)
+    if (body.firstElementChild) observer.observe(body.firstElementChild)
+
+    return () => observer.disconnect()
+  })
+
+  const onScrollTopo = () => {
+    if (scrollBodyRef.current && scrollTopRef.current) {
+      scrollBodyRef.current.scrollLeft = scrollTopRef.current.scrollLeft
+    }
+  }
+
+  const onScrollCorpo = () => {
+    if (scrollBodyRef.current && scrollTopRef.current) {
+      scrollTopRef.current.scrollLeft = scrollBodyRef.current.scrollLeft
+    }
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -406,55 +443,83 @@ function ResourceTab({
             <p className="text-sm text-slate-400">Nenhum registro encontrado.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {data.items.map((item) => renderItem ? (
-              // Layout em cartao (sem rolagem horizontal) quando a aba fornece renderItem.
-              <div key={item.id} className="flex flex-col md:flex-row md:items-stretch hover:bg-slate-50/50 transition-colors">
-                <div className="flex-1 min-w-0 px-5 py-4">{renderItem(item)}</div>
-                <div className="px-4 py-3 md:border-l border-slate-100 flex md:flex-col items-center justify-center gap-2">
-                  <button onClick={() => openView(item)} title="Visualizar" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-sky-300 hover:text-sky-600 bg-white">
-                    <Eye size={14} />
-                  </button>
-                  <button onClick={() => openEdit(item)} title="Editar" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white">
-                    <Edit size={14} />
-                  </button>
-                  <button onClick={() => setDeleting(item)} title="Excluir" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600 bg-white">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div key={item.id} className="overflow-x-auto hover:bg-slate-50/50 transition-colors">
-                <div className="flex items-stretch min-w-max">
-                  {columns.map((column) => (
-                    <div
-                      key={column.key}
-                      style={{ minWidth: column.minWidth || 130, maxWidth: column.maxWidth || undefined }}
-                      className="px-4 py-3 flex-shrink-0 overflow-hidden"
-                    >
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5 select-none">
-                        {column.label}
-                      </p>
-                      <div className="text-sm text-slate-700">
-                        {column.render ? column.render(item) : item[column.key] || '-'}
-                      </div>
-                    </div>
-                  ))}
-                  <div className="px-4 py-3 flex-shrink-0 min-w-[140px] sticky right-0 bg-white border-l border-slate-100 flex items-center justify-end gap-2 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.04)]">
-                    <button onClick={() => openView(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-sky-300 hover:text-sky-600 bg-white">
+          renderItem ? (
+            // Layout em cartao (sem rolagem horizontal) quando a aba fornece renderItem.
+            <div className="divide-y divide-slate-100">
+              {data.items.map((item) => (
+                <div key={item.id} className="flex flex-col md:flex-row md:items-stretch hover:bg-slate-50/50 transition-colors">
+                  <div className="flex-1 min-w-0 px-5 py-4">{renderItem(item)}</div>
+                  <div className="px-4 py-3 md:border-l border-slate-100 flex md:flex-col items-center justify-center gap-2">
+                    <button onClick={() => openView(item)} title="Visualizar" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-sky-300 hover:text-sky-600 bg-white">
                       <Eye size={14} />
                     </button>
-                    <button onClick={() => openEdit(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white">
+                    <button onClick={() => openEdit(item)} title="Editar" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white">
                       <Edit size={14} />
                     </button>
-                    <button onClick={() => setDeleting(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600 bg-white">
+                    <button onClick={() => setDeleting(item)} title="Excluir" className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600 bg-white">
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {scrollWidth > scrollClientWidth && (
+                <div ref={scrollTopRef} onScroll={onScrollTopo} className="overflow-x-auto border-b border-slate-100">
+                  <div style={{ width: scrollWidth, height: 1 }} />
+                </div>
+              )}
+
+              <div ref={scrollBodyRef} onScroll={onScrollCorpo} className="overflow-x-auto">
+                <div className="min-w-max">
+                  <div className="flex items-stretch bg-slate-50 border-b border-slate-100">
+                    {columns.map((column) => (
+                      <div
+                        key={column.key}
+                        style={{ minWidth: column.minWidth || 130, maxWidth: column.maxWidth || undefined }}
+                        className="px-4 py-2.5 flex-shrink-0"
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 select-none">
+                          {column.label}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="px-4 py-2.5 flex-shrink-0 min-w-[140px] sticky right-0 bg-slate-50 border-l border-slate-100" />
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {data.items.map((item) => (
+                      <div key={item.id} className="flex items-stretch hover:bg-slate-50/50 transition-colors">
+                        {columns.map((column) => (
+                          <div
+                            key={column.key}
+                            style={{ minWidth: column.minWidth || 130, maxWidth: column.maxWidth || undefined }}
+                            className="px-4 py-3 flex-shrink-0 overflow-hidden"
+                          >
+                            <div className="text-sm text-slate-700">
+                              {column.render ? column.render(item) : item[column.key] || '-'}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="px-4 py-3 flex-shrink-0 min-w-[140px] sticky right-0 bg-white border-l border-slate-100 flex items-center justify-end gap-2 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.04)]">
+                          <button onClick={() => openView(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-sky-300 hover:text-sky-600 bg-white">
+                            <Eye size={14} />
+                          </button>
+                          <button onClick={() => openEdit(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-pink-200 hover:text-pink-500 bg-white">
+                            <Edit size={14} />
+                          </button>
+                          <button onClick={() => setDeleting(item)} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:border-rose-300 hover:text-rose-600 bg-white">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
+            </>
+          )
         )}
       </div>
 
