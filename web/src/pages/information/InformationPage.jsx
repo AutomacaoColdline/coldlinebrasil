@@ -478,7 +478,7 @@ function ResourceTab({
                       <div
                         key={column.key}
                         style={{ minWidth: column.minWidth || 130, maxWidth: column.maxWidth || undefined }}
-                        className="px-4 py-2.5 flex-shrink-0"
+                        className="px-4 py-2.5 flex-shrink-0 text-center"
                       >
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 select-none">
                           {column.label}
@@ -495,7 +495,7 @@ function ResourceTab({
                           <div
                             key={column.key}
                             style={{ minWidth: column.minWidth || 130, maxWidth: column.maxWidth || undefined }}
-                            className="px-4 py-3 flex-shrink-0 overflow-hidden"
+                            className="px-4 py-3 flex-shrink-0 overflow-hidden text-center"
                           >
                             <div className="text-sm text-slate-700">
                               {column.render ? column.render(item) : item[column.key] || '-'}
